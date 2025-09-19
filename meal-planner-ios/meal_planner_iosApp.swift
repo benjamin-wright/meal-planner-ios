@@ -25,7 +25,7 @@ struct meal_planner_iosApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MealPlannerView()
         }
         .modelContainer(sharedModelContainer)
     }

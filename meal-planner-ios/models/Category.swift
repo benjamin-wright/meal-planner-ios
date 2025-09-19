@@ -10,11 +10,18 @@ import SwiftData
 
 @Model
 final class Category {
-    var id: UUID
+    @Attribute(.unique)
     var name: String
+    var order: Int
     
-    init(id: UUID?, name: String) {
-        self.id = id ?? UUID()
+    init(name: String, order: Int) {
         self.name = name
+        self.order = order
     }
+    
+    static let sampleData = [
+        Category(name: "bakery", order: 3),
+        Category(name: "fruit", order: 1),
+        Category(name: "vegetables", order: 2)
+    ]
 }

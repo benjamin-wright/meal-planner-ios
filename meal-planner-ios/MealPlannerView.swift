@@ -17,18 +17,17 @@ struct TabData: Identifiable {
 
 var tabs: [TabData] = [
     TabData(id: 0, name: "Home", component: AnyView(HomeView()), image: "house"),
-    TabData(id: 1, name: "Data", component: AnyView(Text("Data")), image: "externaldrive"),
+    TabData(id: 1, name: "Data", component: AnyView(DataView()), image: "externaldrive"),
     TabData(id: 2, name: "Planner", component: AnyView(Text("Planner")), image: "calendar"),
     TabData(id: 3, name: "List", component: AnyView(Text("List")), image: "checklist"),
 ]
 
-struct ContentView: View {
+struct MealPlannerView: View {
     var body: some View {
         TabView {
             ForEach(tabs) { tab in
                 Tab(tab.name, systemImage: tab.image) {
                     ZStack {
-                        GlazedImage(named: "Background")
                         tab.component
                     }
                 }
@@ -38,5 +37,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    MealPlannerView()
 }
