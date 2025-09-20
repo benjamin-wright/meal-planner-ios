@@ -22,8 +22,8 @@ final class Category {
     }
     
     static let sampleData = [
-        Category(name: "bakery", order: 3),
-        Category(name: "fruit", order: 1),
-        Category(name: "vegetables", order: 2)
+        Category(name: "bakery", order: 2),
+        Category(name: "fruit", order: 0),
+        Category(name: "vegetables", order: 1)
     ]
 }
