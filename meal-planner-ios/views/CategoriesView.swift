@@ -8,29 +8,66 @@
 import SwiftUI
 import SwiftData
 
+struct CategoryData: Identifiable {
+    var id: UUID = UUID()
+    var name: String
+}
+
 struct CategoriesView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Category.order) var categories: [Category]
+    @Query(sort: \Category.order) private var categories: [Category]
     
     @State private var addingCategory: Bool = false
     
     var body: some View {
-        List {
+        return List {
             ForEach(categories) { category in
-                Text(category.name)
+                NavigationLink {
+                    CategoryEdit(
+                        name: category.name,
+                        categories: categories,
+                        action: { name in
+                            categories.first(where: { $0.id == category.id })?.name = name
+                        }
+                    )
+                } label: {
+                    Text(category.name)
+                }
+            }.onDelete { offsets in
+                print("Deleting - \(offsets.count)")
+                for (index, category) in categories.enumerated() {
+                    if offsets.contains(index) {
+                        context.delete(category)
+                    }
+                }
+            }.onMove { from, to in
+                print("MOVE - from: \(from.count), to: \(to)")
+                
+                var updated = categories
+                
+                updated.move(fromOffsets: from, toOffset: to)
+                for (index, category) in updated.enumerated() {
+                    category.order = index
+                }
+            }
+            Button() {
+                addingCategory = true
+            } label: {
+                Text("Add")
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button() {
-                    addingCategory = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
+            EditButton()
         }
         .sheet(isPresented: $addingCategory) {
-            CategoryEdit()
+            CategoryEdit(
+                categories: categories,
+                action: { name in
+                    context.insert(
+                        Category(name: name, order: categories.count)
+                    )
+                }
+            )
         }
     }
 }
