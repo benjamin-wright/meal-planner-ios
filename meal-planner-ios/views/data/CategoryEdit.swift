@@ -11,31 +11,27 @@ import SwiftData
 struct CategoryEdit: View {
     @Environment(\.dismiss) var dismiss
     
-    @State private var name: String
-    @State private var initial: String?
-    @State private var invalid: Bool = true
-
-    private var categories: [Category]
-    private var action: (_ name: String) -> Void
+    @State var edit: Bool = false
+    @State var categories: [Category]
+    var action: (_ category: Category) -> Void
+    var category: Category
+    @State private var actual: Category
     
-    init(name: String? = nil, categories: [Category], action: @escaping (_ name: String) -> Void) {
-        self.name = name ?? ""
-        self.initial = name
+    init(edit: Bool = false, category: Category, categories: [Category], action: @escaping (_ caregory: Category) -> Void) {
+        self.edit = edit
         self.categories = categories
         self.action = action
+        self.category = category
+        self.actual = category.clone()
     }
     
     private func isInvalid() -> Bool {
-        if name.isEmpty {
-            return true
-        }
-        
-        if name.count < 3 {
+        if !actual.isValid() {
             return true
         }
         
         if categories
-            .contains(where: { $0.name == name }) {
+            .contains(where: { $0.name == actual.name }) {
             return true
         }
         
@@ -46,30 +42,26 @@ struct CategoryEdit: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Name:") {
-                        TextField("category", text: $name)
-                            .textInputAutocapitalization(.never)
-                            .onChange(of: name) {
-                                name = name.lowercased()
-                                invalid = isInvalid()
-                            }
-                    }
+                    TextInput(text: $actual.name, label: "Name", placeholder: "category")
                 }
                 
                 Button {
-                    action(name)
+                    action(actual)
                     dismiss()
                 } label: {
-                    Text(initial == nil ? "Add" : "Save")
-                }.disabled(invalid)
+                    Text(edit ? "Save" : "Add")
+                }.disabled(isInvalid())
             }
+        }.onAppear {
+            actual = category.clone()
         }
     }
 }
 
 #Preview {
     CategoryEdit(
-        name: "start",
+        edit: true,
+        category: Category(name: "start", order: 1),
         categories: [
             Category(name: "test", order: 0),
             Category(name: "start", order: 1)

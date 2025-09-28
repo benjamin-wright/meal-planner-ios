@@ -26,10 +26,11 @@ struct CategoriesView: View {
             ForEach(categories) { category in
                 NavigationLink {
                     CategoryEdit(
-                        name: category.name,
+                        edit: true,
+                        category: category,
                         categories: categories,
-                        action: { name in
-                            categories.first(where: { $0.id == category.id })?.name = name
+                        action: { updated in
+                            category.name = updated.name
                         }
                     )
                 } label: {
@@ -69,11 +70,14 @@ struct CategoriesView: View {
         }
         .sheet(isPresented: $addingCategory) {
             CategoryEdit(
+                category: Category(
+                    name: "",
+                    order: categories.count
+                ),
                 categories: categories,
-                action: { name in
-                    context.insert(
-                        Category(name: name, order: categories.count)
-                    )
+                action: { category in
+                    category.order = categories.count
+                    context.insert(category)
                 }
             )
         }

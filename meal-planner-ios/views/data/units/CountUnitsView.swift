@@ -19,14 +19,16 @@ struct CountUnitsView: View {
         return List {
             ForEach(units) { unit in
                 NavigationLink {
-//                    CategoryEdit(
-//                        name: category.name,
-//                        categories: categories,
-//                        action: { name in
-//                            categories.first(where: { $0.id == category.id })?.name = name
-//                        }
-//                    )
-                    Text("Editing \(unit.name)")
+                    CountUnitEdit(
+                        unit: unit,
+                        existing: units.map { unit in
+                            return unit.name
+                        },
+                        action: { updated in
+                            unit.name = updated.name
+                            unit.collectives = updated.collectives
+                        }
+                    )
                 } label: {
                     Text(unit.name)
                 }
@@ -48,7 +50,17 @@ struct CountUnitsView: View {
             EditButton()
         }
         .sheet(isPresented: $adding) {
-            Text("Adding Unit")
+            CountUnitEdit(
+                unit: CountUnit(
+                    name: ""
+                ),
+                existing: units.map { unit in
+                    return unit.name
+                },
+                action: { unit in
+                    context.insert(unit)
+                }
+            )
         }
     }
 }

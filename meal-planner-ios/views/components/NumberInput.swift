@@ -1,0 +1,80 @@
+//
+//  NumberInput.swift
+//  meal-planner-ios
+//
+//  Created by Benjamin Wright on 28/09/2025.
+//
+
+import Foundation
+import SwiftUI
+
+struct NumberInput: View {
+    @Binding var number: Double
+    @State var label: String?
+    @State var placeholder: String
+    @State private var text: String
+    @State var alignment: TextAlignment
+    
+    init(number: Binding<Double>, placeholder: String, label: String? = nil, alignment: TextAlignment = .leading) {
+        self._number = number
+        self.label = label
+        self.placeholder = placeholder
+        self.text = String(format: "%g", number.wrappedValue)
+        self.alignment = alignment
+    }
+    
+    func filter(input: String) -> String {
+        var filtered = ""
+        var hasPeriod = false
+        input.forEach { c in
+            if !"0123456789.".contains(c) {
+                return
+            }
+            
+            if c == "." && hasPeriod {
+                return
+            }
+            
+            if c == "." {
+                hasPeriod = true
+            }
+            
+            filtered.append(c)
+        }
+        
+        return filtered
+    }
+    
+    var NumberView: some View {
+        TextField(placeholder, text: $text)
+            .multilineTextAlignment(alignment)
+            .keyboardType(.numberPad)
+            .onChange(of: text) {
+                let filtered = self.filter(input: text)
+                
+                if text != filtered {
+                    text = filtered
+                }
+                
+                let converted = Double(text)
+                if converted != nil {
+                    number = converted!
+                }
+            }
+    }
+    
+    var body: some View {
+        if label != nil {
+            LabeledContent(label! + ":") {
+                self.NumberView
+            }
+        } else {
+            self.NumberView
+        }
+    }
+}
+
+#Preview {
+    NumberInput(number: .constant(6), placeholder: "placeholder", label: "Name")
+    NumberInput(number: .constant(12.57), placeholder: "placeholder", alignment: .center)
+}

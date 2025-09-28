@@ -21,6 +21,26 @@ final class Category {
         self.order = order
     }
     
+    func isValid() -> Bool {
+        if self.name.isEmpty {
+            return false
+        }
+        
+        if self.name.count < 3 {
+            return false
+        }
+        
+        return true
+    }
+    
+    func clone() -> Category {
+        return Category(
+            id: self.id,
+            name: self.name,
+            order: self.order
+        )
+    }
+
     static let sampleData = [
         Category(name: "bakery", order: 2),
         Category(name: "fruit", order: 0),
