@@ -9,15 +9,12 @@ import SwiftUI
 import SwiftData
 
 struct UnitsView: View {
-    @State var selectedUnit: Int = 0
-    let types = [ "Count", "Weight", "Volume" ]
-    
     var body: some View {
         NavigationStack {
             TabbedStack(pages: [
                 TabPage(title: "Count", content: AnyView(CountUnitsView())),
-                TabPage(title: "Weight", content: AnyView(Text("Weight"))),
-                TabPage(title: "Volume", content: AnyView(Text("Volume"))),
+                TabPage(title: "Weight", content: AnyView(ContinuousUnitsView(type: .weight))),
+                TabPage(title: "Volume", content: AnyView(ContinuousUnitsView(type: .volume))),
             ])
         }
     }

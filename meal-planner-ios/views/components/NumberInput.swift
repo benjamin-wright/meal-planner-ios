@@ -15,7 +15,7 @@ struct NumberInput: View {
     @State private var text: String
     @State var alignment: TextAlignment
     
-    init(number: Binding<Double>, placeholder: String, label: String? = nil, alignment: TextAlignment = .leading) {
+    init(number: Binding<Double>, label: String? = nil, placeholder: String, alignment: TextAlignment = .leading) {
         self._number = number
         self.label = label
         self.placeholder = placeholder
@@ -75,6 +75,6 @@ struct NumberInput: View {
 }
 
 #Preview {
-    NumberInput(number: .constant(6), placeholder: "placeholder", label: "Name")
+    NumberInput(number: .constant(6), label: "Name", placeholder: "placeholder")
     NumberInput(number: .constant(12.57), placeholder: "placeholder", alignment: .center)
 }

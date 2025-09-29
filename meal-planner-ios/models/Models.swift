@@ -23,7 +23,7 @@ class Models {
         let schema = Schema([
             Category.self,
             CountUnit.self,
-            CountUnitCollective.self
+            ContinuousUnit.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
 
@@ -45,6 +45,10 @@ class Models {
         }
         
         for unit in CountUnit.sampleData {
+            context.insert(unit)
+        }
+        
+        for unit in ContinuousUnit.sampleData {
             context.insert(unit)
         }
     }

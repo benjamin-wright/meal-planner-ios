@@ -15,18 +15,14 @@
 import Foundation
 import SwiftData
 
-@Model
-final class CountUnitCollective {
-    @Attribute(.unique)
+struct CountUnitCollective: Codable, Identifiable {
     var id: UUID
-    var unit: CountUnit?
     var singular: String
     var plural: String
     var multiplier: Double
     
-    init(id: UUID = UUID(), unit: CountUnit?, singular: String, plural: String, multiplier: Double = 1.0) {
-        self.id = id
-        self.unit = unit
+    init(singular: String, plural: String, multiplier: Double) {
+        self.id = UUID()
         self.singular = singular
         self.plural = plural
         self.multiplier = multiplier
@@ -38,8 +34,6 @@ final class CountUnit {
     @Attribute(.unique)
     var id: UUID
     var name: String
-    
-    @Relationship(deleteRule: .cascade, inverse: \CountUnitCollective.unit)
     var collectives: [CountUnitCollective]
     
     init(id: UUID? = UUID(), name: String, collectives: [CountUnitCollective] = []) {
@@ -68,14 +62,17 @@ final class CountUnit {
             name: self.name,
             collectives: self.collectives.map { c in
                 CountUnitCollective(
-                    id: c.id,
-                    unit: c.unit,
                     singular: c.singular,
                     plural: c.plural,
                     multiplier: c.multiplier
                 )
             }
         )
+    }
+    
+    func update(updated: CountUnit) {
+        self.name = updated.name
+        self.collectives = updated.collectives
     }
     
     static let sampleData: [CountUnit] = [
@@ -86,13 +83,11 @@ final class CountUnit {
             name: "loaves",
             collectives: [
                 CountUnitCollective(
-                    unit: nil,
                     singular: "slice",
                     plural: "slices",
                     multiplier: 0.1
                 ),
                 CountUnitCollective(
-                    unit: nil,
                     singular: "loaf",
                     plural: "loaves",
                     multiplier: 1

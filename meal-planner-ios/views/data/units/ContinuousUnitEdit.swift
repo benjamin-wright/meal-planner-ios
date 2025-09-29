@@ -1,24 +1,24 @@
 //
-//  CountUnitEdit.swift
+//  ContinuousUnitEdit.swift
 //  meal-planner-ios
 //
-//  Created by Benjamin Wright on 20/09/2025.
+//  Created by Benjamin Wright on 29/09/2025.
 //
 
 import SwiftUI
 
-struct CountUnitEdit: View {
+struct ContinuousUnitEdit: View {
     @Environment(\.dismiss) var dismiss
 
     @State var edit: Bool
     @State var existing: [String]
-    private var action: (_ unit: CountUnit) -> Void
+    private var action: (_ unit: ContinuousUnit) -> Void
     
-    let unit: CountUnit
-    @State private var actual: CountUnit
+    let unit: ContinuousUnit
+    @State private var actual: ContinuousUnit
     @State private var editMode: EditMode = .inactive
     
-    init(unit: CountUnit, existing: [String], action: @escaping (_ unit: CountUnit) -> Void, edit: Bool = false) {
+    init(unit: ContinuousUnit, existing: [String], action: @escaping (_ unit: ContinuousUnit) -> Void, edit: Bool = false) {
         self.unit = unit
         self.actual = unit.clone()
         self.existing = existing
@@ -26,12 +26,13 @@ struct CountUnitEdit: View {
         self.edit = edit
     }
     
-    func tableRow(collective: Binding<CountUnitCollective>, multiple: Bool) -> AnyView {
+    func tableRow(magnitude: Binding<ContinuousUnitMagnitude>, multiple: Bool) -> AnyView {
         AnyView(HStack {
-            TextInput(text: collective.singular, placeholder: "singular", alignment: .center).frame(maxWidth: .infinity)
-            TextInput(text: collective.plural, placeholder: "plural", alignment: .center).frame(maxWidth: .infinity)
+            TextInput(text: magnitude.abbreviation, placeholder: "abbreviation", alignment: .center).frame(maxWidth: .infinity)
+            TextInput(text: magnitude.singular, placeholder: "singular", alignment: .center).frame(maxWidth: .infinity)
+            TextInput(text: magnitude.plural, placeholder: "plural", alignment: .center).frame(maxWidth: .infinity)
             if multiple {
-                NumberInput(number: collective.multiplier, placeholder: "multiplier", alignment: .center).frame(maxWidth: .infinity)
+                NumberInput(number: magnitude.multiplier, placeholder: "multiplier", alignment: .center).frame(maxWidth: .infinity)
             }
         }.frame(maxWidth: .infinity)
         .alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
@@ -46,14 +47,16 @@ struct CountUnitEdit: View {
             Form {
                 Section {
                     TextInput(text: $actual.name, label: "Name", placeholder: "unit name")
+                    NumberInput(number: $actual.base, label: "Base", placeholder: "base")
                 }
                 
                 Section {
                     List {
                         HStack {
+                            Text("Abbr").frame(maxWidth: .infinity)
                             Text("Singular").frame(maxWidth: .infinity)
                             Text("Plural").frame(maxWidth: .infinity)
-                            if actual.collectives.count > 1 {
+                            if actual.magnitudes.count > 1 {
                                 Text("Multiplier").frame(maxWidth: .infinity)
                             }
                         }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
@@ -62,20 +65,20 @@ struct CountUnitEdit: View {
                             return viewDimensions.width
                         }
                         
-                        ForEach($actual.collectives) { collective in
+                        ForEach($actual.magnitudes) { magnitude in
                             Section {
-                                tableRow(collective: collective, multiple: actual.collectives.count > 1)
+                                tableRow(magnitude: magnitude, multiple: actual.magnitudes.count > 1)
                             }
                         }.onDelete { index in
-                            actual.collectives.remove(atOffsets: index)
+                            actual.magnitudes.remove(atOffsets: index)
                             
-                            if actual.collectives.count == 1 {
-                                actual.collectives[0].multiplier = 1
+                            if actual.magnitudes.count == 1 {
+                                actual.magnitudes[0].multiplier = 1
                             }
                         }
                         
                         Button {
-                            actual.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
+                            actual.magnitudes.append(ContinuousUnitMagnitude(abbreviation: "", singular: "", plural: "", multiplier: 1))
                         } label: {
                             HStack {
                                 Spacer()
@@ -104,19 +107,23 @@ struct CountUnitEdit: View {
 }
 
 #Preview {
-    CountUnitEdit(
-        unit: CountUnit(
-            name: "test-unit",
-            collectives: [
-                CountUnitCollective(
-                    singular: "slice",
-                    plural: "slices",
-                    multiplier: 0.1
-                ),
-                CountUnitCollective(
-                    singular: "loaf",
-                    plural: "loaves",
+    ContinuousUnitEdit(
+        unit: ContinuousUnit(
+            name: "grams",
+            type: .weight,
+            base: 1,
+            magnitudes: [
+                ContinuousUnitMagnitude(
+                    abbreviation: "g",
+                    singular: "gram",
+                    plural: "grams",
                     multiplier: 1
+                ),
+                ContinuousUnitMagnitude(
+                    abbreviation: "kg",
+                    singular: "kilogram",
+                    plural: "kilograms",
+                    multiplier: 1000
                 )
             ]
         ),

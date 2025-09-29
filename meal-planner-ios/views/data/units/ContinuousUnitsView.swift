@@ -1,25 +1,33 @@
 //
-//  UnitsView.swift
+//  ContinuousUnitsView.swift
 //  meal-planner-ios
 //
-//  Created by Benjamin Wright on 20/09/2025.
+//  Created by Benjamin Wright on 28/09/2025.
 //
 
 import SwiftUI
 import SwiftData
 
-struct CountUnitsView: View {
+struct ContinuousUnitsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
-    @Query private var units: [CountUnit]
-    @State private var adding: Bool = false
+    @Query private var units: [ContinuousUnit]
+    @State private var adding: Bool
+    @State var unitType: ContinuousUnitType
+    
+    init(type: ContinuousUnitType) {
+        self.unitType = type
+        self.adding = false
+        
+        _units = Query(filter: #Predicate { $0.type == type.rawValue })
+    }
     
     var body: some View {
         return List {
             ForEach(units) { unit in
                 NavigationLink {
-                    CountUnitEdit(
+                    ContinuousUnitEdit(
                         unit: unit,
                         existing: units.map { unit in
                             return unit.name
@@ -50,9 +58,12 @@ struct CountUnitsView: View {
             EditButton()
         }
         .sheet(isPresented: $adding) {
-            CountUnitEdit(
-                unit: CountUnit(
-                    name: ""
+            ContinuousUnitEdit(
+                unit: ContinuousUnit(
+                    name: "",
+                    type: unitType,
+                    base: 1,
+                    magnitudes: []
                 ),
                 existing: units.map { unit in
                     return unit.name
@@ -67,6 +78,6 @@ struct CountUnitsView: View {
 
 #Preview {
     NavigationView {
-        CountUnitsView().modelContainer(Models.testing.modelContainer)
+        ContinuousUnitsView(type: .weight).modelContainer(Models.testing.modelContainer)
     }
 }
