@@ -35,6 +35,9 @@ final class ContinuousUnit {
     var id: UUID
     var name: String
     var type: Int
+    var unitType: ContinuousUnitType {
+        ContinuousUnitType(rawValue: type) ?? ContinuousUnitType.volume
+    }
     var base: Double
     var magnitudes: [ContinuousUnitMagnitude]
     

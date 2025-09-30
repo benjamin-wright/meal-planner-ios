@@ -19,6 +19,7 @@ var tabs: [TabData] = [
     TabData(id: 1, name: "Data", component: AnyView(DataView()), image: "externaldrive"),
     TabData(id: 2, name: "Planner", component: AnyView(Text("Planner")), image: "calendar"),
     TabData(id: 3, name: "List", component: AnyView(Text("List")), image: "checklist"),
+    TabData(id: 4, name: "Settings", component: AnyView(Text("Settings")), image: "gearshape.fill")
 ]
 
 struct MealPlannerView: View {

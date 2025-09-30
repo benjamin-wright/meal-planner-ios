@@ -37,7 +37,6 @@ struct CategoriesView: View {
                     Text(category.name)
                 }
             }.onDelete { offsets in
-                print("Deleting - \(offsets.count)")
                 var updated = categories
                 for (index, category) in categories.enumerated() {
                     if offsets.contains(index) {
@@ -50,8 +49,6 @@ struct CategoriesView: View {
                     updated[index].order = index
                 }
             }.onMove { from, to in
-                print("MOVE - from: \(from.count), to: \(to)")
-                
                 var updated = categories
                 
                 updated.move(fromOffsets: from, toOffset: to)
