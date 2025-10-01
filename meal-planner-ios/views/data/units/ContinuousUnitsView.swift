@@ -13,12 +13,10 @@ struct ContinuousUnitsView: View {
     @Environment(\.editMode) private var editMode
     
     @Query private var units: [ContinuousUnit]
-    @State private var adding: Bool
     @State var unitType: ContinuousUnitType
     
     init(type: ContinuousUnitType) {
         self.unitType = type
-        self.adding = false
         
         _units = Query(filter: #Predicate { $0.type == type.rawValue })
     }
@@ -48,30 +46,29 @@ struct ContinuousUnitsView: View {
                     }
                 }
             }
-            Button() {
-                adding = true
-            } label: {
-                Text("Add")
-            }.disabled(editMode?.wrappedValue.isEditing ?? false)
+            Section {
+                NavigationLink {
+                    ContinuousUnitEdit(
+                        unit: ContinuousUnit(
+                            name: "",
+                            type: unitType,
+                            base: 1,
+                            magnitudes: []
+                        ),
+                        existing: units.map { unit in
+                            return unit.name
+                        },
+                        action: { unit in
+                            context.insert(unit)
+                        }
+                    )
+                } label: {
+                    Text("Add").foregroundStyle(.accent)
+                }
+            }
         }
         .toolbar {
             EditButton()
-        }
-        .sheet(isPresented: $adding) {
-            ContinuousUnitEdit(
-                unit: ContinuousUnit(
-                    name: "",
-                    type: unitType,
-                    base: 1,
-                    magnitudes: []
-                ),
-                existing: units.map { unit in
-                    return unit.name
-                },
-                action: { unit in
-                    context.insert(unit)
-                }
-            )
         }
     }
 }

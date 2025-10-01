@@ -18,6 +18,7 @@ struct DataLink: Identifiable {
 var dataLinks: [DataLink] = [
     DataLink(id: 1, name: "Units", component: AnyView(UnitsView())),
     DataLink(id: 2, name: "Categories", component: AnyView(CategoriesView())),
+    DataLink(id: 3, name: "Ingredients", component: AnyView(IngredientsView())),
 ]
 
 struct DataView: View {

@@ -42,89 +42,90 @@ struct CountUnitEdit: View {
     }
     
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextInput(text: $actual.name, label: "Name", placeholder: "unit name")
-                }
-                
-                Section {
-                    List {
-                        HStack {
-                            Text("Singular").frame(maxWidth: .infinity)
-                            Text("Plural").frame(maxWidth: .infinity)
-                            if actual.collectives.count > 1 {
-                                Text("Multiplier").frame(maxWidth: .infinity)
-                            }
-                        }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
-                            return 0
-                        }.alignmentGuide(.listRowSeparatorTrailing) { viewDimensions in
-                            return viewDimensions.width
+        Form {
+            Section {
+                TextInput(text: $actual.name, label: "Name", placeholder: "unit name")
+            }
+            
+            Section {
+                List {
+                    HStack {
+                        Text("Singular").frame(maxWidth: .infinity)
+                        Text("Plural").frame(maxWidth: .infinity)
+                        if actual.collectives.count > 1 {
+                            Text("Multiplier").frame(maxWidth: .infinity)
                         }
-                        
-                        ForEach($actual.collectives) { collective in
-                            Section {
-                                tableRow(collective: collective, multiple: actual.collectives.count > 1)
-                            }
-                        }.onDelete { index in
-                            actual.collectives.remove(atOffsets: index)
-                            
-                            if actual.collectives.count == 1 {
-                                actual.collectives[0].multiplier = 1
-                            }
-                        }
-                        
-                        Button {
-                            actual.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
-                        } label: {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "plus")
-                                Spacer()
-                            }
-                        }.disabled(editMode.isEditing)
+                    }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
+                        return 0
+                    }.alignmentGuide(.listRowSeparatorTrailing) { viewDimensions in
+                        return viewDimensions.width
                     }
+                    
+                    ForEach($actual.collectives) { collective in
+                        Section {
+                            tableRow(collective: collective, multiple: actual.collectives.count > 1)
+                        }
+                    }.onDelete { index in
+                        actual.collectives.remove(atOffsets: index)
+                        
+                        if actual.collectives.count == 1 {
+                            actual.collectives[0].multiplier = 1
+                        }
+                    }
+                    
+                    Button {
+                        actual.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "plus")
+                            Spacer()
+                        }
+                    }.disabled(editMode.isEditing)
                 }
-                
-                Button {
-                    action(actual)
-                    dismiss()
-                } label: {
-                    Text(edit ? "Save" : "Add")
-                }.disabled(editMode.isEditing || !actual.isValid())
             }
-            .toolbar {
-                EditButton()
-            }
-            .environment(\.editMode, $editMode)
-        }.onAppear {
+            
+            Button {
+                action(actual)
+                dismiss()
+            } label: {
+                Text(edit ? "Save" : "Add")
+            }.disabled(editMode.isEditing || !actual.isValid())
+        }
+        .toolbar {
+            EditButton()
+        }
+        .environment(\.editMode, $editMode)
+        .onAppear {
             actual = unit.clone()
         }
     }
 }
 
 #Preview {
-    CountUnitEdit(
-        unit: CountUnit(
-            name: "test-unit",
-            collectives: [
-                CountUnitCollective(
-                    singular: "slice",
-                    plural: "slices",
-                    multiplier: 0.1
-                ),
-                CountUnitCollective(
-                    singular: "loaf",
-                    plural: "loaves",
-                    multiplier: 1
-                )
-            ]
-        ),
-        existing: [
-            "grams",
-            "litres"
-        ], action: { unit in
-            print(unit.name)
-        }
-    )
+    NavigationStack {
+        CountUnitEdit(
+            unit: CountUnit(
+                name: "test-unit",
+                collectives: [
+                    CountUnitCollective(
+                        singular: "slice",
+                        plural: "slices",
+                        multiplier: 0.1
+                    ),
+                    CountUnitCollective(
+                        singular: "loaf",
+                        plural: "loaves",
+                        multiplier: 1
+                    )
+                ]
+            ),
+            existing: [
+                "grams",
+                "litres"
+            ], action: { unit in
+                print(unit.name)
+            }
+        )
+    }
 }

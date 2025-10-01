@@ -54,6 +54,10 @@ final class ContinuousUnit {
             return false
         }
         
+        if self.magnitudes.count < 1 {
+            return false
+        }
+        
         for magnitude in self.magnitudes {
             if magnitude.multiplier <= 0 || magnitude.singular.isEmpty || magnitude.plural.isEmpty {
                 return false
@@ -86,22 +90,4 @@ final class ContinuousUnit {
         self.base = updated.base
         self.magnitudes = updated.magnitudes
     }
-    
-    static let sampleData: [ContinuousUnit] = [
-        ContinuousUnit(
-            name: "grams",
-            type: .weight,
-            base: 1,
-            magnitudes: [
-                ContinuousUnitMagnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1),
-                ContinuousUnitMagnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
-            ]
-        ),
-        ContinuousUnit(
-            name: "litre",
-            type: .volume,
-            base: 1,
-            magnitudes: []
-        ),
-    ]
 }

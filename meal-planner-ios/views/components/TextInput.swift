@@ -34,6 +34,6 @@ struct TextInput: View {
 }
 
 #Preview {
-    TextInput(text: .constant("things"), label: "Name", placeholder: "placeholder")
-    TextInput(text: .constant("unlabeled"), placeholder: "placeholder", alignment: .center)
+    TextInput(text: .constant("things"), label: "Name", placeholder: "placeholder").padding()
+    TextInput(text: .constant("unlabeled"), placeholder: "placeholder", alignment: .center).padding()
 }

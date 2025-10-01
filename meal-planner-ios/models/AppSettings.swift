@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Settings {
+final class AppSettings {
     var preferredVolume: ContinuousUnit
     var preferredWeight: ContinuousUnit
     
@@ -18,7 +18,10 @@ final class Settings {
         self.preferredWeight = preferredWeight
     }
     
-    static func sampleData(preferredWeight: ContinuousUnit, preferredVolume: ContinuousUnit) -> Settings {
-        return Settings(preferredVolume: preferredVolume, preferredWeight: preferredWeight)
+    static func clear(_ context: ModelContext) throws {
+        let settings = try context.fetch(FetchDescriptor<AppSettings>())
+        settings.forEach { setting in
+            context.delete(setting)
+        }
     }
 }

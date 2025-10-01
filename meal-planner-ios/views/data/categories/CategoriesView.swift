@@ -8,18 +8,11 @@
 import SwiftUI
 import SwiftData
 
-struct CategoryData: Identifiable {
-    var id: UUID = UUID()
-    var name: String
-}
-
 struct CategoriesView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
     @Query(sort: \Category.order) private var categories: [Category]
-    
-    @State private var addingCategory: Bool = false
     
     var body: some View {
         return List {
@@ -27,7 +20,7 @@ struct CategoriesView: View {
                 NavigationLink {
                     CategoryEdit(
                         edit: true,
-                        category: category,
+                        category: category.clone(),
                         categories: categories,
                         action: { updated in
                             category.name = updated.name
@@ -56,27 +49,27 @@ struct CategoriesView: View {
                     category.order = index
                 }
             }
-            Button() {
-                addingCategory = true
-            } label: {
-                Text("Add")
-            }.disabled(editMode?.wrappedValue.isEditing ?? false)
+            Section {
+                NavigationLink {
+                    CategoryEdit(
+                        category: Category(
+                            name: "",
+                            order: categories.count
+                        ),
+                        categories: categories,
+                        action: { category in
+                            category.order = categories.count
+                            context.insert(category)
+                        }
+                    )
+                } label: {
+                    Text("Add")
+                        .foregroundColor(.accent)
+                }
+            }
         }
         .toolbar {
             EditButton()
-        }
-        .sheet(isPresented: $addingCategory) {
-            CategoryEdit(
-                category: Category(
-                    name: "",
-                    order: categories.count
-                ),
-                categories: categories,
-                action: { category in
-                    category.order = categories.count
-                    context.insert(category)
-                }
-            )
         }
     }
 }

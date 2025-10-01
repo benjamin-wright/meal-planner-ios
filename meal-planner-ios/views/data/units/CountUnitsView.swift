@@ -13,7 +13,6 @@ struct CountUnitsView: View {
     @Environment(\.editMode) private var editMode
     
     @Query private var units: [CountUnit]
-    @State private var adding: Bool = false
     
     var body: some View {
         return List {
@@ -40,27 +39,26 @@ struct CountUnitsView: View {
                     }
                 }
             }
-            Button() {
-                adding = true
-            } label: {
-                Text("Add")
-            }.disabled(editMode?.wrappedValue.isEditing ?? false)
+            Section {
+                NavigationLink {
+                    CountUnitEdit(
+                        unit: CountUnit(
+                            name: ""
+                        ),
+                        existing: units.map { unit in
+                            return unit.name
+                        },
+                        action: { unit in
+                            context.insert(unit)
+                        }
+                    )
+                } label: {
+                    Text("Add").foregroundStyle(.accent)
+                }
+            }
         }
         .toolbar {
             EditButton()
-        }
-        .sheet(isPresented: $adding) {
-            CountUnitEdit(
-                unit: CountUnit(
-                    name: ""
-                ),
-                existing: units.map { unit in
-                    return unit.name
-                },
-                action: { unit in
-                    context.insert(unit)
-                }
-            )
         }
     }
 }

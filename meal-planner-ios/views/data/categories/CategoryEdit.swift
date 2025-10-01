@@ -14,7 +14,7 @@ struct CategoryEdit: View {
     @State var edit: Bool = false
     @State var categories: [Category]
     var action: (_ category: Category) -> Void
-    var category: Category
+    @State private var category: Category
     @State private var actual: Category
     
     init(edit: Bool = false, category: Category, categories: [Category], action: @escaping (_ caregory: Category) -> Void) {
@@ -39,19 +39,17 @@ struct CategoryEdit: View {
     }
     
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextInput(text: $actual.name, label: "Name", placeholder: "category")
-                }
-                
-                Button {
-                    action(actual)
-                    dismiss()
-                } label: {
-                    Text(edit ? "Save" : "Add")
-                }.disabled(isInvalid())
+        Form {
+            Section {
+                TextInput(text: $actual.name, label: "Name", placeholder: "category")
             }
+            
+            Button {
+                action(actual)
+                dismiss()
+            } label: {
+                Text(edit ? "Save" : "Add")
+            }.disabled(isInvalid())
         }.onAppear {
             actual = category.clone()
         }

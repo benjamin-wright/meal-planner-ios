@@ -40,10 +40,4 @@ final class Category {
             order: self.order
         )
     }
-
-    static let sampleData = [
-        Category(name: "bakery", order: 2),
-        Category(name: "fruit", order: 0),
-        Category(name: "vegetables", order: 1)
-    ]
 }

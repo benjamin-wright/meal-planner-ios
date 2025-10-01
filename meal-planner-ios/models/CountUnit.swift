@@ -74,25 +74,4 @@ final class CountUnit {
         self.name = updated.name
         self.collectives = updated.collectives
     }
-    
-    static let sampleData: [CountUnit] = [
-        CountUnit(
-            name: "count"
-        ),
-        CountUnit(
-            name: "loaves",
-            collectives: [
-                CountUnitCollective(
-                    singular: "slice",
-                    plural: "slices",
-                    multiplier: 0.1
-                ),
-                CountUnitCollective(
-                    singular: "loaf",
-                    plural: "loaves",
-                    multiplier: 1
-                )
-            ]
-        )
-    ]
 }

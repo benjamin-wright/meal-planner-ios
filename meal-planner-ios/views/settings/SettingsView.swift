@@ -10,28 +10,41 @@ import SwiftData
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
-    @Query private var settings: [Settings]
     @Query private var units: [ContinuousUnit]
+    @Query private var settings: [AppSettings]
+    
+    @State private var resetting = false
     
     var body: some View {
         List {
             Section("Preferred Units") {
-                Picker("Weight", selection: .constant(settings[0].preferredWeight)) {
+                @Bindable var setting = settings[0]
+                Picker("Weight", selection: $setting.preferredWeight) {
                     ForEach(units.filter { $0.unitType == .weight }) { unit in
                         Text(unit.name).tag(unit)
                     }
                 }
-                Picker("Volume", selection: .constant(settings[0].preferredVolume)) {
+                Picker("Volume", selection: $setting.preferredVolume) {
                     ForEach(units.filter { $0.unitType == .volume }) { unit in
                         Text(unit.name).tag(unit)
                     }
                 }
             }
             Section("Admin Actions") {
-                Button("Reset") {
-                    
+                Button("Reset", role: .destructive) {
+                    resetting = true
                 }
             }
+        }.confirmationDialog(
+            "resetting",
+            isPresented: $resetting
+        ) {
+                Button("Yes, delete it all!", role: .destructive, action: {
+                    Models.reset(context)
+                })
+            Button("Cancel", role: .cancel, action: {})
+        } message: {
+            Text("Are you sure you want to reset all app data?")
         }
     }
 }
