@@ -12,30 +12,18 @@ struct IngredientEdit: View {
     @Environment(\.dismiss) var dismiss
     
     @State var edit: Bool = false
+    @State var ingredient: Ingredient
     @State var ingredients: [Ingredient]
     @State var categories: [Category]
-    var action: (_ ingredient: Ingredient) -> Void
-    @State private var ingredient: Ingredient
-    @State private var actual: Ingredient
-    @State private var selectedCategory: String
-    
-    init(edit: Bool = false, ingredient: Ingredient, ingredients: [Ingredient], categories: [Category], action: @escaping (_ ingredient: Ingredient) -> Void) {
-        self.edit = edit
-        self.ingredients = ingredients
-        self.categories = categories
-        self.action = action
-        self.ingredient = ingredient
-        self.actual = ingredient.clone()
-        self.selectedCategory = ingredient.category.name
-    }
+    var action: () -> Void
     
     private func isInvalid() -> Bool {
-        if !actual.isValid() {
+        if !ingredient.isValid() {
             return true
         }
         
         if ingredients
-            .contains(where: { $0.name == actual.name }) {
+            .contains(where: { $0.id != ingredient.id && $0.name == ingredient.name }) {
             return true
         }
         
@@ -45,27 +33,19 @@ struct IngredientEdit: View {
     var body: some View {
         Form {
             Section {
-                TextInput(text: $actual.name, label: "Name", placeholder: "category")
-                Picker("Category", selection: $selectedCategory) {
+                TextInput(text: $ingredient.name, label: "Name", placeholder: "category")
+                Picker("Category", selection: $ingredient.category) {
                     ForEach(categories) { category in
-                        Text(category.name).tag(category.name)
+                        Text(category.name).tag(category)
                     }
                 }
             }
             Button {
-                action(actual)
+                action()
                 dismiss()
             } label: {
                 Text(edit ? "Save" : "Add")
             }.disabled(isInvalid())
-        }.onAppear {
-            actual = ingredient.clone()
-            self.selectedCategory = ingredient.category.name
-        }.onChange(of: selectedCategory) {
-            let category = categories.first(where: { $0.name == selectedCategory })
-            if category != nil {
-                self.actual.category = category!
-            }
         }
     }
 }
@@ -73,19 +53,20 @@ struct IngredientEdit: View {
 #Preview {
     let cat1 = Category(name: "thing1", order: 1)
     let cat2 = Category(name: "thing2", order: 2)
+    let ingredient = Ingredient(name: "start", category: cat1)
     IngredientEdit(
         edit: true,
-        ingredient: Ingredient(name: "start", category: cat1),
+        ingredient: ingredient,
         ingredients: [
             Ingredient(name: "test", category: cat2),
-            Ingredient(name: "start", category: cat1)
+            ingredient
         ],
         categories: [
             cat1,
             cat2
         ],
-        action: { name in
-            print(name)
+        action: {
+            print(ingredient.name)
         }
     )
 }

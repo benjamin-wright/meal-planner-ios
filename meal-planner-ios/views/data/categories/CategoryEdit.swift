@@ -9,29 +9,20 @@ import SwiftUI
 import SwiftData
 
 struct CategoryEdit: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     
     @State var edit: Bool = false
-    @State var categories: [Category]
-    var action: (_ category: Category) -> Void
-    @State private var category: Category
-    @State private var actual: Category
-    
-    init(edit: Bool = false, category: Category, categories: [Category], action: @escaping (_ caregory: Category) -> Void) {
-        self.edit = edit
-        self.categories = categories
-        self.action = action
-        self.category = category
-        self.actual = category.clone()
-    }
+    @State var category: Category
+    @State var existing: [Category]
+    var action: () -> Void
     
     private func isInvalid() -> Bool {
-        if !actual.isValid() {
+        if !category.isValid() {
             return true
         }
         
-        if categories
-            .contains(where: { $0.name == actual.name }) {
+        if existing
+            .contains(where: { $0.id != category.id && $0.name == category.name }) {
             return true
         }
         
@@ -41,30 +32,29 @@ struct CategoryEdit: View {
     var body: some View {
         Form {
             Section {
-                TextInput(text: $actual.name, label: "Name", placeholder: "category")
+                TextInput(text: $category.name, label: "Name", placeholder: "category")
             }
             
             Button {
-                action(actual)
+                action()
                 dismiss()
             } label: {
-                Text(edit ? "Save" : "Add")
+                Text(edit ? "Update" : "Add")
             }.disabled(isInvalid())
-        }.onAppear {
-            actual = category.clone()
         }
     }
 }
 
 #Preview {
+    let input = Category(name: "start", order: 1)
     CategoryEdit(
         edit: true,
-        category: Category(name: "start", order: 1),
-        categories: [
+        category: input,
+        existing: [
             Category(name: "test", order: 0),
-            Category(name: "start", order: 1)
-        ], action: { name in
-            print(name)
+            input
+        ], action: {
+            print(input.name)
         }
     )
 }

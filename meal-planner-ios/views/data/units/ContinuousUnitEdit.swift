@@ -11,16 +11,13 @@ struct ContinuousUnitEdit: View {
     @Environment(\.dismiss) var dismiss
 
     @State var edit: Bool
-    @State var existing: [String]
-    private var action: (_ unit: ContinuousUnit) -> Void
-    
-    let unit: ContinuousUnit
-    @State private var actual: ContinuousUnit
+    @State var unit: ContinuousUnit
+    @State var existing: [ContinuousUnit]
+    var action: () -> Void
     @State private var editMode: EditMode = .inactive
     
-    init(unit: ContinuousUnit, existing: [String], action: @escaping (_ unit: ContinuousUnit) -> Void, edit: Bool = false) {
+    init(edit: Bool = false, unit: ContinuousUnit, existing: [ContinuousUnit], action: @escaping () -> Void) {
         self.unit = unit
-        self.actual = unit.clone()
         self.existing = existing
         self.action = action
         self.edit = edit
@@ -45,8 +42,8 @@ struct ContinuousUnitEdit: View {
     var body: some View {
         Form {
             Section {
-                TextInput(text: $actual.name, label: "Name", placeholder: "unit name")
-                NumberInput(number: $actual.base, label: "Base", placeholder: "base")
+                TextInput(text: $unit.name, label: "Name", placeholder: "unit name")
+                NumberInput(number: $unit.base, label: "Base", placeholder: "base")
             }
             
             Section {
@@ -55,7 +52,7 @@ struct ContinuousUnitEdit: View {
                         Text("Abbr").frame(maxWidth: .infinity)
                         Text("Singular").frame(maxWidth: .infinity)
                         Text("Plural").frame(maxWidth: .infinity)
-                        if actual.magnitudes.count > 1 {
+                        if unit.magnitudes.count > 1 {
                             Text("Multiplier").frame(maxWidth: .infinity)
                         }
                     }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
@@ -64,20 +61,20 @@ struct ContinuousUnitEdit: View {
                         return viewDimensions.width
                     }
                     
-                    ForEach($actual.magnitudes) { magnitude in
+                    ForEach($unit.magnitudes) { magnitude in
                         Section {
-                            tableRow(magnitude: magnitude, multiple: actual.magnitudes.count > 1)
+                            tableRow(magnitude: magnitude, multiple: unit.magnitudes.count > 1)
                         }
                     }.onDelete { index in
-                        actual.magnitudes.remove(atOffsets: index)
+                        unit.magnitudes.remove(atOffsets: index)
                         
-                        if actual.magnitudes.count == 1 {
-                            actual.magnitudes[0].multiplier = 1
+                        if unit.magnitudes.count == 1 {
+                            unit.magnitudes[0].multiplier = 1
                         }
                     }
                     
                     Button {
-                        actual.magnitudes.append(ContinuousUnitMagnitude(abbreviation: "", singular: "", plural: "", multiplier: 1))
+                        unit.magnitudes.append(ContinuousUnitMagnitude(abbreviation: "", singular: "", plural: "", multiplier: 1))
                     } label: {
                         HStack {
                             Spacer()
@@ -89,48 +86,44 @@ struct ContinuousUnitEdit: View {
             }
             
             Button {
-                action(actual)
+                action()
                 dismiss()
             } label: {
                 Text(edit ? "Save" : "Add")
-            }.disabled(editMode.isEditing || !actual.isValid())
+            }.disabled(editMode.isEditing || !unit.isValid())
         }
         .toolbar {
             EditButton()
         }
         .environment(\.editMode, $editMode)
-        .onAppear {
-            actual = unit.clone()
-        }
     }
 }
 
 #Preview {
     NavigationStack {
+        let unit = ContinuousUnit(
+            name: "grams",
+            type: .weight,
+            base: 1,
+            magnitudes: [
+                ContinuousUnitMagnitude(
+                    abbreviation: "g",
+                    singular: "gram",
+                    plural: "grams",
+                    multiplier: 1
+                ),
+                ContinuousUnitMagnitude(
+                    abbreviation: "kg",
+                    singular: "kilogram",
+                    plural: "kilograms",
+                    multiplier: 1000
+                )
+            ]
+        )
         ContinuousUnitEdit(
-            unit: ContinuousUnit(
-                name: "grams",
-                type: .weight,
-                base: 1,
-                magnitudes: [
-                    ContinuousUnitMagnitude(
-                        abbreviation: "g",
-                        singular: "gram",
-                        plural: "grams",
-                        multiplier: 1
-                    ),
-                    ContinuousUnitMagnitude(
-                        abbreviation: "kg",
-                        singular: "kilogram",
-                        plural: "kilograms",
-                        multiplier: 1000
-                    )
-                ]
-            ),
-            existing: [
-                "grams",
-                "litres"
-            ], action: { unit in
+            unit: unit,
+            existing: [unit],
+            action: {
                 print(unit.name)
             }
         )

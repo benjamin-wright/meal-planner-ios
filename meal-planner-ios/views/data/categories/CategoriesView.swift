@@ -20,12 +20,14 @@ struct CategoriesView: View {
                 NavigationLink {
                     CategoryEdit(
                         edit: true,
-                        category: category.clone(),
-                        categories: categories,
-                        action: { updated in
-                            category.name = updated.name
+                        category: category,
+                        existing: categories,
+                        action: {
+                            try! context.save()
                         }
-                    )
+                    ).onDisappear {
+                        context.rollback()
+                    }
                 } label: {
                     Text(category.name)
                 }
@@ -51,17 +53,18 @@ struct CategoriesView: View {
             }
             Section {
                 NavigationLink {
+                    var category = Category(name: "", order: categories.count)
                     CategoryEdit(
-                        category: Category(
-                            name: "",
-                            order: categories.count
-                        ),
-                        categories: categories,
-                        action: { category in
-                            category.order = categories.count
+                        category: category,
+                        existing: categories,
+                        action: {
                             context.insert(category)
+                            try! context.save()
+                            category = Category(name: "", order: categories.count)
                         }
-                    )
+                    ).onAppear {
+                        category.name = ""
+                    }
                 } label: {
                     Text("Add")
                         .foregroundColor(.accent)

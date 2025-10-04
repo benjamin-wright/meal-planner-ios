@@ -11,19 +11,17 @@ struct CountUnitEdit: View {
     @Environment(\.dismiss) var dismiss
 
     @State var edit: Bool
-    @State var existing: [String]
-    private var action: (_ unit: CountUnit) -> Void
+    @State var unit: CountUnit
+    @State var existing: [CountUnit]
+    var action: () -> Void
     
-    let unit: CountUnit
-    @State private var actual: CountUnit
     @State private var editMode: EditMode = .inactive
     
-    init(unit: CountUnit, existing: [String], action: @escaping (_ unit: CountUnit) -> Void, edit: Bool = false) {
+    init(edit: Bool = false, unit: CountUnit, existing: [CountUnit], action: @escaping () -> Void) {
+        self.edit = edit
         self.unit = unit
-        self.actual = unit.clone()
         self.existing = existing
         self.action = action
-        self.edit = edit
     }
     
     func tableRow(collective: Binding<CountUnitCollective>, multiple: Bool) -> AnyView {
@@ -44,7 +42,7 @@ struct CountUnitEdit: View {
     var body: some View {
         Form {
             Section {
-                TextInput(text: $actual.name, label: "Name", placeholder: "unit name")
+                TextInput(text: $unit.name, label: "Name", placeholder: "unit name")
             }
             
             Section {
@@ -52,7 +50,7 @@ struct CountUnitEdit: View {
                     HStack {
                         Text("Singular").frame(maxWidth: .infinity)
                         Text("Plural").frame(maxWidth: .infinity)
-                        if actual.collectives.count > 1 {
+                        if unit.collectives.count > 1 {
                             Text("Multiplier").frame(maxWidth: .infinity)
                         }
                     }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
@@ -61,20 +59,20 @@ struct CountUnitEdit: View {
                         return viewDimensions.width
                     }
                     
-                    ForEach($actual.collectives) { collective in
+                    ForEach($unit.collectives) { collective in
                         Section {
-                            tableRow(collective: collective, multiple: actual.collectives.count > 1)
+                            tableRow(collective: collective, multiple: unit.collectives.count > 1)
                         }
                     }.onDelete { index in
-                        actual.collectives.remove(atOffsets: index)
+                        unit.collectives.remove(atOffsets: index)
                         
-                        if actual.collectives.count == 1 {
-                            actual.collectives[0].multiplier = 1
+                        if unit.collectives.count == 1 {
+                            unit.collectives[0].multiplier = 1
                         }
                     }
                     
                     Button {
-                        actual.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
+                        unit.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
                     } label: {
                         HStack {
                             Spacer()
@@ -86,44 +84,41 @@ struct CountUnitEdit: View {
             }
             
             Button {
-                action(actual)
+                action()
                 dismiss()
             } label: {
-                Text(edit ? "Save" : "Add")
-            }.disabled(editMode.isEditing || !actual.isValid())
+                Text(edit ? "Update" : "Add")
+            }.disabled(editMode.isEditing || !unit.isValid())
         }
         .toolbar {
             EditButton()
         }
         .environment(\.editMode, $editMode)
-        .onAppear {
-            actual = unit.clone()
-        }
     }
 }
 
 #Preview {
     NavigationStack {
+        let unit = CountUnit(
+            name: "test-unit",
+            collectives: [
+                CountUnitCollective(
+                    singular: "slice",
+                    plural: "slices",
+                    multiplier: 0.1
+                ),
+                CountUnitCollective(
+                    singular: "loaf",
+                    plural: "loaves",
+                    multiplier: 1
+                )
+            ]
+        )
         CountUnitEdit(
-            unit: CountUnit(
-                name: "test-unit",
-                collectives: [
-                    CountUnitCollective(
-                        singular: "slice",
-                        plural: "slices",
-                        multiplier: 0.1
-                    ),
-                    CountUnitCollective(
-                        singular: "loaf",
-                        plural: "loaves",
-                        multiplier: 1
-                    )
-                ]
-            ),
+            unit: unit,
             existing: [
-                "grams",
-                "litres"
-            ], action: { unit in
+                unit
+            ], action: {
                 print(unit.name)
             }
         )

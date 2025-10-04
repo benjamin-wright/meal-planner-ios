@@ -12,66 +12,88 @@ struct IngredientsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
-    @Query private var ingredients: [Ingredient]
-    @Query private var categories: [Category]
-    @State private var adding: Bool = false
-    @State private var filtering: Bool = false
-    @State private var search: String = ""
-    @State private var scope: String = "vegetables"
+    @Query(sort: \Ingredient.category.order) private var ingredients: [Ingredient]
+    @Query(sort: \Category.order) private var categories: [Category]
+    
+    @State var filterCategory: String = ""
+    @State var filtering: Bool = false
     
     var body: some View {
-        return List {
-            ForEach(ingredients.filter({ search.count == 0 || $0.name.contains(search.lowercased()) })) { ingredient in
-                NavigationLink {
-                    IngredientEdit(
-                        edit: true,
-                        ingredient: ingredient,
-                        ingredients: ingredients,
-                        categories: categories,
-                        action: { updated in
-                            ingredient.update(updated)
+        return VStack {
+            List {
+                if filtering {
+                    Section("filters") {
+                        Picker("Category", selection: $filterCategory) {
+                            Text("all").tag("")
+                            ForEach(categories) { category in
+                                Text(category.name).tag(category.name)
+                            }
                         }
-                    )
-                } label: {
-                    Text(ingredient.name)
+                    }
                 }
-            }.onDelete { offsets in
-                for (index, ingredient) in ingredients.enumerated() {
-                    if offsets.contains(index) {
-                        context.delete(ingredient)
+                ForEach(ingredients.filter({
+                    filterCategory == ""
+                    || $0.category.name == filterCategory
+                })) { ingredient in
+                    NavigationLink {
+                        IngredientEdit(
+                            edit: true,
+                            ingredient: ingredient,
+                            ingredients: ingredients,
+                            categories: categories,
+                            action: {
+                                try! context.save()
+                            }
+                        ).onDisappear() {
+                            context.rollback()
+                        }
+                    } label: {
+                        Text(ingredient.name)
+                    }
+                }.onDelete { offsets in
+                    for (index, ingredient) in ingredients.enumerated() {
+                        if offsets.contains(index) {
+                            context.delete(ingredient)
+                        }
+                    }
+                }
+                Section {
+                    NavigationLink {
+                        var ingredient = Ingredient(
+                            name: "",
+                            category: categories[0]
+                        )
+                        IngredientEdit(
+                            ingredient: ingredient,
+                            ingredients: ingredients,
+                            categories: categories,
+                            action: {
+                                context.insert(ingredient)
+                                try! context.save()
+                                ingredient = Ingredient(
+                                    name: "",
+                                    category: categories[0]
+                                )
+                            }
+                        ).onDisappear() {
+                            context.rollback()
+                        }
+                    } label: {
+                        Text("Add")
+                            .foregroundColor(.accent)
                     }
                 }
             }
-            Section {
-                NavigationLink {
-                    IngredientEdit(
-                        edit: true,
-                        ingredient: Ingredient(
-                            name: "",
-                            category: categories[0]
-                        ),
-                        ingredients: ingredients,
-                        categories: categories,
-                        action: { ingredient in
-                            context.insert(ingredient)
-                        }
-                    )
+            .toolbar {
+                Button {
+                    filtering = !filtering
+                    if !filtering {
+                        filterCategory = ""
+                    }
                 } label: {
-                    Text("Add")
-                        .foregroundColor(.accent)
+                    Text(filtering ? "Unfilter" : "Filter")
                 }
-            }
-        }
-        .toolbar {
-            EditButton()
-        }
-        .searchable(text: $search)
-        .sheet(isPresented: $filtering) {
-            Text("Filters")
-        }.onChange(of: search) {
-            let downcased = search.lowercased()
-            if downcased != search {
-                search = downcased
+                EditButton()
             }
         }
     }

@@ -11,12 +11,11 @@ import SwiftData
 @Model
 final class Ingredient {
     @Attribute(.unique)
-    var id: UUID
-    var name: String
-    @Relationship(deleteRule: .cascade)
+    var id: UUID = UUID()
+    var name: String = ""
     var category: Category
     
-    init(id: UUID = UUID(), name: String, category: Category) {
+    init(id: UUID = UUID(), name: String = "", category: Category) {
         self.id = id
         self.name = name
         self.category = category
@@ -43,6 +42,7 @@ final class Ingredient {
     }
     
     func update(_ ingredient: Ingredient) {
+        self.id = ingredient.id
         self.name = ingredient.name
         self.category = ingredient.category
     }

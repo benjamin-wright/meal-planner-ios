@@ -19,20 +19,19 @@ struct CountUnitsView: View {
             ForEach(units) { unit in
                 NavigationLink {
                     CountUnitEdit(
-                        unit: unit,
-                        existing: units.map { unit in
-                            return unit.name
-                        },
-                        action: { updated in
-                            unit.update(updated: updated)
-                        },
                         edit: true,
-                    )
+                        unit: unit,
+                        existing: units,
+                        action: {
+                            try! context.save()
+                        },
+                    ).onDisappear {
+                        context.rollback()
+                    }
                 } label: {
                     Text(unit.name)
                 }
             }.onDelete { offsets in
-                print("Deleting - \(offsets.count)")
                 for (index, unit) in units.enumerated() {
                     if offsets.contains(index) {
                         context.delete(unit)
@@ -41,17 +40,23 @@ struct CountUnitsView: View {
             }
             Section {
                 NavigationLink {
-                    CountUnitEdit(
-                        unit: CountUnit(
-                            name: ""
-                        ),
-                        existing: units.map { unit in
-                            return unit.name
-                        },
-                        action: { unit in
-                            context.insert(unit)
-                        }
+                    var unit = CountUnit(
+                        name: ""
                     )
+                    CountUnitEdit(
+                        unit: unit,
+                        existing: units,
+                        action: {
+                            context.insert(unit)
+                            try! context.save()
+                            unit = CountUnit(
+                                name: ""
+                            )
+                        }
+                    ).onDisappear() {
+                        unit.name = ""
+                        unit.collectives = []
+                    }
                 } label: {
                     Text("Add").foregroundStyle(.accent)
                 }

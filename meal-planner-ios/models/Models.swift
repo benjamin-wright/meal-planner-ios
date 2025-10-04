@@ -65,9 +65,6 @@ class Models {
     }
 
     private static func initialiseData(_ context: ModelContext) {
-        let drugCategory = Category(name: "drugs", order: 0)
-        let fruitCategory = Category(name: "fruit", order: 1)
-        let vegetableCategory = Category(name: "vegetables", order: 2)
         let countUnit = CountUnit(name: "count", collectives: [])
         let loavesUnit = CountUnit(name: "loaves", collectives: [
             CountUnitCollective(
@@ -103,18 +100,31 @@ class Models {
             preferredVolume: litresUnit,
             preferredWeight: gramsUnit
         )
-        let carrots = Ingredient(name: "carrots", category: vegetableCategory)
-        let onions = Ingredient(name: "onions", category: vegetableCategory)
-        let apples = Ingredient(name: "apples", category: fruitCategory)
 
-        context.insert(drugCategory)
-        context.insert(fruitCategory)
-        context.insert(vegetableCategory)
         context.insert(countUnit)
         context.insert(loavesUnit)
         context.insert(gramsUnit)
         context.insert(litresUnit)
         context.insert(settings)
+        
+        let drugCategory = Category(name: "drugs", order: 0)
+        let fruitCategory = Category(name: "fruit", order: 1)
+        let vegetableCategory = Category(name: "vegetables", order: 2)
+
+        context.insert(drugCategory)
+        context.insert(fruitCategory)
+        context.insert(vegetableCategory)
+        
+        do {
+            try context.save()
+        } catch {
+            
+        }
+        
+        let carrots = Ingredient(name: "carrots", category: vegetableCategory)
+        let onions = Ingredient(name: "onions", category: vegetableCategory)
+        let apples = Ingredient(name: "apples", category: fruitCategory)
+        
         context.insert(carrots)
         context.insert(onions)
         context.insert(apples)
