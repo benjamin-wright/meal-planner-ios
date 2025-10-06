@@ -32,12 +32,4 @@ final class Category {
         
         return true
     }
-    
-    func clone() -> Category {
-        return Category(
-            id: self.id,
-            name: self.name,
-            order: self.order
-        )
-    }
 }

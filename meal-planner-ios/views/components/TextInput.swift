@@ -13,13 +13,15 @@ struct TextInput: View {
     @State var label: String?
     @State var placeholder: String
     @State var alignment: TextAlignment = .leading
+    @State var multiline: Bool = false
     
     var TextView: some View {
-        TextField(placeholder, text: $text)
+        TextField(placeholder, text: $text, axis: .vertical)
             .textInputAutocapitalization(.never)
             .onChange(of: text) {
                 text = text.lowercased()
             }.multilineTextAlignment(alignment)
+            .lineLimit(multiline ? 10 : 1)
     }
     
     var body: some View {
@@ -36,4 +38,5 @@ struct TextInput: View {
 #Preview {
     TextInput(text: .constant("things"), label: "Name", placeholder: "placeholder").padding()
     TextInput(text: .constant("unlabeled"), placeholder: "placeholder", alignment: .center).padding()
+    TextInput(text: .constant("A line that is far too long to fit on a single line even though this screen is really really big and only needs three lines to show this."), placeholder: "fill me", multiline: true)
 }

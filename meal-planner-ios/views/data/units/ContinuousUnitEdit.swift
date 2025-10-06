@@ -72,16 +72,10 @@ struct ContinuousUnitEdit: View {
                             unit.magnitudes[0].multiplier = 1
                         }
                     }
-                    
-                    Button {
+
+                    AddButton {
                         unit.magnitudes.append(ContinuousUnitMagnitude(abbreviation: "", singular: "", plural: "", multiplier: 1))
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "plus")
-                            Spacer()
-                        }
-                    }.disabled(editMode.isEditing)
+                    }
                 }
             }
             

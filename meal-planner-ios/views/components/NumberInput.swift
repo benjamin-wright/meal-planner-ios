@@ -48,7 +48,7 @@ struct NumberInput: View {
     var NumberView: some View {
         TextField(placeholder, text: $text)
             .multilineTextAlignment(alignment)
-            .keyboardType(.numberPad)
+            .keyboardType(.decimalPad)
             .onChange(of: text) {
                 let filtered = self.filter(input: text)
                 

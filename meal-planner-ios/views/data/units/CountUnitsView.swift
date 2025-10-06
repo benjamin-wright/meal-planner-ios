@@ -17,20 +17,8 @@ struct CountUnitsView: View {
     var body: some View {
         return List {
             ForEach(units) { unit in
-                NavigationLink {
-                    CountUnitEdit(
-                        edit: true,
-                        unit: unit,
-                        existing: units,
-                        action: {
-                            try! context.save()
-                        },
-                    ).onDisappear {
-                        context.rollback()
-                    }
-                } label: {
-                    Text(unit.name)
-                }
+                NavigationLink(unit.name, value: unit)
+                    .onChange(of: units) {}
             }.onDelete { offsets in
                 for (index, unit) in units.enumerated() {
                     if offsets.contains(index) {
@@ -39,27 +27,28 @@ struct CountUnitsView: View {
                 }
             }
             Section {
-                NavigationLink {
-                    var unit = CountUnit(
-                        name: ""
-                    )
-                    CountUnitEdit(
-                        unit: unit,
-                        existing: units,
-                        action: {
-                            context.insert(unit)
-                            try! context.save()
-                            unit = CountUnit(
-                                name: ""
-                            )
-                        }
-                    ).onDisappear() {
-                        unit.name = ""
-                        unit.collectives = []
+                NavigationLink(
+                    value: CountUnit(name: ""),
+                    label: {
+                        Text("Add").foregroundStyle(.accent)
                     }
-                } label: {
-                    Text("Add").foregroundStyle(.accent)
-                }
+                )
+            }
+        }.navigationDestination(for: CountUnit.self) { item in
+            let edit = units.contains(where: { $0.id == item.id })
+            return CountUnitEdit(
+                edit: edit,
+                unit: item,
+                existing: units,
+                action: {
+                    if !edit {
+                        context.insert(item)
+                    }
+                    try! context.save()
+                },
+            ).onDisappear {
+                print("Rolling back")
+                context.rollback()
             }
         }
         .toolbar {
@@ -69,7 +58,7 @@ struct CountUnitsView: View {
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         CountUnitsView().modelContainer(Models.testing.modelContainer)
     }
 }

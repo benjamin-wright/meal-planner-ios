@@ -24,20 +24,8 @@ struct ContinuousUnitsView: View {
     var body: some View {
         return List {
             ForEach(units) { unit in
-                NavigationLink {
-                    ContinuousUnitEdit(
-                        edit: true,
-                        unit: unit,
-                        existing: units,
-                        action: {
-                            try! context.save()
-                        },
-                    ).onDisappear {
-                        context.rollback()
-                    }
-                } label: {
-                    Text(unit.name)
-                }
+                NavigationLink(unit.name, value: unit)
+                    .onChange(of: units) {}
             }.onDelete { offsets in
                 for (index, unit) in units.enumerated() {
                     if offsets.contains(index) {
@@ -46,32 +34,12 @@ struct ContinuousUnitsView: View {
                 }
             }
             Section {
-                NavigationLink {
-                    var unit = ContinuousUnit(
-                        name: "",
-                        type: unitType,
-                        base: 1,
-                        magnitudes: []
-                    )
-                    ContinuousUnitEdit(
-                        unit: unit,
-                        existing: units,
-                        action: {
-                            context.insert(unit)
-                            try! context.save()
-                            unit = ContinuousUnit(
-                                name: "",
-                                type: unitType,
-                                base: 1,
-                                magnitudes: []
-                            )
-                        }
-                    ).onDisappear {
-                        unit.name = ""
-                        unit.base = 1
-                        unit.magnitudes = []
-                    }
-                } label: {
+                NavigationLink(value: ContinuousUnit(
+                    name: "",
+                    type: unitType,
+                    base: 1,
+                    magnitudes: []
+                )) {
                     Text("Add").foregroundStyle(.accent)
                 }
             }
@@ -79,11 +47,25 @@ struct ContinuousUnitsView: View {
         .toolbar {
             EditButton()
         }
+        .navigationDestination(for: ContinuousUnit.self) { unit in
+            ContinuousUnitEdit(
+                unit: unit,
+                existing: units,
+                action: {
+                    if !units.contains(where: { $0.id == unit.id }) {
+                        context.insert(unit)
+                    }
+                    try! context.save()
+                }
+            ).onDisappear {
+                context.rollback()
+            }
+        }
     }
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         ContinuousUnitsView(
             type: .weight
         ).modelContainer(Models.testing.modelContainer)

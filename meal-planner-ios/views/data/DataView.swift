@@ -9,30 +9,30 @@
 import SwiftUI
 import SwiftData
 
-struct DataLink: Identifiable {
-    var id: Int
-    var name: String
-    var component: AnyView
+extension DataView {
+    enum ViewDestination: Hashable, CaseIterable {
+        case units, categories, ingredients
+    }
 }
-
-var dataLinks: [DataLink] = [
-    DataLink(id: 1, name: "Units", component: AnyView(UnitsView())),
-    DataLink(id: 2, name: "Categories", component: AnyView(CategoriesView())),
-    DataLink(id: 3, name: "Ingredients", component: AnyView(IngredientsView())),
-]
 
 struct DataView: View {
     var body: some View {
-        NavigationStack() {
+        NavigationStack {
             List {
-                ForEach (dataLinks) { link in
-                    NavigationLink {
-                        link.component.navigationTitle(link.name)
-                    } label: {
-                        Text(link.name)
-                    }
-                }
+                NavigationLink("Units", value: ViewDestination.units)
+                NavigationLink("Categories", value: ViewDestination.categories)
+                NavigationLink("Ingredients", value: ViewDestination.ingredients)
             }.navigationTitle("Data")
+            .navigationDestination(for: ViewDestination.self) { view in
+                switch view {
+                case .units:
+                    UnitsView()
+                case .categories:
+                    CategoriesView()
+                case .ingredients:
+                    IngredientsView()
+                }
+            }
         }
     }
 }

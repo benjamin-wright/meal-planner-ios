@@ -35,21 +35,8 @@ struct IngredientsView: View {
                     filterCategory == ""
                     || $0.category.name == filterCategory
                 })) { ingredient in
-                    NavigationLink {
-                        IngredientEdit(
-                            edit: true,
-                            ingredient: ingredient,
-                            ingredients: ingredients,
-                            categories: categories,
-                            action: {
-                                try! context.save()
-                            }
-                        ).onDisappear() {
-                            context.rollback()
-                        }
-                    } label: {
-                        Text(ingredient.name)
-                    }
+                    NavigationLink(ingredient.name, value: ingredient)
+                        .onChange(of: ingredients) {}
                 }.onDelete { offsets in
                     for (index, ingredient) in ingredients.enumerated() {
                         if offsets.contains(index) {
@@ -58,30 +45,14 @@ struct IngredientsView: View {
                     }
                 }
                 Section {
-                    NavigationLink {
-                        var ingredient = Ingredient(
+                    NavigationLink(
+                        value: Ingredient(
                             name: "",
                             category: categories[0]
-                        )
-                        IngredientEdit(
-                            ingredient: ingredient,
-                            ingredients: ingredients,
-                            categories: categories,
-                            action: {
-                                context.insert(ingredient)
-                                try! context.save()
-                                ingredient = Ingredient(
-                                    name: "",
-                                    category: categories[0]
-                                )
-                            }
-                        ).onDisappear() {
-                            context.rollback()
+                        ), label: {
+                            Text("Add").foregroundColor(.accent)
                         }
-                    } label: {
-                        Text("Add")
-                            .foregroundColor(.accent)
-                    }
+                    )
                 }
             }
             .toolbar {
@@ -95,12 +66,27 @@ struct IngredientsView: View {
                 }
                 EditButton()
             }
+            .navigationDestination(for: Ingredient.self) { ingredient in
+                IngredientEdit(
+                    ingredient: ingredient,
+                    ingredients: ingredients,
+                    categories: categories,
+                    action: {
+                        if !ingredients.contains(where: { $0.id == ingredient.id }) {
+                            context.insert(ingredient)
+                        }
+                        try! context.save()
+                    }
+                ).onDisappear() {
+                    context.rollback()
+                }
+            }
         }
     }
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         IngredientsView().modelContainer(Models.testing.modelContainer)
     }
 }

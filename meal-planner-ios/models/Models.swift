@@ -33,6 +33,7 @@ class Models {
             try Models.clear(ContinuousUnit.self, context)
             try Models.clear(Category.self, context)
             try Models.clear(Ingredient.self, context)
+            try Models.clear(Recipie.self, context)
             
             Models.initialiseData(context)
             try context.save()
@@ -49,6 +50,7 @@ class Models {
             ContinuousUnit.self,
             AppSettings.self,
             Ingredient.self,
+            Recipie.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
 
@@ -115,11 +117,7 @@ class Models {
         context.insert(fruitCategory)
         context.insert(vegetableCategory)
         
-        do {
-            try context.save()
-        } catch {
-            
-        }
+        try? context.save()
         
         let carrots = Ingredient(name: "carrots", category: vegetableCategory)
         let onions = Ingredient(name: "onions", category: vegetableCategory)
@@ -128,5 +126,27 @@ class Models {
         context.insert(carrots)
         context.insert(onions)
         context.insert(apples)
+        
+        try? context.save()
+        
+        let soup = Recipie(
+            name: "soup",
+            type: .dinner,
+            ingredients: [
+                RecipieIngredient(
+                    ingredient: carrots,
+                    countUnit: countUnit,
+                    quantity: 1
+                ),
+                RecipieIngredient(
+                    ingredient: onions,
+                    continuousUnit: gramsUnit,
+                    quantity: 80
+                )
+            ]
+        )
+        context.insert(soup)
+        
+        try? context.save()
     }
 }

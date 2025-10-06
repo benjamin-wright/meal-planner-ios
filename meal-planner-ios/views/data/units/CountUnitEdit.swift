@@ -71,15 +71,9 @@ struct CountUnitEdit: View {
                         }
                     }
                     
-                    Button {
+                    AddButton {
                         unit.collectives.append(CountUnitCollective(singular: "", plural: "", multiplier: 1))
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "plus")
-                            Spacer()
-                        }
-                    }.disabled(editMode.isEditing)
+                    }
                 }
             }
             

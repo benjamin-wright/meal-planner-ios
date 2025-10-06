@@ -32,18 +32,4 @@ final class Ingredient {
         
         return true
     }
-    
-    func clone() -> Ingredient {
-        return Ingredient(
-            id: self.id,
-            name: self.name,
-            category: self.category.clone()
-        )
-    }
-    
-    func update(_ ingredient: Ingredient) {
-        self.id = ingredient.id
-        self.name = ingredient.name
-        self.category = ingredient.category
-    }
 }

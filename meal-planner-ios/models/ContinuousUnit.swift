@@ -66,28 +66,4 @@ final class ContinuousUnit {
         
         return true
     }
-    
-    func clone() -> ContinuousUnit {
-        ContinuousUnit(
-            id: self.id,
-            name: self.name,
-            type: ContinuousUnitType(rawValue: self.type) ?? .weight,
-            base: self.base,
-            magnitudes: self.magnitudes.map { c in
-                ContinuousUnitMagnitude(
-                    abbreviation: c.abbreviation,
-                    singular: c.singular,
-                    plural: c.plural,
-                    multiplier: c.multiplier
-                )
-            }
-        )
-    }
-    
-    func update(updated: ContinuousUnit) {
-        self.name = updated.name
-        self.type = updated.type
-        self.base = updated.base
-        self.magnitudes = updated.magnitudes
-    }
 }

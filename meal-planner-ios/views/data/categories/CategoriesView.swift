@@ -8,6 +8,17 @@
 import SwiftUI
 import SwiftData
 
+extension CategoriesView {
+    @Observable
+    class ObservableCategory {
+        var category: Category
+        
+        init(_ category: Category) {
+            self.category = category
+        }
+    }
+}
+
 struct CategoriesView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
@@ -17,20 +28,9 @@ struct CategoriesView: View {
     var body: some View {
         return List {
             ForEach(categories) { category in
-                NavigationLink {
-                    CategoryEdit(
-                        edit: true,
-                        category: category,
-                        existing: categories,
-                        action: {
-                            try! context.save()
-                        }
-                    ).onDisappear {
-                        context.rollback()
-                    }
-                } label: {
-                    Text(category.name)
-                }
+                let obs = ObservableCategory(category)
+                NavigationLink(obs.category.name, value: obs.category)
+                    .onChange(of: categories) {}
             }.onDelete { offsets in
                 var updated = categories
                 for (index, category) in categories.enumerated() {
@@ -52,33 +52,39 @@ struct CategoriesView: View {
                 }
             }
             Section {
-                NavigationLink {
-                    var category = Category(name: "", order: categories.count)
-                    CategoryEdit(
-                        category: category,
-                        existing: categories,
-                        action: {
-                            context.insert(category)
-                            try! context.save()
-                            category = Category(name: "", order: categories.count)
-                        }
-                    ).onAppear {
-                        category.name = ""
+                NavigationLink(
+                    value: Category(name: "", order: categories.count),
+                    label: {
+                        Text("Add")
+                            .foregroundColor(.accent)
                     }
-                } label: {
-                    Text("Add")
-                        .foregroundColor(.accent)
-                }
+                )
             }
         }
         .toolbar {
             EditButton()
         }
+        .navigationDestination(for: Category.self) { item in
+            let edit = categories.contains(where: { $0.id == item.id })
+            CategoryEdit(
+                edit: edit,
+                category: item,
+                existing: categories,
+                action: {
+                    if !edit {
+                        context.insert(item)
+                    }
+                    try! context.save()
+                }
+            ).onDisappear {
+                context.rollback()
+            }
+        }
     }
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         CategoriesView().modelContainer(Models.testing.modelContainer)
     }
 }

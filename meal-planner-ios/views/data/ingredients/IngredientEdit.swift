@@ -34,10 +34,15 @@ struct IngredientEdit: View {
         Form {
             Section {
                 TextInput(text: $ingredient.name, label: "Name", placeholder: "category")
-                Picker("Category", selection: $ingredient.category) {
-                    ForEach(categories) { category in
-                        Text(category.name).tag(category)
-                    }
+                HStack {
+                    Picker("Category", selection: $ingredient.category) {
+                        ForEach(categories) { category in
+                            Text(category.name).tag(category)
+                        }
+                        NavigationLink("New") {
+                            Text("New")
+                        }
+                    }.frame(maxWidth: .infinity)
                 }
             }
             Button {
