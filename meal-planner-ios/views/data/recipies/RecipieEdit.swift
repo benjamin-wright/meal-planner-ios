@@ -55,9 +55,17 @@ struct RecipieEdit: View {
                 }.onDelete { offsets in
                     recipie.ingredients.remove(atOffsets: offsets)
                 }
-                AddButton {
-                    newIngredient = true
-                }
+                NavigationLink(
+                    value: RecipieIngredient(
+                        ingredient: ingredients[0],
+                        unit: units[0],
+                        quantity: 1
+                    ),
+                    label: {
+                        Text("Add")
+                            .foregroundColor(.accent)
+                    }
+                )
             }
             
             Section("Steps") {
@@ -77,15 +85,13 @@ struct RecipieEdit: View {
             EditButton()
         }
         .environment(\.editMode, $editMode)
-        .navigationDestination(isPresented: $newIngredient) {
-            IngredientPicker(
-                ingredients: ingredients
-            ) { selected in
-                recipie.ingredients.append(RecipieIngredient(
-                    ingredient: selected,
-                    unit: units[0],
-                    quantity: 1,
-                ))
+        .navigationDestination(for: RecipieIngredient.self) { item in
+            RecipieIngredientEdit(
+                value: item,
+                ingredients: ingredients,
+                units: units
+            ) {
+                print(item.ingredient.name)
             }
         }
         .navigationTitle("Recipie")

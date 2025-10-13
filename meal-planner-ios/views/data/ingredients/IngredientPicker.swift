@@ -11,20 +11,9 @@ import SwiftData
 struct IngredientPicker: View {
     @Environment(\.dismiss) var dismiss
     
-    var action: (Ingredient) -> Void
     @State var ingredients: [Ingredient]
-    @State var selected: Ingredient?
+    @Binding var selected: Ingredient
     @State var search: String = ""
-    
-    init(
-        ingredients: [Ingredient],
-        selected: Ingredient? = .none,
-        _ action: @escaping (Ingredient) -> Void
-    ) {
-        self.action = action
-        self.ingredients = ingredients
-        self._selected = State(initialValue: selected)
-    }
     
     var body: some View {
         List {
@@ -46,30 +35,27 @@ struct IngredientPicker: View {
                 search = lowercase
             }
         }.onChange(of: selected) {
-            switch selected {
-            case .some(let ingredient):
-                action(ingredient)
-                dismiss()
-            case .none:
-                break
-            }
-        }.navigationTitle("Ingredient")
+            dismiss()
+        }
+        .navigationTitle("Ingredient")
     }
 }
 
 #Preview {
     struct Preview: View {
         @Query() private var ingredients: [Ingredient]
-        @State var selected: Ingredient? = .none
+        @State private var selected: Ingredient
+        
+        init() {
+            self._selected = State(initialValue: Ingredient(category: Category(name: "testing", order: 10)))
+        }
         
         var body: some View {
             NavigationStack {
                 IngredientPicker(
                     ingredients: ingredients,
-                    selected: ingredients[0]
-                ) { selected in
-                    print("doing \(selected.name)")
-                }
+                    selected: $selected
+                )
             }
         }
     }
