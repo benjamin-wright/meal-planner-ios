@@ -29,8 +29,7 @@ class Models {
     static func reset(_ context: ModelContext) {
         do {
             try Models.clear(AppSettings.self, context)
-            try Models.clear(CountUnit.self, context)
-            try Models.clear(ContinuousUnit.self, context)
+            try Models.clear(Measure.self, context)
             try Models.clear(Category.self, context)
             try Models.clear(Ingredient.self, context)
             try Models.clear(Recipie.self, context)
@@ -40,14 +39,12 @@ class Models {
         } catch {
             fatalError("Could not clear existing data: \(error)")
         }
-        
     }
 
     private init(testing: Bool = false) {
         let schema = Schema([
             Category.self,
-            CountUnit.self,
-            ContinuousUnit.self,
+            Measure.self,
             AppSettings.self,
             Ingredient.self,
             Recipie.self,
@@ -67,35 +64,35 @@ class Models {
     }
 
     private static func initialiseData(_ context: ModelContext) {
-        let countUnit = CountUnit(name: "count", collectives: [])
-        let loavesUnit = CountUnit(name: "loaves", collectives: [
-            CountUnitCollective(
+        let countUnit = Measure(name: "count", type: .count, magnitudes: [])
+        let loavesUnit = Measure(name: "loaves", type: .count, magnitudes: [
+            Magnitude(
                 singular: "slice",
                 plural: "slices",
                 multiplier: 0.1
             ),
-            CountUnitCollective(
+            Magnitude(
                 singular: "loaf",
                 plural: "loaves",
                 multiplier: 1
             )
         ])
-        let gramsUnit = ContinuousUnit(
+        let gramsUnit = Measure(
             name: "grams",
             type: .weight,
             base: 1,
             magnitudes: [
-                ContinuousUnitMagnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1),
-                ContinuousUnitMagnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
+                Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1),
+                Magnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
             ]
         )
-        let litresUnit = ContinuousUnit(
+        let litresUnit = Measure(
             name: "litres",
             type: .volume,
             base: 1,
             magnitudes: [
-                ContinuousUnitMagnitude(abbreviation: "ml", singular: "millilitre", plural: "millilitres", multiplier: 0.001),
-                ContinuousUnitMagnitude(abbreviation: "l", singular: "litre", plural: "litres", multiplier: 1),
+                Magnitude(abbreviation: "ml", singular: "millilitre", plural: "millilitres", multiplier: 0.001),
+                Magnitude(abbreviation: "l", singular: "litre", plural: "litres", multiplier: 1),
             ]
         )
         let settings = AppSettings(
@@ -135,12 +132,12 @@ class Models {
             ingredients: [
                 RecipieIngredient(
                     ingredient: carrots,
-                    countUnit: countUnit,
+                    unit: countUnit,
                     quantity: 1
                 ),
                 RecipieIngredient(
                     ingredient: onions,
-                    continuousUnit: gramsUnit,
+                    unit: gramsUnit,
                     quantity: 80
                 )
             ]

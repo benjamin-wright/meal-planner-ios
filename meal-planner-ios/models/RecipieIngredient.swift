@@ -13,15 +13,13 @@ final class RecipieIngredient {
     @Attribute(.unique)
     var id: UUID = UUID()
     var ingredient: Ingredient
-    var countUnit: CountUnit?
-    var continuousUnit: ContinuousUnit?
+    var unit: Measure
     var quantity: Double
     
-    init(id: UUID = UUID(), ingredient: Ingredient, countUnit: CountUnit? = nil, continuousUnit: ContinuousUnit? = nil, quantity: Double) {
+    init(id: UUID = UUID(), ingredient: Ingredient, unit: Measure, quantity: Double) {
         self.id = id
         self.ingredient = ingredient
-        self.countUnit = countUnit
-        self.continuousUnit = continuousUnit
+        self.unit = unit
         self.quantity = quantity
     }
 }

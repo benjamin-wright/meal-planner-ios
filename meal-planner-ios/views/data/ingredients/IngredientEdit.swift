@@ -52,6 +52,7 @@ struct IngredientEdit: View {
                 Text(edit ? "Save" : "Add")
             }.disabled(isInvalid())
         }
+        .navigationTitle("Ingredient")
     }
 }
 
@@ -59,19 +60,21 @@ struct IngredientEdit: View {
     let cat1 = Category(name: "thing1", order: 1)
     let cat2 = Category(name: "thing2", order: 2)
     let ingredient = Ingredient(name: "start", category: cat1)
-    IngredientEdit(
-        edit: true,
-        ingredient: ingredient,
-        ingredients: [
-            Ingredient(name: "test", category: cat2),
-            ingredient
-        ],
-        categories: [
-            cat1,
-            cat2
-        ],
-        action: {
-            print(ingredient.name)
-        }
-    )
+    NavigationStack {
+        IngredientEdit(
+            edit: true,
+            ingredient: ingredient,
+            ingredients: [
+                Ingredient(name: "test", category: cat2),
+                ingredient
+            ],
+            categories: [
+                cat1,
+                cat2
+            ],
+            action: {
+                print(ingredient.name)
+            }
+        )
+    }
 }

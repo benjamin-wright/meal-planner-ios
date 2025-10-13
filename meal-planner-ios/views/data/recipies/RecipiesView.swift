@@ -24,6 +24,7 @@ struct RecipiesView: View {
                 content: AnyView(RecipiesFilteredView(type: .breakfast))
             ),
         ])
+        .navigationTitle("Recipies")
     }
 }
 

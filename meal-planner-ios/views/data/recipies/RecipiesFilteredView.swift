@@ -13,6 +13,8 @@ struct RecipiesFilteredView: View {
     @Environment(\.editMode) private var editMode
     
     @Query private var recipies: [Recipie]
+    @Query private var units: [Measure]
+    @Query private var ingredients: [Ingredient]
     @State var recipieType: RecipieType
     
     init(type: RecipieType) {
@@ -49,6 +51,8 @@ struct RecipiesFilteredView: View {
             RecipieEdit(
                 recipie: recipie,
                 existing: recipies,
+                units: units,
+                ingredients: ingredients,
                 action: {
                     if !recipies.contains(where: { $0.id == recipie.id }) {
                         context.insert(recipie)

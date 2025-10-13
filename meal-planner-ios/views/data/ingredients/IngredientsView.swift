@@ -81,6 +81,7 @@ struct IngredientsView: View {
                     context.rollback()
                 }
             }
+            .navigationTitle("Ingredients")
         }
     }
 }

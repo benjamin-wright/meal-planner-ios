@@ -8,14 +8,14 @@
 import SwiftUI
 import SwiftData
 
-struct ContinuousUnitsView: View {
+struct MeasuresView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
-    @Query private var units: [ContinuousUnit]
-    @State var unitType: ContinuousUnitType
+    @Query private var units: [Measure]
+    @State var unitType: UnitType
     
-    init(type: ContinuousUnitType) {
+    init(type: UnitType) {
         self.unitType = type
         
         _units = Query(filter: #Predicate { $0.type == type.rawValue })
@@ -34,7 +34,7 @@ struct ContinuousUnitsView: View {
                 }
             }
             Section {
-                NavigationLink(value: ContinuousUnit(
+                NavigationLink(value: Measure(
                     name: "",
                     type: unitType,
                     base: 1,
@@ -47,8 +47,8 @@ struct ContinuousUnitsView: View {
         .toolbar {
             EditButton()
         }
-        .navigationDestination(for: ContinuousUnit.self) { unit in
-            ContinuousUnitEdit(
+        .navigationDestination(for: Measure.self) { unit in
+            MeasureEdit(
                 unit: unit,
                 existing: units,
                 action: {
@@ -66,7 +66,7 @@ struct ContinuousUnitsView: View {
 
 #Preview {
     NavigationStack {
-        ContinuousUnitsView(
+        MeasuresView(
             type: .weight
         ).modelContainer(Models.testing.modelContainer)
     }

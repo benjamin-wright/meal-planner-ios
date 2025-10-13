@@ -42,19 +42,22 @@ struct CategoryEdit: View {
                 Text(edit ? "Update" : "Add")
             }.disabled(isInvalid())
         }
+        .navigationTitle("Category")
     }
 }
 
 #Preview {
     let input = Category(name: "start", order: 1)
-    CategoryEdit(
-        edit: true,
-        category: input,
-        existing: [
-            Category(name: "test", order: 0),
-            input
-        ], action: {
-            print(input.name)
-        }
-    )
+    NavigationStack {
+        CategoryEdit(
+            edit: true,
+            category: input,
+            existing: [
+                Category(name: "test", order: 0),
+                input
+            ], action: {
+                print(input.name)
+            }
+        )
+    }
 }

@@ -8,14 +8,20 @@
 import Foundation
 import SwiftData
 
-struct ContinuousUnitMagnitude: Codable, Identifiable {
+enum UnitType: Int, Codable {
+    case count
+    case weight
+    case volume
+}
+
+struct Magnitude: Codable, Identifiable {
     var id: UUID
     var abbreviation: String
     var singular: String
     var plural: String
     var multiplier: Double
     
-    init(abbreviation: String, singular: String, plural: String, multiplier: Double) {
+    init(abbreviation: String = "", singular: String, plural: String, multiplier: Double) {
         self.id = UUID()
         self.abbreviation = abbreviation
         self.singular = singular
@@ -24,24 +30,19 @@ struct ContinuousUnitMagnitude: Codable, Identifiable {
     }
 }
 
-enum ContinuousUnitType: Int, Codable {
-    case weight
-    case volume
-}
-
 @Model
-final class ContinuousUnit {
+final class Measure {
     @Attribute(.unique)
     var id: UUID
     var name: String
     var type: Int
-    var unitType: ContinuousUnitType {
-        ContinuousUnitType(rawValue: type) ?? ContinuousUnitType.volume
+    var unitType: UnitType {
+        UnitType(rawValue: type) ?? UnitType.weight
     }
     var base: Double
-    var magnitudes: [ContinuousUnitMagnitude]
+    var magnitudes: [Magnitude]
     
-    init(id: UUID? = UUID(), name: String, type: ContinuousUnitType, base: Double, magnitudes: [ContinuousUnitMagnitude]) {
+    init(id: UUID? = UUID(), name: String, type: UnitType, base: Double = 1, magnitudes: [Magnitude]) {
         self.id = id ?? UUID()
         self.name = name
         self.type = type.rawValue

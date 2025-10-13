@@ -11,10 +11,10 @@ import SwiftData
 struct UnitsView: View {
     var body: some View {
         TabbedStack(pages: [
-            TabPage(title: "Count", content: AnyView(CountUnitsView())),
-            TabPage(title: "Weight", content: AnyView(ContinuousUnitsView(type: .weight))),
-            TabPage(title: "Volume", content: AnyView(ContinuousUnitsView(type: .volume))),
-        ])
+            TabPage(title: "Count", content: AnyView(MeasuresView(type: .count))),
+            TabPage(title: "Weight", content: AnyView(MeasuresView(type: .weight))),
+            TabPage(title: "Volume", content: AnyView(MeasuresView(type: .volume))),
+        ]).navigationTitle("Units")
     }
 }
 

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct RecipieEdit: View {
     @Environment(\.dismiss) var dismiss
@@ -13,6 +14,9 @@ struct RecipieEdit: View {
     @State var edit: Bool
     @State var recipie: Recipie
     @State var existing: [Recipie]
+    @State var units: [Measure]
+    @State var ingredients: [Ingredient]
+    @State var newIngredient: Bool = false
 
     var action: () -> Void
     @State private var editMode: EditMode = .inactive
@@ -21,10 +25,14 @@ struct RecipieEdit: View {
         edit: Bool = false,
         recipie: Recipie,
         existing: [Recipie],
+        units: [Measure],
+        ingredients: [Ingredient],
         action: @escaping () -> Void
     ) {
         self.recipie = recipie
         self.existing = existing
+        self.units = units
+        self.ingredients = ingredients
         self.action = action
         self.edit = edit
     }
@@ -42,8 +50,13 @@ struct RecipieEdit: View {
             }
             
             Section("Ingredients") {
+                ForEach(recipie.ingredients) { ingredient in
+                    Text(ingredient.ingredient.name)
+                }.onDelete { offsets in
+                    recipie.ingredients.remove(atOffsets: offsets)
+                }
                 AddButton {
-                    
+                    newIngredient = true
                 }
             }
             
@@ -64,26 +77,43 @@ struct RecipieEdit: View {
             EditButton()
         }
         .environment(\.editMode, $editMode)
+        .navigationDestination(isPresented: $newIngredient) {
+            IngredientPicker(
+                ingredients: ingredients
+            ) { selected in
+                recipie.ingredients.append(RecipieIngredient(
+                    ingredient: selected,
+                    unit: units[0],
+                    quantity: 1,
+                ))
+            }
+        }
+        .navigationTitle("Recipie")
     }
 }
 
 #Preview {
-    NavigationStack {
-        let recipie = Recipie(
-            name: "",
-            type: .dinner,
-            summary: "",
-            serves: 2,
-            time: 15,
-            ingredients: [],
-            steps: []
+    struct Preview: View {
+        @Query private var ingredients: [Ingredient]
+        @Query private var units: [Measure]
+        var recipie: Recipie = Recipie(
+            type: .dinner
         )
-        RecipieEdit(
-            recipie: recipie,
-            existing: [recipie],
-            action: {
-                print(recipie.name)
+        
+        var body: some View {
+            NavigationStack {
+                RecipieEdit(
+                    recipie: recipie,
+                    existing: [],
+                    units: units,
+                    ingredients: ingredients,
+                    action: {
+                        print(recipie.name)
+                    }
+                )
             }
-        )
+        }
     }
+    
+    return Preview().modelContainer(Models.testing.modelContainer)
 }

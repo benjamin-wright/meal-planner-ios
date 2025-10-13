@@ -80,6 +80,7 @@ struct CategoriesView: View {
                 context.rollback()
             }
         }
+        .navigationTitle("Categories")
     }
 }
 
