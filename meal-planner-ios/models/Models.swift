@@ -109,26 +109,31 @@ class Models {
         let drugCategory = Category(name: "drugs", order: 0)
         let fruitCategory = Category(name: "fruit", order: 1)
         let vegetableCategory = Category(name: "vegetables", order: 2)
+        let dairyCategory = Category(name: "dairy", order: 3)
 
         context.insert(drugCategory)
         context.insert(fruitCategory)
         context.insert(vegetableCategory)
+        context.insert(dairyCategory)
         
         try? context.save()
         
         let carrots = Ingredient(name: "carrots", category: vegetableCategory)
         let onions = Ingredient(name: "onions", category: vegetableCategory)
         let apples = Ingredient(name: "apples", category: fruitCategory)
+        let milk = Ingredient(name: "milk", category: dairyCategory)
         
         context.insert(carrots)
         context.insert(onions)
         context.insert(apples)
+        context.insert(milk)
         
         try? context.save()
         
         let soup = Recipie(
             name: "soup",
             type: .dinner,
+            summary: "A tasty soup",
             ingredients: [
                 RecipieIngredient(
                     ingredient: carrots,
@@ -139,6 +144,16 @@ class Models {
                     ingredient: onions,
                     unit: gramsUnit,
                     quantity: 80
+                ),
+                RecipieIngredient(
+                    ingredient: apples,
+                    unit: loavesUnit,
+                    quantity: 2
+                ),
+                RecipieIngredient(
+                    ingredient: milk,
+                    unit: litresUnit,
+                    quantity: 1
                 )
             ]
         )

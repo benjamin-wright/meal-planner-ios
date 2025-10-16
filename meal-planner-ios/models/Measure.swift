@@ -28,6 +28,23 @@ struct Magnitude: Codable, Identifiable {
         self.plural = plural
         self.multiplier = multiplier
     }
+    
+    func toString(forValue value: Double) -> String {
+        if singular == "" || plural == "" {
+            return String(format: "%g", value)
+        }
+        
+        let adjusted = value / self.multiplier
+        let formatted = String(format: "%g", adjusted)
+            
+        if self.abbreviation != "" {
+            return "\(formatted)\(self.abbreviation)"
+        } else if adjusted.isNaN || adjusted.isInfinite || adjusted == 1 {
+            return "\(formatted) \(self.singular)"
+        } else {
+            return "\(formatted) \(self.plural)"
+        }
+    }
 }
 
 @Model
@@ -66,5 +83,23 @@ final class Measure {
         }
         
         return true
+    }
+    
+    func toString(forValue value: Double) -> String {
+        if magnitudes.count < 1 {
+            return String(format: "%g", value)
+        }
+        
+        var closestAdjusted = Double.greatestFiniteMagnitude
+        var bestMagnitude = self.magnitudes[0]
+        for magnitude in self.magnitudes {
+            let adjusted = value / magnitude.multiplier
+            if adjusted >= 1 && adjusted < closestAdjusted {
+                bestMagnitude = magnitude
+                closestAdjusted = adjusted
+            }
+        }
+
+        return bestMagnitude.toString(forValue: value)
     }
 }

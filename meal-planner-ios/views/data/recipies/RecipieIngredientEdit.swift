@@ -9,6 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct RecipieIngredientEdit: View {
+    @Environment(\.dismiss) var dismiss
+    
+    @State var edit: Bool
     @State var value: RecipieIngredient
     @State var ingredients: [Ingredient]
     @State var units: [Measure]
@@ -16,19 +19,35 @@ struct RecipieIngredientEdit: View {
     
     var body: some View {
         Form {
-            NavigationLink {
-                IngredientPicker(
-                    ingredients: ingredients,
-                    selected: $value.ingredient
+            Section {
+                NavigationLink {
+                    IngredientPicker(
+                        ingredients: ingredients,
+                        selected: $value.ingredient
+                    )
+                } label: {
+                    Text("Ingredient").badge(value.ingredient.name)
+                }
+                UnitPicker(
+                    label: "Unit",
+                    selected: $value.unit,
+                    units: units
                 )
-            } label: {
-                Text("Ingredient").badge(value.ingredient.name)
+                NumberInput(
+                    number: $value.quantity,
+                    label: "Quantity",
+                    placeholder: "amount of the ingredient",
+                    alignment: .trailing
+                )
             }
-            UnitPicker(
-                label: "Unit",
-                selected: $value.unit,
-                units: units
-            )
+            if !edit {
+                Button {
+                    action()
+                    dismiss()
+                } label: {
+                    Text("Add")
+                }
+            }
         }
     }
 }
@@ -42,6 +61,7 @@ struct RecipieIngredientEdit: View {
         var body: some View {
             NavigationStack {
                 RecipieIngredientEdit(
+                    edit: false,
                     value: recipies[0].ingredients[0],
                     ingredients: ingredients,
                     units: units

@@ -49,6 +49,7 @@ struct RecipiesFilteredView: View {
         }
         .navigationDestination(for: Recipie.self) { recipie in
             RecipieEdit(
+                edit: recipies.contains(where: { $0.id == recipie.id }),
                 recipie: recipie,
                 existing: recipies,
                 units: units,
