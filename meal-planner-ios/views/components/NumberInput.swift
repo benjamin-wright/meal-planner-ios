@@ -8,59 +8,33 @@
 import Foundation
 import SwiftUI
 
+let numberInputFormatter: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .decimal
+    formatter.allowsFloats = true
+    formatter.usesGroupingSeparator = false
+    formatter.minimumFractionDigits = 0
+    formatter.maximumFractionDigits = 10
+    return formatter
+}()
+
 struct NumberInput: View {
     @Binding var number: Double
     @State var label: String?
     @State var placeholder: String
-    @State private var text: String
     @State var alignment: TextAlignment
     
     init(number: Binding<Double>, label: String? = nil, placeholder: String, alignment: TextAlignment = .leading) {
         self._number = number
         self.label = label
         self.placeholder = placeholder
-        self.text = String(format: "%g", number.wrappedValue)
         self.alignment = alignment
     }
     
-    func filter(input: String) -> String {
-        var filtered = ""
-        var hasPeriod = false
-        input.forEach { c in
-            if !"0123456789.".contains(c) {
-                return
-            }
-            
-            if c == "." && hasPeriod {
-                return
-            }
-            
-            if c == "." {
-                hasPeriod = true
-            }
-            
-            filtered.append(c)
-        }
-        
-        return filtered
-    }
-    
     var NumberView: some View {
-        TextField(placeholder, text: $text)
+        TextField(placeholder, value: $number, formatter: numberInputFormatter)
             .multilineTextAlignment(alignment)
             .keyboardType(.decimalPad)
-            .onChange(of: text) {
-                let filtered = self.filter(input: text)
-                
-                if text != filtered {
-                    text = filtered
-                }
-                
-                let converted = Double(text)
-                if converted != nil {
-                    number = converted!
-                }
-            }
     }
     
     var body: some View {
@@ -75,6 +49,14 @@ struct NumberInput: View {
 }
 
 #Preview {
-    NumberInput(number: .constant(6), label: "Name", placeholder: "placeholder")
-    NumberInput(number: .constant(12.57), placeholder: "placeholder", alignment: .center)
+    struct Preview: View {
+        @State var input: Double = 12345678.5432
+        
+        var body: some View {
+            NumberInput(number: $input, label: "Name", placeholder: "placeholder")
+            NumberInput(number: $input, placeholder: "placeholder", alignment: .center)
+        }
+    }
+    
+    return Preview()
 }

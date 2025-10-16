@@ -14,7 +14,7 @@ enum UnitType: Int, Codable {
     case volume
 }
 
-struct Magnitude: Codable, Identifiable {
+struct Magnitude: Codable, Identifiable, Hashable {
     var id: UUID
     var abbreviation: String
     var singular: String
@@ -86,8 +86,14 @@ final class Measure {
     }
     
     func toString(forValue value: Double) -> String {
+        let magnitude = self.selectMagnitude(forValue: value)
+        
+        return magnitude?.toString(forValue: value) ?? String(format: "%g", value)
+    }
+    
+    func selectMagnitude(forValue value: Double) -> Magnitude? {
         if magnitudes.count < 1 {
-            return String(format: "%g", value)
+            return nil
         }
         
         var closestAdjusted = Double.greatestFiniteMagnitude
@@ -99,7 +105,7 @@ final class Measure {
                 closestAdjusted = adjusted
             }
         }
-
-        return bestMagnitude.toString(forValue: value)
+        
+        return bestMagnitude
     }
 }
