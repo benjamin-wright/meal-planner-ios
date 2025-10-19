@@ -25,12 +25,12 @@ final class Recipie {
     }
     var summary: String = ""
     var serves: Int = 2
-    var time: Double = 15
+    var time: Int = 15
     @Relationship(deleteRule: .cascade)
     var ingredients: [RecipieIngredient]
     var steps: [String]
     
-    init(id: UUID = UUID(), name: String = "", type: RecipieType, summary: String = "", serves: Int = 2, time: Double = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
+    init(id: UUID = UUID(), name: String = "", type: RecipieType, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
         self.id = id
         self.name = name
         self.type = type.rawValue

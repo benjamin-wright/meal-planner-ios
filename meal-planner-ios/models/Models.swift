@@ -24,15 +24,16 @@ class Models {
         items.forEach { item in
             context.delete(item)
         }
+        try context.save()
     }
     
     static func reset(_ context: ModelContext) {
         do {
+            try Models.clear(Recipie.self, context)
+            try Models.clear(Ingredient.self, context)
+            try Models.clear(Category.self, context)
             try Models.clear(AppSettings.self, context)
             try Models.clear(Measure.self, context)
-            try Models.clear(Category.self, context)
-            try Models.clear(Ingredient.self, context)
-            try Models.clear(Recipie.self, context)
             
             Models.initialiseData(context)
             try context.save()

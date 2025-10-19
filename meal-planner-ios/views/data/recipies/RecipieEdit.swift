@@ -47,7 +47,7 @@ struct RecipieEdit: View {
                 Section("Details") {
                     TextInput(text: $recipie.summary, label: "Summary", placeholder: "A basic description", multiline: true)
                     IntegerInput(number: $recipie.serves, label: "Serves", placeholder: "number of portions")
-                    NumberInput(number: $recipie.time, label: "Time", placeholder: "time to cook (minutes)")
+                    IntegerInput(number: $recipie.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
                 }
                 
                 Section("Ingredients") {

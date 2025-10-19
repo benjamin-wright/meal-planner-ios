@@ -33,11 +33,10 @@ struct RecipieIngredientEdit: View {
                     selected: $value.unit,
                     units: units
                 )
-                NumberInput(
-                    number: $value.quantity,
+                UnitInput(
                     label: "Quantity",
-                    placeholder: "amount of the ingredient",
-                    alignment: .trailing
+                    unit: $value.unit,
+                    value: $value.quantity
                 )
             }
             if !edit {

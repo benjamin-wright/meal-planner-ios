@@ -16,12 +16,13 @@ struct TextInput: View {
     @State var multiline: Bool = false
     
     var TextView: some View {
-        TextField(placeholder, text: $text, axis: .vertical)
+        TextField(placeholder, text: $text, axis: multiline ? .vertical : .horizontal)
             .textInputAutocapitalization(.never)
             .onChange(of: text) {
                 text = text.lowercased()
             }.multilineTextAlignment(alignment)
             .lineLimit(multiline ? 10 : 1)
+            .submitLabel(multiline ? .return : .done)
     }
     
     var body: some View {
