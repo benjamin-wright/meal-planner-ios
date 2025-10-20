@@ -121,11 +121,13 @@ class Models {
         
         let carrots = Ingredient(name: "carrots", category: vegetableCategory)
         let onions = Ingredient(name: "onions", category: vegetableCategory)
+        let damsons = Ingredient(name: "damsons", category: fruitCategory)
         let apples = Ingredient(name: "apples", category: fruitCategory)
         let milk = Ingredient(name: "milk", category: dairyCategory)
         
         context.insert(carrots)
         context.insert(onions)
+        context.insert(damsons)
         context.insert(apples)
         context.insert(milk)
         

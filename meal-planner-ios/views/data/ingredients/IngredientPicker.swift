@@ -15,18 +15,47 @@ struct IngredientPicker: View {
     @Binding var selected: Ingredient
     @State var search: String = ""
     
+    var categories: [Category] {
+        var categories: [Category] = []
+        for ingredient in filtered {
+            if !categories.contains(where: { $0.name == ingredient.category.name}) {
+                categories.append(ingredient.category)
+            }
+        }
+        
+        categories.sort(by: { $0.order < $1.order })
+        
+        return categories
+    }
+    
+    var filtered: [Ingredient] {
+        var filtered = ingredients.filter({
+            search.count == 0 ||
+            $0.name.contains(search) ||
+            $0.category.name.contains(search)
+        })
+        
+        filtered.sort(by: { $0.name < $1.name })
+        
+        return filtered
+    }
+    
+    var list: some View {
+        ForEach(categories) { category in
+            Section(header: Text(category.name)) {
+                Picker("ingredient", selection: $selected) {
+                    ForEach(filtered.filter({ $0.category.name == category.name })) { ingredient in
+                        Text(ingredient.name).tag(ingredient)
+                    }
+                }.pickerStyle(.inline)
+                    .labelsHidden()
+            }
+        }
+    }
+    
     var body: some View {
-        List {
-            Picker("ingredient", selection: $selected) {
-                ForEach(ingredients.filter {
-                    search.count == 0 ||
-                    $0.name.contains(search) ||
-                    $0.category.name.contains(search)
-                }) { ingredient in
-                    Text(ingredient.name).tag(ingredient)
-                }
-            }.pickerStyle(.inline)
-                .labelsHidden()
+        Form {
+                self.list
         }
         .searchable(text: $search)
         .onChange(of: search) {
