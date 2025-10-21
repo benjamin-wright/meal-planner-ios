@@ -9,45 +9,30 @@ import SwiftUI
 import SwiftData
 
 struct UnitPicker: View {
+    @State var label: String
     @Binding var selected: Measure
-    @Binding var value: Double
     @State var units: [Measure]
-    @State var magnitude: Magnitude? = nil
-    @State var search: String = ""
     
     init(
+        _ label: String,
         selected: Binding<Measure>,
-        value: Binding<Double>,
         units: [Measure]
     ) {
-        _selected = selected
-        _value = value
-        units = units
-        magnitude = selected.wrappedValue.magnitudes.first
+        self.label = label
+        self._selected = selected
+        self.units = units
     }
     
     var body: some View {
         HStack {
-            NumberInput(
-                number: $value,
-                placeholder: "value",
-                alignment: .trailing
-            )
-            if selected.magnitudes.count > 0 {
-                Picker("", selection: $magnitude) {
-                    ForEach(selected.magnitudes) { magnitude in
-                        Text(magnitude.abbreviation != "" ? magnitude.abbreviation : magnitude.plural).tag(magnitude)
-                        
+            Text(label)
+            VStack {
+                Picker("", selection: $selected) {
+                    ForEach(units) { unit in
+                        Text(unit.name).tag(unit)
                     }
-                }.pickerStyle(.menu).frame(minWidth: .leastNormalMagnitude)
-            }
-            Picker("", selection: $selected) {
-                ForEach(units) { unit in
-                    Text(unit.name).tag(unit)
                 }
-            }.pickerStyle(.menu)
-        }.onChange(of: selected) { _, newValue in
-            self.magnitude = selected.magnitudes.first
+            }
         }
     }
 }
@@ -64,13 +49,12 @@ struct UnitPicker: View {
     struct Container: View {
         @State var units: [Measure]
         @State var selected: Measure
-        @State var value: Double = 100
         
         var body: some View {
             Form {
                 UnitPicker(
+                    "Unit",
                     selected: $selected,
-                    value: $value,
                     units: units
                 )
             }

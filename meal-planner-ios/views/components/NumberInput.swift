@@ -23,18 +23,21 @@ struct NumberInput: View {
     @State var label: String?
     @State var placeholder: String
     @State var alignment: TextAlignment
+    @State var priority: Double?
     @FocusState var focused: Bool
     
-    init(number: Binding<Double>, label: String? = nil, placeholder: String, alignment: TextAlignment = .leading) {
+    init(number: Binding<Double>, label: String? = nil, placeholder: String, alignment: TextAlignment = .leading, priority: Double? = .none) {
         self._number = number
         self.label = label
         self.placeholder = placeholder
         self.alignment = alignment
+        self.priority = priority
     }
     
     var NumberView: some View {
         TextField(placeholder, value: $number, formatter: numberInputFormatter)
             .multilineTextAlignment(alignment)
+            .layoutPriority(priority ?? 0)
             .keyboardType(.decimalPad)
             .submitLabel(.done)
             .focused($focused)

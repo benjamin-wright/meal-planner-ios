@@ -27,14 +27,13 @@ struct UnitInput: View {
     
     var body: some View {
         HStack {
-            Text("\(label):")
-            NumberInput(number: $adjusted, placeholder: "")
+            NumberInput(number: $adjusted, label: label, placeholder: "", alignment: .trailing)
             if unit.magnitudes.count > 0 {
                 Picker("", selection: $magnitude) {
                     ForEach(unit.magnitudes) { magnitude in
-                        Text(magnitude.plural).tag(magnitude)
+                        Text(magnitude.abbreviation == "" ? magnitude.plural : magnitude.abbreviation).tag(magnitude)
                     }
-                }   
+                }.presentationSizing(.fitted)
             }
         }.onChange(of: magnitude) {
             adjusted = value / (self.magnitude?.multiplier ?? 1)
