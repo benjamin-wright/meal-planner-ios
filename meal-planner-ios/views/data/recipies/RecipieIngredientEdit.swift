@@ -28,16 +28,16 @@ struct RecipieIngredientEdit: View {
                 } label: {
                     Text("Ingredient").badge(value.ingredient.name)
                 }
-                UnitPicker(
-                    label: "Unit",
-                    selected: $value.unit,
-                    units: units
-                )
-                UnitInput(
-                    label: "Quantity",
-                    unit: $value.unit,
-                    value: $value.quantity
-                )
+//                UnitPicker(
+//                    label: "Unit",
+//                    selected: $value.unit,
+//                    units: units
+//                )
+//                UnitInput(
+//                    label: "Quantity",
+//                    unit: $value.unit,
+//                    value: $value.quantity
+//                )
             }
             if !edit {
                 Button {

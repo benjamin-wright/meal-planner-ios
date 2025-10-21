@@ -10,15 +10,25 @@ import SwiftData
 
 struct IngredientsView: View {
     @Environment(\.modelContext) private var context
+    
+    @State private var search: String = ""
 
     @Query(sort: \Ingredient.name) private var ingredients: [Ingredient]
     @Query(sort: \Category.order) private var categories: [Category]
+    
+    var filtered : [Ingredient] {
+        return ingredients.filter({
+            search.count == 0 ||
+            $0.name.lowercased().contains(search.lowercased()) ||
+            $0.category.name.lowercased().contains(search.lowercased())
+        })
+    }
     
     var body: some View {
         return VStack {
             List {
                 ForEach(categories) { category in
-                    let filtered = ingredients.filter({ $0.category.name == category.name })
+                    let filtered = filtered.filter({ $0.category.name == category.name })
                     if filtered.count > 0 {
                         Section(category.name) {
                             ForEach(filtered) { ingredient in
@@ -49,6 +59,7 @@ struct IngredientsView: View {
             .toolbar {
                 EditButton()
             }
+            .searchable(text: $search)
             .navigationDestination(for: Ingredient.self) { ingredient in
                 IngredientEdit(
                     ingredient: ingredient,
