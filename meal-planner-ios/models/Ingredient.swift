@@ -20,16 +20,24 @@ final class Ingredient {
         self.name = name
         self.category = category
     }
+}
+
+extension Ingredient {
+    static func descriptor(id: UUID) -> FetchDescriptor<Ingredient> {
+        FetchDescriptor(predicate: #Predicate { $0.id == id })
+    }
+    
+    /// Creates and returns a blank ingredient using the first available
+    /// category (sorted by order). Returns nil if no categories exist yet.
+    /// Does NOT insert into the context - caller must do that when confirmed.
+    static func makeNew(in context: ModelContext) -> Ingredient? {
+        guard let defaultCategory = try? context.fetch(Category.orderedDescriptor).first
+        else { return nil }
+        let ingredient = Ingredient(name: "", category: defaultCategory)
+        return ingredient
+    }
     
     func isValid() -> Bool {
-        if self.name.isEmpty {
-            return false
-        }
-        
-        if self.name.count < 3 {
-            return false
-        }
-        
-        return true
+        !name.isEmpty && name.count >= 3
     }
 }

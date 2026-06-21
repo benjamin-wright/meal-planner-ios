@@ -2,14 +2,14 @@
 //  TabbedStack.swift
 //  meal-planner-ios
 //
-//  Created by Benjamin Wright on 20/09/2025.
+//  Created by Benjamin Wright on 06/06/2026.
 //
 
 import SwiftUI
 
 struct TabPage {
     var title: String
-    var content: AnyView
+    var content: () -> AnyView
 }
 
 struct TabbedStack: View {
@@ -22,23 +22,21 @@ struct TabbedStack: View {
     
     var body: some View {
         VStack {
-            HStack {
-                ForEach(pages, id: \.self.title) { page in
-                    Button() {
-                        selectedPage = pages.firstIndex(where: { $0.title == page.title }) ?? 0
-                    } label: {
-                        Text(page.title)
-                    }.frame(maxWidth: .infinity).foregroundStyle(page.title == pages[selectedPage].title ? .primary : .secondary)
+            Picker("Type", selection: $selectedPage) {
+                ForEach(0..<pages.count, id: \.self) {
+                    Text(self.pages[$0].title)
                 }
-            }.frame(maxWidth: .infinity).padding(.top, 16)
-            pages[selectedPage].content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity).padding(.top, 16)
+            .pickerStyle(.segmented)
+            pages[selectedPage].content().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
 
 #Preview {
     TabbedStack(pages: [
-        TabPage(title: "First", content: AnyView(Text("First"))),
-        TabPage(title: "Second", content: AnyView(Text("Second"))),
+        TabPage(title: "First", content: { AnyView(Text("First Content")) }),
+        TabPage(title: "Second", content: { AnyView(Text("Second Content")) }),
     ])
 }

@@ -80,7 +80,6 @@ struct MeasureEdit: View {
                     }
 
                     AddButton {
-                        print("hi")
                         unit.magnitudes.append(
                             Magnitude(singular: "", plural: "", multiplier: 1)
                         )

@@ -8,17 +8,6 @@
 import SwiftUI
 import SwiftData
 
-extension CategoriesView {
-    @Observable
-    class ObservableCategory {
-        var category: Category
-        
-        init(_ category: Category) {
-            self.category = category
-        }
-    }
-}
-
 struct CategoriesView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
@@ -28,8 +17,7 @@ struct CategoriesView: View {
     var body: some View {
         return List {
             ForEach(categories) { category in
-                let obs = ObservableCategory(category)
-                NavigationLink(obs.category.name, value: obs.category)
+                NavigationLink(category.name, value: category)
                     .onChange(of: categories) {}
             }.onDelete { offsets in
                 var updated = categories
@@ -45,8 +33,8 @@ struct CategoriesView: View {
                 }
             }.onMove { from, to in
                 var updated = categories
-                
                 updated.move(fromOffsets: from, toOffset: to)
+                
                 for (index, category) in updated.enumerated() {
                     category.order = index
                 }
@@ -85,7 +73,9 @@ struct CategoriesView: View {
 }
 
 #Preview {
+    let container = Models.testing.modelContainer
+    
     NavigationStack {
-        CategoriesView().modelContainer(Models.testing.modelContainer)
+        CategoriesView().modelContainer(container)
     }
 }

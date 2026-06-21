@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Category {
+final class Category: Identifiable {
     @Attribute(.unique)
     var id: UUID
     var name: String
@@ -34,5 +34,15 @@ final class Category {
         }
         
         return true
+    }
+}
+
+extension Category {
+    static var orderedDescriptor: FetchDescriptor<Category> {
+        FetchDescriptor(sortBy: [SortDescriptor(\.order)])
+    }
+
+    static func descriptor(id: UUID) -> FetchDescriptor<Category> {
+        FetchDescriptor(predicate: #Predicate { $0.id == id })
     }
 }

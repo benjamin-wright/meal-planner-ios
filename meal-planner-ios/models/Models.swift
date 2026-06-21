@@ -163,3 +163,13 @@ class Models {
         try? context.save()
     }
 }
+
+extension ModelContext {
+    /// Creates a child context for editing: changes are held in memory
+    /// until explicitly saved, and won't bleed into the main context on cancel.
+    func editContext() -> ModelContext {
+        let ctx = ModelContext(container)
+        ctx.autosaveEnabled = false
+        return ctx
+    }
+}

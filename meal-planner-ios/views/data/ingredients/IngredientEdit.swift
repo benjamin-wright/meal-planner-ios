@@ -10,15 +10,20 @@ import SwiftData
 
 struct IngredientEdit: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var context
     
-    @State var edit: Bool = false
-    @State var ingredient: Ingredient
-    @State var ingredients: [Ingredient]
-    @State var categories: [Category]
-    var action: () -> Void
+    private var edit: Bool
+    @Query(sort: \Ingredient.category.order) private var ingredients: [Ingredient]
+    @Query(sort: \Category.order) private var categories: [Category]
+    @Bindable var ingredient: Ingredient
+    
+    init(_ ingredient: Ingredient, edit: Bool) {
+        self.ingredient = ingredient
+        self.edit = edit
+    }
     
     private func isInvalid() -> Bool {
-        if !ingredient.isValid() {
+        if !self.ingredient.isValid() {
             return true
         }
         
@@ -46,7 +51,10 @@ struct IngredientEdit: View {
                 }
             }
             Button {
-                action()
+                if !edit {
+                    context.insert(ingredient)
+                }
+                try! context.save()
                 dismiss()
             } label: {
                 Text(edit ? "Save" : "Add")
@@ -57,24 +65,9 @@ struct IngredientEdit: View {
 }
 
 #Preview {
-    let cat1 = Category(name: "thing1", order: 1)
-    let cat2 = Category(name: "thing2", order: 2)
-    let ingredient = Ingredient(name: "start", category: cat1)
-    NavigationStack {
-        IngredientEdit(
-            edit: true,
-            ingredient: ingredient,
-            ingredients: [
-                Ingredient(name: "test", category: cat2),
-                ingredient
-            ],
-            categories: [
-                cat1,
-                cat2
-            ],
-            action: {
-                print(ingredient.name)
-            }
-        )
-    }
+    let container = Models.testing.modelContainer
+    let ingredient = Ingredient.makeNew(in: container.mainContext)!
+    return NavigationStack {
+        IngredientEdit(ingredient, edit: false)
+    }.modelContainer(container)
 }

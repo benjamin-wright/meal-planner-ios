@@ -9,6 +9,11 @@ import SwiftUI
 import SwiftData
 
 struct IngredientsView: View {
+    enum Route: Hashable {
+        case new
+        case id(_ id: UUID)
+    }
+    
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
@@ -35,7 +40,7 @@ struct IngredientsView: View {
                     filterCategory == ""
                     || $0.category.name == filterCategory
                 })) { ingredient in
-                    NavigationLink(ingredient.name, value: ingredient)
+                    NavigationLink(ingredient.name, value: Route.id(ingredient.id))
                         .onChange(of: ingredients) {}
                 }.onDelete { offsets in
                     for (index, ingredient) in ingredients.enumerated() {
@@ -43,13 +48,12 @@ struct IngredientsView: View {
                             context.delete(ingredient)
                         }
                     }
+                    
+                    try! context.save()
                 }
                 Section {
                     NavigationLink(
-                        value: Ingredient(
-                            name: "",
-                            category: categories[0]
-                        ), label: {
+                        value: Route.new, label: {
                             Text("Add").foregroundColor(.accent)
                         }
                     )
@@ -66,19 +70,21 @@ struct IngredientsView: View {
                 }
                 EditButton()
             }
-            .navigationDestination(for: Ingredient.self) { ingredient in
-                IngredientEdit(
-                    ingredient: ingredient,
-                    ingredients: ingredients,
-                    categories: categories,
-                    action: {
-                        if !ingredients.contains(where: { $0.id == ingredient.id }) {
-                            context.insert(ingredient)
-                        }
-                        try! context.save()
+            .navigationDestination(for: Route.self) { route in
+                let editContext = context.editContext()
+                switch route {
+                case .id(let id):
+                    if let existing = try? editContext.fetch(Ingredient.descriptor(id: id)).first {
+                        IngredientEdit(existing, edit: true).modelContext(editContext)
+                    } else {
+                        EmptyView()
                     }
-                ).onDisappear() {
-                    context.rollback()
+                case .new:
+                    if let newIngredient = Ingredient.makeNew(in: editContext) {
+                        IngredientEdit(newIngredient, edit: false).modelContext(editContext)
+                    } else {
+                        EmptyView()
+                    }
                 }
             }
             .navigationTitle("Ingredients")

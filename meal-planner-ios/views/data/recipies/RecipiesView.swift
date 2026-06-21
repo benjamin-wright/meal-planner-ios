@@ -13,15 +13,15 @@ struct RecipiesView: View {
         TabbedStack(pages: [
             TabPage(
                 title: "Dinner",
-                content: AnyView(RecipiesFilteredView(type: .dinner))
+                content: {AnyView(RecipiesFilteredView(type: .dinner))}
             ),
             TabPage(
                 title: "Lunch",
-                content: AnyView(RecipiesFilteredView(type: .lunch))
+                content: {AnyView(RecipiesFilteredView(type: .lunch))}
             ),
             TabPage(
                 title: "Breakfast",
-                content: AnyView(RecipiesFilteredView(type: .breakfast))
+                content: {AnyView(RecipiesFilteredView(type: .breakfast))}
             ),
         ])
         .navigationTitle("Recipies")
