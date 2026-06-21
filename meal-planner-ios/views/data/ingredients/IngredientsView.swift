@@ -10,8 +10,7 @@ import SwiftData
 
 struct IngredientsView: View {
     enum Route: Hashable {
-        case new
-        case id(_ id: UUID)
+        case id(_ id: UUID?)
     }
     
     @Environment(\.modelContext) private var context
@@ -41,7 +40,6 @@ struct IngredientsView: View {
                     || $0.category.name == filterCategory
                 })) { ingredient in
                     NavigationLink(ingredient.name, value: Route.id(ingredient.id))
-                        .onChange(of: ingredients) {}
                 }.onDelete { offsets in
                     for (index, ingredient) in ingredients.enumerated() {
                         if offsets.contains(index) {
@@ -53,7 +51,7 @@ struct IngredientsView: View {
                 }
                 Section {
                     NavigationLink(
-                        value: Route.new, label: {
+                        value: Route.id(nil), label: {
                             Text("Add").foregroundColor(.accent)
                         }
                     )
@@ -74,17 +72,7 @@ struct IngredientsView: View {
                 let editContext = context.editContext()
                 switch route {
                 case .id(let id):
-                    if let existing = try? editContext.fetch(Ingredient.descriptor(id: id)).first {
-                        IngredientEdit(existing, edit: true).modelContext(editContext)
-                    } else {
-                        EmptyView()
-                    }
-                case .new:
-                    if let newIngredient = Ingredient.makeNew(in: editContext) {
-                        IngredientEdit(newIngredient, edit: false).modelContext(editContext)
-                    } else {
-                        EmptyView()
-                    }
+                    IngredientEdit(id: id).modelContext(editContext)
                 }
             }
             .navigationTitle("Ingredients")

@@ -9,16 +9,19 @@ import SwiftUI
 import SwiftData
 
 struct CategoriesView: View {
+    enum Route: Hashable {
+        case id(_ id: UUID?)
+    }
+
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
-    
+
     @Query(sort: \Category.order) private var categories: [Category]
-    
+
     var body: some View {
         return List {
             ForEach(categories) { category in
-                NavigationLink(category.name, value: category)
-                    .onChange(of: categories) {}
+                NavigationLink(category.name, value: Route.id(category.id))
             }.onDelete { offsets in
                 var updated = categories
                 for (index, category) in categories.enumerated() {
@@ -27,21 +30,25 @@ struct CategoriesView: View {
                         updated.remove(at: index)
                     }
                 }
-                
+
                 for (index, _) in updated.enumerated() {
                     updated[index].order = index
                 }
+
+                try! context.save()
             }.onMove { from, to in
                 var updated = categories
                 updated.move(fromOffsets: from, toOffset: to)
-                
+
                 for (index, category) in updated.enumerated() {
                     category.order = index
                 }
+
+                try! context.save()
             }
             Section {
                 NavigationLink(
-                    value: Category(name: "", order: categories.count),
+                    value: Route.id(nil),
                     label: {
                         Text("Add")
                             .foregroundColor(.accent)
@@ -52,20 +59,10 @@ struct CategoriesView: View {
         .toolbar {
             EditButton()
         }
-        .navigationDestination(for: Category.self) { item in
-            let edit = categories.contains(where: { $0.id == item.id })
-            CategoryEdit(
-                edit: edit,
-                category: item,
-                existing: categories,
-                action: {
-                    if !edit {
-                        context.insert(item)
-                    }
-                    try! context.save()
-                }
-            ).onDisappear {
-                context.rollback()
+        .navigationDestination(for: Route.self) { route in
+            switch route {
+            case .id(let id):
+                CategoryEdit(id: id).modelContext(context.editContext())
             }
         }
         .navigationTitle("Categories")
@@ -74,7 +71,7 @@ struct CategoriesView: View {
 
 #Preview {
     let container = Models.testing.modelContainer
-    
+
     NavigationStack {
         CategoriesView().modelContainer(container)
     }

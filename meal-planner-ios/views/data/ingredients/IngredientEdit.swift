@@ -12,62 +12,69 @@ struct IngredientEdit: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var context
     
-    private var edit: Bool
+    private let id: UUID?
+    private var edit: Bool { id != nil }
+    
+    @State private var ingredient: Ingredient?
     @Query(sort: \Ingredient.category.order) private var ingredients: [Ingredient]
     @Query(sort: \Category.order) private var categories: [Category]
-    @Bindable var ingredient: Ingredient
     
-    init(_ ingredient: Ingredient, edit: Bool) {
-        self.ingredient = ingredient
-        self.edit = edit
+    init(id: UUID?) {
+        self.id = id
     }
     
-    private func isInvalid() -> Bool {
-        if !self.ingredient.isValid() {
+    private func isInvalid(_ ingredient: Ingredient) -> Bool {
+        if !ingredient.isValid() {
             return true
         }
-        
-        if ingredients
-            .contains(where: { $0.id != ingredient.id && $0.name == ingredient.name }) {
+        if ingredients.contains(where: { $0.id != ingredient.id && $0.name == ingredient.name }) {
             return true
         }
-        
         return false
     }
     
     var body: some View {
-        Form {
-            Section {
-                TextInput(text: $ingredient.name, label: "Name", placeholder: "category")
-                HStack {
-                    Picker("Category", selection: $ingredient.category) {
-                        ForEach(categories) { category in
-                            Text(category.name).tag(category)
+        if let ingredient {
+            @Bindable var ingredient = ingredient
+            Form {
+                Section {
+                    TextInput(text: $ingredient.name, label: "Name", placeholder: "category")
+                    NavigationLink(
+                        value: ingredient.category,
+                        label: {
+                            Text("Category:").badge(ingredient.category.name)
                         }
-                        NavigationLink("New") {
-                            Text("New")
-                        }
-                    }.frame(maxWidth: .infinity)
+                    )
                 }
+                Button {
+                    if !edit {
+                        context.insert(ingredient)
+                    }
+                    try! context.save()
+                    dismiss()
+                } label: {
+                    Text(edit ? "Save" : "Add")
+                }.disabled(isInvalid(ingredient))
             }
-            Button {
-                if !edit {
-                    context.insert(ingredient)
+            .navigationDestination(for: Category.self) { _ in
+                CategoryPicker(categories: categories, selected: $ingredient.category)
+            }
+            .navigationTitle("Ingredient")
+        } else {
+            ProgressView()
+                .task {
+                    if let id {
+                        ingredient = try? context.fetch(Ingredient.descriptor(id: id)).first
+                    } else {
+                        ingredient = Ingredient.makeNew(in: context)
+                    }
                 }
-                try! context.save()
-                dismiss()
-            } label: {
-                Text(edit ? "Save" : "Add")
-            }.disabled(isInvalid())
         }
-        .navigationTitle("Ingredient")
     }
 }
 
 #Preview {
-    let container = Models.testing.modelContainer
-    let ingredient = Ingredient.makeNew(in: container.mainContext)!
-    return NavigationStack {
-        IngredientEdit(ingredient, edit: false)
-    }.modelContainer(container)
+    NavigationStack {
+        IngredientEdit(id: nil)
+    }.modelContainer(Models.testing.modelContainer)
 }
