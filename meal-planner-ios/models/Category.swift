@@ -14,14 +14,14 @@ final class Category: Identifiable {
     var id: UUID
     var name: String
     var order: Int
-    @Relationship(deleteRule: .cascade, inverse: \Ingredient.category)
-    var ingredients: [Ingredient]
+    @Relationship(deleteRule: .cascade, inverse: \Item.category)
+    var items: [Item]
     
-    init(id: UUID = UUID(), name: String, order: Int, ingredients: [Ingredient] = []) {
+    init(id: UUID = UUID(), name: String, order: Int, items: [Item] = []) {
         self.id = id
         self.name = name
         self.order = order
-        self.ingredients = ingredients
+        self.items = items
     }
     
     func isValid() -> Bool {

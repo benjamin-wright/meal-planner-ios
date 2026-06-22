@@ -13,20 +13,20 @@ struct RecipieIngredientEdit: View {
     
     @State var edit: Bool
     @State var value: RecipieIngredient
-    @State var ingredients: [Ingredient]
-    @State var units: [Measure]
+    @State var items: [Item]
+    @State var units: [Unit]
     var action: () -> Void
     
     var body: some View {
         Form {
             Section {
                 NavigationLink {
-                    IngredientPicker(
-                        ingredients: ingredients,
-                        selected: $value.ingredient
+                    ItemPicker(
+                        items: items,
+                        selected: $value.item
                     )
                 } label: {
-                    Text("Ingredient").badge(value.ingredient.name)
+                    Text("Item").badge(value.item.name)
                 }
                 UnitPicker(
                     label: "Unit",
@@ -53,8 +53,8 @@ struct RecipieIngredientEdit: View {
 
 #Preview {
     struct Preview: View {
-        @Query var ingredients: [Ingredient]
-        @Query var units: [Measure]
+        @Query var items: [Item]
+        @Query var units: [Unit]
         @Query var recipies: [Recipie]
         
         var body: some View {
@@ -62,7 +62,7 @@ struct RecipieIngredientEdit: View {
                 RecipieIngredientEdit(
                     edit: false,
                     value: recipies[0].ingredients[0],
-                    ingredients: ingredients,
+                    items: items,
                     units: units
                 ) {
                     print("hi")

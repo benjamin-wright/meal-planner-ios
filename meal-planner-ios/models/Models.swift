@@ -30,10 +30,10 @@ class Models {
     static func reset(_ context: ModelContext) {
         do {
             try Models.clear(Recipie.self, context)
-            try Models.clear(Ingredient.self, context)
+            try Models.clear(Item.self, context)
             try Models.clear(Category.self, context)
             try Models.clear(AppSettings.self, context)
-            try Models.clear(Measure.self, context)
+            try Models.clear(Unit.self, context)
             
             Models.initialiseData(context)
             try context.save()
@@ -45,9 +45,9 @@ class Models {
     private init(testing: Bool = false) {
         let schema = Schema([
             Category.self,
-            Measure.self,
+            Unit.self,
             AppSettings.self,
-            Ingredient.self,
+            Item.self,
             Recipie.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
@@ -65,8 +65,8 @@ class Models {
     }
 
     private static func initialiseData(_ context: ModelContext) {
-        let countUnit = Measure(name: "count", type: .count, magnitudes: [])
-        let loavesUnit = Measure(name: "loaves", type: .count, magnitudes: [
+        let countUnit = Unit(name: "count", type: .count, magnitudes: [])
+        let loavesUnit = Unit(name: "loaves", type: .count, magnitudes: [
             Magnitude(
                 singular: "slice",
                 plural: "slices",
@@ -78,7 +78,7 @@ class Models {
                 multiplier: 1
             )
         ])
-        let gramsUnit = Measure(
+        let gramsUnit = Unit(
             name: "grams",
             type: .weight,
             base: 1,
@@ -87,7 +87,7 @@ class Models {
                 Magnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
             ]
         )
-        let litresUnit = Measure(
+        let litresUnit = Unit(
             name: "litres",
             type: .volume,
             base: 1,
@@ -119,10 +119,10 @@ class Models {
         
         try? context.save()
         
-        let carrots = Ingredient(name: "carrots", category: vegetableCategory)
-        let onions = Ingredient(name: "onions", category: vegetableCategory)
-        let apples = Ingredient(name: "apples", category: fruitCategory)
-        let milk = Ingredient(name: "milk", category: dairyCategory)
+        let carrots = Item(name: "carrots", category: vegetableCategory, kind: .ingredient)
+        let onions = Item(name: "onions", category: vegetableCategory, kind: .ingredient)
+        let apples = Item(name: "apples", category: fruitCategory, kind: .ingredient)
+        let milk = Item(name: "milk", category: dairyCategory, kind: .ingredient)
         
         context.insert(carrots)
         context.insert(onions)
@@ -137,22 +137,22 @@ class Models {
             summary: "A tasty soup",
             ingredients: [
                 RecipieIngredient(
-                    ingredient: carrots,
+                    item: carrots,
                     unit: countUnit,
                     quantity: 1
                 ),
                 RecipieIngredient(
-                    ingredient: onions,
+                    item: onions,
                     unit: gramsUnit,
                     quantity: 80
                 ),
                 RecipieIngredient(
-                    ingredient: apples,
+                    item: apples,
                     unit: loavesUnit,
                     quantity: 2
                 ),
                 RecipieIngredient(
-                    ingredient: milk,
+                    item: milk,
                     unit: litresUnit,
                     quantity: 1
                 )

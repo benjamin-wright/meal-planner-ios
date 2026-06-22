@@ -10,7 +10,7 @@ import SwiftData
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
-    @Query private var units: [Measure]
+    @Query private var units: [Unit]
     @Query private var settings: [AppSettings]
     
     @State private var resetting = false

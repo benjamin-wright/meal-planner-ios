@@ -9,12 +9,12 @@ import SwiftUI
 
 struct UnitInput: View {
     @State var label: String
-    @Binding var unit: Measure
+    @Binding var unit: Unit
     @Binding var value: Double
     @State var adjusted: Double
     @State var magnitude: Magnitude?
     
-    init(label: String, unit: Binding<Measure>, value: Binding<Double>, ) {
+    init(label: String, unit: Binding<Unit>, value: Binding<Double>, ) {
         self.label = label
         self._unit = unit
         self._value = value
@@ -34,7 +34,7 @@ struct UnitInput: View {
                     ForEach(unit.magnitudes) { magnitude in
                         Text(magnitude.plural).tag(magnitude)
                     }
-                }   
+                }
             }
         }.onChange(of: magnitude) {
             adjusted = value / (self.magnitude?.multiplier ?? 1)
@@ -47,7 +47,7 @@ struct UnitInput: View {
 }
 
 #Preview {
-    let unit = Measure(
+    let unit = Unit(
         name: "litres",
         type: .volume,
         magnitudes: [
@@ -58,7 +58,7 @@ struct UnitInput: View {
     
     struct Preview: View {
         @State var value: Double = 0.5
-        @State var unit: Measure
+        @State var unit: Unit
         @State var magnitude: Magnitude?
         
         var body: some View {

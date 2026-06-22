@@ -9,33 +9,33 @@ import SwiftUI
 import SwiftData
 
 struct CategoryPicker: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
 
-    @State var categories: [Category]
-    @Binding var selected: Category
-    @State var search: String = ""
+    @Query(sort: \Category.order) private var categories: [Category]
+    @Binding var selected: UUID
+
+    @State private var search = ""
     @State private var isAddingCategory = false
+
+    var filteredCategories: [Category] {
+        categories.filter {
+            search.isEmpty || $0.name.contains(search)
+        }
+    }
 
     var body: some View {
         List {
             Picker("category", selection: $selected) {
-                ForEach(categories.filter {
-                    search.count == 0 ||
-                    $0.name.contains(search)
-                }) { category in
-                    Text(category.name).tag(category)
+                ForEach(filteredCategories) { category in
+                    Text(category.name).tag(category.id)
                 }
-            }.pickerStyle(.inline)
-                .labelsHidden()
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
         }
         .searchable(text: $search)
-        .onChange(of: search) {
-            let lowercase = search.lowercased()
-            if lowercase != search {
-                search = lowercase
-            }
-        }.onChange(of: selected) {
+        .onChange(of: selected) {
             dismiss()
         }
         .toolbar {
@@ -44,7 +44,7 @@ struct CategoryPicker: View {
             }
         }
         .navigationDestination(isPresented: $isAddingCategory) {
-            CategoryEdit(id: nil).modelContext(context.editContext())
+            CategoryEdit()
         }
         .navigationTitle("Category")
     }
@@ -52,17 +52,15 @@ struct CategoryPicker: View {
 
 #Preview {
     struct Preview: View {
-        @Query(sort: \Category.order) private var categories: [Category]
-        @State private var selected: Category
+        @State private var selected: UUID
         
         init() {
-            self._selected = State(initialValue: Category(name: "Preview", order: 0))
+            self._selected = State(initialValue: UUID())
         }
         
         var body: some View {
             NavigationStack {
                 CategoryPicker(
-                    categories: categories,
                     selected: $selected
                 )
             }

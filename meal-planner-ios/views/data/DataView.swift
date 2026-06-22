@@ -11,7 +11,7 @@ import SwiftData
 
 extension DataView {
     enum ViewDestination: Hashable, CaseIterable {
-        case units, categories, ingredients, recipies
+        case units, categories, items, recipies
     }
 }
 
@@ -21,7 +21,7 @@ struct DataView: View {
             List {
                 NavigationLink("Units", value: ViewDestination.units)
                 NavigationLink("Categories", value: ViewDestination.categories)
-                NavigationLink("Ingredients", value: ViewDestination.ingredients)
+                NavigationLink("Items", value: ViewDestination.items)
                 NavigationLink("Recipies", value: ViewDestination.recipies)
             }.navigationTitle("Data")
             .navigationDestination(for: ViewDestination.self) { view in
@@ -30,8 +30,8 @@ struct DataView: View {
                     UnitsView()
                 case .categories:
                     CategoriesView()
-                case .ingredients:
-                    IngredientsView()
+                case .items:
+                    ItemsView()
                 case .recipies:
                     RecipiesView()
                 }

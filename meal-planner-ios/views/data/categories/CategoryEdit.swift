@@ -18,7 +18,7 @@ struct CategoryEdit: View {
     @State private var category: Category?
     @Query(sort: \Category.order) private var categories: [Category]
 
-    init(id: UUID?) {
+    init(id: UUID? = nil) {
         self.id = id
     }
 

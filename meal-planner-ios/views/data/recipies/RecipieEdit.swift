@@ -14,8 +14,8 @@ struct RecipieEdit: View {
     @State var edit: Bool
     @State var recipie: Recipie
     @State var existing: [Recipie]
-    @State var units: [Measure]
-    @State var ingredients: [Ingredient]
+    @State var units: [Unit]
+    @State var items: [Item]
     @State var newIngredient: Bool = false
 
     var action: () -> Void
@@ -25,14 +25,14 @@ struct RecipieEdit: View {
         edit: Bool = false,
         recipie: Recipie,
         existing: [Recipie],
-        units: [Measure],
-        ingredients: [Ingredient],
+        units: [Unit],
+        items: [Item],
         action: @escaping () -> Void
     ) {
         self.recipie = recipie
         self.existing = existing
         self.units = units
-        self.ingredients = ingredients
+        self.items = items
         self.action = action
         self.edit = edit
     }
@@ -55,7 +55,7 @@ struct RecipieEdit: View {
                         NavigationLink(
                             value: ingredient,
                             label: {
-                                Text("\(ingredient.ingredient.name): \(ingredient.unit.toString(forValue: ingredient.quantity))")
+                                Text("\(ingredient.item.name): \(ingredient.unit.toString(forValue: ingredient.quantity))")
                             }
                         )
                     }.onDelete { offsets in
@@ -63,7 +63,7 @@ struct RecipieEdit: View {
                     }
                     NavigationLink(
                         value: RecipieIngredient(
-                            ingredient: ingredients[0],
+                            item: items[0],
                             unit: units[0],
                             quantity: 1
                         ),
@@ -96,7 +96,7 @@ struct RecipieEdit: View {
             RecipieIngredientEdit(
                 edit: recipie.ingredients.contains(where: {$0.id == item.id }),
                 value: item,
-                ingredients: ingredients,
+                items: items,
                 units: units
             ) {
                 if !recipie.ingredients.contains(where: {$0.id == item.id}) {
@@ -109,8 +109,8 @@ struct RecipieEdit: View {
 
 #Preview {
     struct Preview: View {
-        @Query private var ingredients: [Ingredient]
-        @Query private var units: [Measure]
+        @Query private var items: [Item]
+        @Query private var units: [Unit]
         @Query private var recipies: [Recipie]
         
         var body: some View {
@@ -119,7 +119,7 @@ struct RecipieEdit: View {
                     recipie: recipies[0],
                     existing: [],
                     units: units,
-                    ingredients: ingredients,
+                    items: items,
                     action: {
                         print(recipies[0].name)
                     }

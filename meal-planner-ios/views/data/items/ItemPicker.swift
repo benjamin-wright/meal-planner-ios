@@ -1,5 +1,5 @@
 //
-//  IngredientPicker.swift
+//  ItemPicker.swift
 //  meal-planner-ios
 //
 //  Created by Benjamin Wright on 07/10/2025.
@@ -8,22 +8,22 @@
 import SwiftUI
 import SwiftData
 
-struct IngredientPicker: View {
+struct ItemPicker: View {
     @Environment(\.dismiss) var dismiss
     
-    @State var ingredients: [Ingredient]
-    @Binding var selected: Ingredient
+    @State var items: [Item]
+    @Binding var selected: Item
     @State var search: String = ""
     
     var body: some View {
         List {
-            Picker("ingredient", selection: $selected) {
-                ForEach(ingredients.filter {
+            Picker("item", selection: $selected) {
+                ForEach(items.filter {
                     search.count == 0 ||
                     $0.name.contains(search) ||
                     $0.category.name.contains(search)
-                }) { ingredient in
-                    Text(ingredient.name).tag(ingredient)
+                }) { item in
+                    Text(item.name).tag(item)
                 }
             }.pickerStyle(.inline)
                 .labelsHidden()
@@ -37,23 +37,23 @@ struct IngredientPicker: View {
         }.onChange(of: selected) {
             dismiss()
         }
-        .navigationTitle("Ingredient")
+        .navigationTitle("Item")
     }
 }
 
 #Preview {
     struct Preview: View {
-        @Query() private var ingredients: [Ingredient]
-        @State private var selected: Ingredient
+        @Query() private var items: [Item]
+        @State private var selected: Item
         
         init() {
-            self._selected = State(initialValue: Ingredient(category: Category(name: "testing", order: 10)))
+            self._selected = State(initialValue: Item(category: Category(name: "testing", order: 10), kind: .ingredient))
         }
         
         var body: some View {
             NavigationStack {
-                IngredientPicker(
-                    ingredients: ingredients,
+                ItemPicker(
+                    items: items,
                     selected: $selected
                 )
             }

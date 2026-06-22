@@ -1,5 +1,5 @@
 //
-//  WeightUnit.swift
+//  Unit.swift
 //  meal-planner-ios
 //
 //  Created by Benjamin Wright on 28/09/2025.
@@ -48,7 +48,7 @@ struct Magnitude: Codable, Identifiable, Hashable {
 }
 
 @Model
-final class Measure {
+final class Unit {
     @Attribute(.unique)
     var id: UUID
     var name: String

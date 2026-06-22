@@ -15,12 +15,17 @@ struct CategoriesView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
+    
+    @State var search: String = ""
 
     @Query(sort: \Category.order) private var categories: [Category]
 
     var body: some View {
         return List {
-            ForEach(categories) { category in
+            ForEach(categories.filter {
+                search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
+            
+            }) { category in
                 NavigationLink(category.name, value: Route.id(category.id))
             }.onDelete { offsets in
                 var updated = categories
@@ -59,6 +64,7 @@ struct CategoriesView: View {
         .toolbar {
             EditButton()
         }
+        .searchable(text: $search)
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .id(let id):

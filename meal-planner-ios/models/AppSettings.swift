@@ -10,10 +10,10 @@ import SwiftData
 
 @Model
 final class AppSettings {
-    var preferredVolume: Measure
-    var preferredWeight: Measure
+    var preferredVolume: Unit
+    var preferredWeight: Unit
     
-    init(preferredVolume: Measure, preferredWeight: Measure) {
+    init(preferredVolume: Unit, preferredWeight: Unit) {
         self.preferredVolume = preferredVolume
         self.preferredWeight = preferredWeight
     }

@@ -10,8 +10,8 @@ import SwiftData
 
 struct UnitPicker: View {
     @State var label: String
-    @Binding var selected: Measure
-    @State var units: [Measure]
+    @Binding var selected: Unit
+    @State var units: [Unit]
     @State var search: String = ""
     
     var body: some View {
@@ -24,8 +24,8 @@ struct UnitPicker: View {
 }
 
 struct Preview: View {
-    @Query private var units: [Measure]
-    @State var selected: Measure
+    @Query private var units: [Unit]
+    @State var selected: Unit
     
     var body: some View {
         Form {
@@ -41,5 +41,5 @@ struct Preview: View {
 
 #Preview {
     let container = Models.testing.modelContainer
-    Preview(selected: Measure(name: "Preview", type: .weight, magnitudes: [Magnitude(singular: "unit", plural: "units", multiplier: 1)])).modelContainer(container)
+    Preview(selected: Unit(name: "Preview", type: .weight, magnitudes: [Magnitude(singular: "unit", plural: "units", multiplier: 1)])).modelContainer(container)
 }

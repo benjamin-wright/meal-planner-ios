@@ -8,11 +8,11 @@
 import SwiftUI
 import SwiftData
 
-struct MeasuresView: View {
+struct UnitsSubsetView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
-    @Query private var units: [Measure]
+    @Query private var units: [Unit]
     @State var unitType: UnitType
     
     init(type: UnitType) {
@@ -34,7 +34,7 @@ struct MeasuresView: View {
                 }
             }
             Section {
-                NavigationLink(value: Measure(
+                NavigationLink(value: Unit(
                     name: "",
                     type: unitType,
                     base: 1,
@@ -47,8 +47,8 @@ struct MeasuresView: View {
         .toolbar {
             EditButton()
         }
-        .navigationDestination(for: Measure.self) { unit in
-            MeasureEdit(
+        .navigationDestination(for: Unit.self) { unit in
+            UnitEdit(
                 unit: unit,
                 existing: units,
                 action: {
@@ -66,7 +66,7 @@ struct MeasuresView: View {
 
 #Preview {
     NavigationStack {
-        MeasuresView(
+        UnitsSubsetView(
             type: .weight
         ).modelContainer(Models.testing.modelContainer)
     }

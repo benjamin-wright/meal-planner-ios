@@ -12,13 +12,13 @@ import SwiftData
 final class RecipieIngredient {
     @Attribute(.unique)
     var id: UUID = UUID()
-    var ingredient: Ingredient
-    var unit: Measure
+    var item: Item
+    var unit: Unit
     var quantity: Double
     
-    init(id: UUID = UUID(), ingredient: Ingredient, unit: Measure, quantity: Double) {
+    init(id: UUID = UUID(), item: Item, unit: Unit, quantity: Double) {
         self.id = id
-        self.ingredient = ingredient
+        self.item = item
         self.unit = unit
         self.quantity = quantity
     }

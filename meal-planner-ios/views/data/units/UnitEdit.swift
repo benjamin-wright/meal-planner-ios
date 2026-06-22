@@ -1,5 +1,5 @@
 //
-//  ContinuousUnitEdit.swift
+//  UnitEdit.swift
 //  meal-planner-ios
 //
 //  Created by Benjamin Wright on 29/09/2025.
@@ -7,16 +7,16 @@
 
 import SwiftUI
 
-struct MeasureEdit: View {
+struct UnitEdit: View {
     @Environment(\.dismiss) var dismiss
 
     @State var edit: Bool
-    @State var unit: Measure
-    @State var existing: [Measure]
+    @State var unit: Unit
+    @State var existing: [Unit]
     var action: () -> Void
     @State private var editMode: EditMode = .inactive
     
-    init(edit: Bool = false, unit: Measure, existing: [Measure], action: @escaping () -> Void) {
+    init(edit: Bool = false, unit: Unit, existing: [Unit], action: @escaping () -> Void) {
         self.unit = unit
         self.existing = existing
         self.action = action
@@ -104,7 +104,7 @@ struct MeasureEdit: View {
 
 #Preview {
     NavigationStack {
-        let unit = Measure(
+        let unit = Unit(
             name: "grams",
             type: .weight,
             base: 1,
@@ -123,7 +123,7 @@ struct MeasureEdit: View {
                 )
             ]
         )
-        MeasureEdit(
+        UnitEdit(
             unit: unit,
             existing: [unit],
             action: {
