@@ -9,15 +9,19 @@ import SwiftUI
 import SwiftData
 
 struct UnitPicker: View {
-    @State var label: String
-    @Binding var selected: Unit
-    @State var units: [Unit]
-    @State var search: String = ""
+    let label: String
+    @Binding var selectedID: UUID
+    @Query(sort: \Unit.name) private var units: [Unit]
+
+    init(label: String, selectedID: Binding<UUID>) {
+        self.label = label
+        self._selectedID = selectedID
+    }
     
     var body: some View {
-        Picker(label, selection: $selected) {
+        Picker(label, selection: $selectedID) {
             ForEach(units) { unit in
-                Text(unit.name).tag(unit)
+                Text(unit.name).tag(unit.id)
             }
         }
     }
@@ -25,21 +29,26 @@ struct UnitPicker: View {
 
 struct Preview: View {
     @Query private var units: [Unit]
-    @State var selected: Unit
+    @State private var selectedID: UUID?
     
     var body: some View {
-        Form {
-            UnitPicker(
-                label: "Unit",
-                selected: $selected,
-                units: units,
-                search: ""
-            )
+        if let selectedID {
+            Form {
+                UnitPicker(label: "Unit", selectedID: Binding(
+                    get: { selectedID },
+                    set: { self.selectedID = $0 }
+                ))
+            }
+        } else {
+            ProgressView()
+                .task {
+                    selectedID = units.first?.id
+                }
         }
     }
 }
 
 #Preview {
     let container = Models.testing.modelContainer
-    Preview(selected: Unit(name: "Preview", type: .weight, magnitudes: [Magnitude(singular: "unit", plural: "units", multiplier: 1)])).modelContainer(container)
+    Preview().modelContainer(container)
 }

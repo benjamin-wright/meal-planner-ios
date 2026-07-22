@@ -10,6 +10,7 @@ import SwiftData
 
 struct RecipieIngredientEdit: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var context
     
     @State var edit: Bool
     @State var value: RecipieIngredient
@@ -30,8 +31,15 @@ struct RecipieIngredientEdit: View {
                 }
                 UnitPicker(
                     label: "Unit",
-                    selected: $value.unit,
-                    units: units
+                    selectedID: Binding(
+                        get: { value.unit.id },
+                        set: { newUnitID in
+                            guard let unit = try? context.fetch(Unit.descriptor(id: newUnitID)).first else {
+                                return
+                            }
+                            value.unit = unit
+                        }
+                    )
                 )
                 UnitInput(
                     label: "Quantity",

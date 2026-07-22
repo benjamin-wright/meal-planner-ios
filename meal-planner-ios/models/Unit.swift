@@ -47,6 +47,37 @@ struct Magnitude: Codable, Identifiable, Hashable {
     }
 }
 
+struct UnitDraft {
+    var name: String
+    var type: UnitType
+    var base: Double
+    var magnitudes: [Magnitude]
+
+    init(type: UnitType) {
+        self.name = ""
+        self.type = type
+        self.base = 1
+        self.magnitudes = []
+    }
+
+    init(unit: Unit) {
+        self.name = unit.name
+        self.type = unit.unitType
+        self.base = unit.base
+        self.magnitudes = unit.magnitudes
+    }
+
+    func isValid() -> Bool {
+        guard name.count >= 3, base > 0, !magnitudes.isEmpty else {
+            return false
+        }
+
+        return magnitudes.allSatisfy {
+            $0.multiplier > 0 && !$0.singular.isEmpty && !$0.plural.isEmpty
+        }
+    }
+}
+
 @Model
 final class Unit {
     @Attribute(.unique)
@@ -107,5 +138,11 @@ final class Unit {
         }
         
         return bestMagnitude
+    }
+}
+
+extension Unit {
+    static func descriptor(id: UUID) -> FetchDescriptor<Unit> {
+        FetchDescriptor(predicate: #Predicate { $0.id == id })
     }
 }

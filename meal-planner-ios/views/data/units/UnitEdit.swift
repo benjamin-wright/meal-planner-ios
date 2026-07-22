@@ -6,59 +6,107 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct UnitEdit: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
 
-    @State var edit: Bool
-    @State var unit: Unit
-    @State var existing: [Unit]
-    var action: () -> Void
+    private let id: UUID?
+    private let type: UnitType
+    private let initialDraft: UnitDraft?
+    private var isEditing: Bool { id != nil }
+
+    @State private var draft: UnitDraft
+    @State private var isLoading = false
+    @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
     
-    init(edit: Bool = false, unit: Unit, existing: [Unit], action: @escaping () -> Void) {
-        self.unit = unit
-        self.existing = existing
-        self.action = action
-        self.edit = edit
+    init(id: UUID? = nil, type: UnitType, draft: UnitDraft? = nil) {
+        self.id = id
+        self.type = type
+        self.initialDraft = draft
+        self._draft = State(initialValue: draft ?? UnitDraft(type: type))
     }
     
-    func tableRow(magnitude: Binding<Magnitude>, type: UnitType, multiple: Bool) -> AnyView {
-        return AnyView(
-            HStack {
-                if type != .count {
-                    TextInput(text: magnitude.abbreviation, placeholder: "abbreviation", alignment: .center).frame(maxWidth: .infinity)
-                }
-                TextInput(text: magnitude.singular, placeholder: "singular", alignment: .center).frame(maxWidth: .infinity)
-                TextInput(text: magnitude.plural, placeholder: "plural", alignment: .center).frame(maxWidth: .infinity)
-                if multiple {
-                    NumberInput(number: magnitude.multiplier, placeholder: "multiplier", alignment: .center).frame(maxWidth: .infinity)
-                }
-            }.frame(maxWidth: .infinity)
-            .alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
-                return 0
-            }.alignmentGuide(.listRowSeparatorTrailing) { viewDimensions in
-                return viewDimensions.width
+    private func loadDraft() {
+        guard initialDraft == nil, let id else { return }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            guard let unit = try context.fetch(Unit.descriptor(id: id)).first else {
+                saveError = "This unit no longer exists."
+                return
             }
-        )
+            draft = UnitDraft(unit: unit)
+        } catch {
+            saveError = "Could not load this unit: \(error.localizedDescription)"
+        }
+    }
+
+    private func save() {
+        do {
+            let unit: Unit
+            if let id {
+                guard let existing = try context.fetch(Unit.descriptor(id: id)).first else {
+                    saveError = "This unit no longer exists."
+                    return
+                }
+                unit = existing
+            } else {
+                unit = Unit(name: draft.name, type: draft.type, base: draft.base, magnitudes: draft.magnitudes)
+                context.insert(unit)
+            }
+
+            unit.name = draft.name
+            unit.type = draft.type.rawValue
+            unit.base = draft.base
+            unit.magnitudes = draft.magnitudes
+            try context.save()
+            dismiss()
+        } catch {
+            saveError = "Could not save this unit: \(error.localizedDescription)"
+        }
+    }
+
+    private func tableRow(magnitude: Binding<Magnitude>, multiple: Bool) -> some View {
+        HStack {
+            if draft.type != .count {
+                TextInput(text: magnitude.abbreviation, placeholder: "abbreviation", alignment: .center).frame(maxWidth: .infinity)
+            }
+            TextInput(text: magnitude.singular, placeholder: "singular", alignment: .center).frame(maxWidth: .infinity)
+            TextInput(text: magnitude.plural, placeholder: "plural", alignment: .center).frame(maxWidth: .infinity)
+            if multiple {
+                NumberInput(number: magnitude.multiplier, placeholder: "multiplier", alignment: .center).frame(maxWidth: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .alignmentGuide(.listRowSeparatorTrailing) { viewDimensions in viewDimensions.width }
     }
     
     var body: some View {
-        Form {
+        Group {
+            if isLoading {
+                ProgressView()
+            } else {
+                Form {
             Section {
-                TextInput(text: $unit.name, label: "Name", placeholder: "unit name")
-                NumberInput(number: $unit.base, label: "Base", placeholder: "base")
+                TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
+                NumberInput(number: $draft.base, label: "Base", placeholder: "base")
             }
 
             Section {
                 List {
                     HStack {
-                        if unit.unitType != .count {
+                        if draft.type != .count {
                             Text("Abbr").frame(maxWidth: .infinity)
                         }
                         Text("Singular").frame(maxWidth: .infinity)
                         Text("Plural").frame(maxWidth: .infinity)
-                        if unit.magnitudes.count > 1 {
+                        if draft.magnitudes.count > 1 {
                             Text("Multiplier").frame(maxWidth: .infinity)
                         }
                     }.alignmentGuide(.listRowSeparatorLeading) { viewDimensions in
@@ -67,20 +115,20 @@ struct UnitEdit: View {
                         return viewDimensions.width
                     }
                     
-                    ForEach($unit.magnitudes) { magnitude in
+                    ForEach($draft.magnitudes) { magnitude in
                         Section {
-                            tableRow(magnitude: magnitude, type: unit.unitType, multiple: unit.magnitudes.count > 1)
+                            tableRow(magnitude: magnitude, multiple: draft.magnitudes.count > 1)
                         }
                     }.onDelete { index in
-                        unit.magnitudes.remove(atOffsets: index)
+                        draft.magnitudes.remove(atOffsets: index)
                         
-                        if unit.magnitudes.count == 1 {
-                            unit.magnitudes[0].multiplier = 1
+                        if draft.magnitudes.count == 1 {
+                            draft.magnitudes[0].multiplier = 1
                         }
                     }
 
                     AddButton {
-                        unit.magnitudes.append(
+                        draft.magnitudes.append(
                             Magnitude(singular: "", plural: "", multiplier: 1)
                         )
                     }
@@ -88,47 +136,35 @@ struct UnitEdit: View {
             }
             
             Button {
-                action()
-                dismiss()
+                save()
             } label: {
-                Text(edit ? "Save" : "Add")
-            }.disabled(editMode.isEditing || !unit.isValid())
+                Text(isEditing ? "Save" : "Add")
+            }.disabled(editMode.isEditing || !draft.isValid())
+                }
+            }
         }
         .toolbar {
             EditButton()
         }
         .environment(\.editMode, $editMode)
         .navigationTitle("Unit")
+        .task(id: id) {
+            loadDraft()
+        }
+        .alert("Unit", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 }
 
 #Preview {
     NavigationStack {
-        let unit = Unit(
-            name: "grams",
-            type: .weight,
-            base: 1,
-            magnitudes: [
-                Magnitude(
-                    abbreviation: "g",
-                    singular: "gram",
-                    plural: "grams",
-                    multiplier: 1
-                ),
-                Magnitude(
-                    abbreviation: "kg",
-                    singular: "kilogram",
-                    plural: "kilograms",
-                    multiplier: 1000
-                )
-            ]
-        )
-        UnitEdit(
-            unit: unit,
-            existing: [unit],
-            action: {
-                print(unit.name)
-            }
-        )
+        UnitEdit(type: .weight)
     }
+    .modelContainer(Models.testing.modelContainer)
 }
