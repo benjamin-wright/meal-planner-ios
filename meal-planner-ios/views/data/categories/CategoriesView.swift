@@ -68,7 +68,14 @@ struct CategoriesView: View {
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .id(let id):
-                CategoryEdit(id: id).modelContext(context.editContext())
+                WithEditContext(from: context) {
+                    CategoryEdit(
+                        id: id,
+                        draft: id.flatMap { categoryID in
+                            categories.first(where: { $0.id == categoryID }).map(CategoryDraft.init)
+                        } ?? CategoryDraft(order: categories.count)
+                    )
+                }
             }
         }
         .navigationTitle("Categories")

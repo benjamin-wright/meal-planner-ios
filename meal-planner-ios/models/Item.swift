@@ -14,6 +14,28 @@ enum ItemKind: Int, Codable {
     case misc
 }
 
+struct ItemDraft {
+    var name: String
+    var categoryID: UUID?
+    var kind: ItemKind
+
+    init(categoryID: UUID? = nil, kind: ItemKind = .ingredient) {
+        self.name = ""
+        self.categoryID = categoryID
+        self.kind = kind
+    }
+
+    init(item: Item) {
+        self.name = item.name
+        self.categoryID = item.category.id
+        self.kind = item.itemKind
+    }
+
+    func isValid(existingNames: [String] = []) -> Bool {
+        name.count >= 3 && categoryID != nil && !existingNames.contains(name)
+    }
+}
+
 @Model
 final class Item {
     @Attribute(.unique)

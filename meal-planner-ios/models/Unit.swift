@@ -98,24 +98,6 @@ final class Unit {
         self.magnitudes = magnitudes
     }
     
-    func isValid() -> Bool {
-        if self.name.isEmpty || self.name.count < 3 {
-            return false
-        }
-        
-        if self.magnitudes.count < 1 {
-            return false
-        }
-        
-        for magnitude in self.magnitudes {
-            if magnitude.multiplier <= 0 || magnitude.singular.isEmpty || magnitude.plural.isEmpty {
-                return false
-            }
-        }
-        
-        return true
-    }
-    
     func toString(forValue value: Double) -> String {
         let magnitude = self.selectMagnitude(forValue: value)
         

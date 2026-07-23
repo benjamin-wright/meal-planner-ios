@@ -13,52 +13,85 @@ struct CategoryEdit: View {
     @Environment(\.modelContext) private var context
 
     private let id: UUID?
-    private var edit: Bool { id != nil }
+    private let initialDraft: CategoryDraft?
+    private var isEditing: Bool { id != nil }
 
-    @State private var category: Category?
+    @State private var draft: CategoryDraft
+    @State private var isLoading = false
+    @State private var saveError: String?
     @Query(sort: \Category.order) private var categories: [Category]
 
-    init(id: UUID? = nil) {
+    init(id: UUID? = nil, draft: CategoryDraft? = nil) {
         self.id = id
+        self.initialDraft = draft
+        self._draft = State(initialValue: draft ?? CategoryDraft())
     }
 
-    private func isInvalid(_ category: Category) -> Bool {
-        if !category.isValid() {
-            return true
+    private var isInvalid: Bool {
+        draft.name.count < 3 || categories.contains { $0.id != id && $0.name == draft.name }
+    }
+
+    private func loadDraft() {
+        guard initialDraft == nil, let id else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            guard let category = try context.fetch(Category.descriptor(id: id)).first else {
+                saveError = "This category no longer exists."
+                return
+            }
+            draft = CategoryDraft(category: category)
+        } catch {
+            saveError = "Could not load this category: \(error.localizedDescription)"
         }
-        if categories.contains(where: { $0.id != category.id && $0.name == category.name }) {
-            return true
+    }
+
+    private func save() {
+        do {
+            let category: Category
+            if let id {
+                guard let existing = try context.fetch(Category.descriptor(id: id)).first else {
+                    saveError = "This category no longer exists."
+                    return
+                }
+                category = existing
+            } else {
+                category = Category(name: draft.name, order: draft.order)
+                context.insert(category)
+            }
+            category.name = draft.name
+            category.order = draft.order
+            try context.save()
+            dismiss()
+        } catch {
+            saveError = "Could not save this category: \(error.localizedDescription)"
         }
-        return false
     }
 
     var body: some View {
-        if let category {
-            @Bindable var category = category
-            Form {
-                Section {
-                    TextInput(text: $category.name, label: "Name", placeholder: "category")
-                }
-                Button {
-                    if !edit {
-                        context.insert(category)
+        Group {
+            if isLoading {
+                ProgressView()
+            } else {
+                Form {
+                    Section {
+                        TextInput(text: $draft.name, label: "Name", placeholder: "category")
                     }
-                    try! context.save()
-                    dismiss()
-                } label: {
-                    Text(edit ? "Save" : "Add")
-                }.disabled(isInvalid(category))
+                    Button(action: save) {
+                        Text(isEditing ? "Save" : "Add")
+                    }.disabled(isInvalid)
+                }
+                .navigationTitle("Category")
             }
-            .navigationTitle("Category")
-        } else {
-            ProgressView()
-                .task {
-                    if let id {
-                        category = try? context.fetch(Category.descriptor(id: id)).first
-                    } else {
-                        category = Category.makeNew(in: context)
-                    }
-                }
+        }
+        .task(id: id) { loadDraft() }
+        .alert("Category", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
         }
     }
 }

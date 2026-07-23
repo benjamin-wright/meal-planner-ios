@@ -8,6 +8,25 @@
 import Foundation
 import SwiftData
 
+struct CategoryDraft {
+    var name: String
+    var order: Int
+
+    init(order: Int = 0) {
+        self.name = ""
+        self.order = order
+    }
+
+    init(category: Category) {
+        self.name = category.name
+        self.order = category.order
+    }
+
+    func isValid(existingNames: [String] = []) -> Bool {
+        name.count >= 3 && !existingNames.contains(name)
+    }
+}
+
 @Model
 final class Category: Identifiable {
     @Attribute(.unique)

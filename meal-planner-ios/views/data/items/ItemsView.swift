@@ -55,7 +55,12 @@ struct ItemsView: View {
                 switch route {
                 case .id(let id):
                     WithEditContext(from: context) {
-                        ItemEdit(id: id)
+                        ItemEdit(
+                            id: id,
+                            draft: id.flatMap { itemID in
+                                items.first(where: { $0.id == itemID }).map(ItemDraft.init)
+                            }
+                        )
                     }
                 }
             }

@@ -14,6 +14,40 @@ enum RecipieType: Int, Codable {
     case dinner
 }
 
+struct RecipieDraft {
+    var name: String
+    var type: RecipieType
+    var summary: String
+    var serves: Int
+    var time: Int
+    var ingredients: [RecipieIngredientDraft]
+    var steps: [String]
+
+    init(type: RecipieType) {
+        self.name = ""
+        self.type = type
+        self.summary = ""
+        self.serves = 2
+        self.time = 15
+        self.ingredients = []
+        self.steps = []
+    }
+
+    init(recipie: Recipie) {
+        self.name = recipie.name
+        self.type = recipie.recipieType
+        self.summary = recipie.summary
+        self.serves = recipie.serves
+        self.time = recipie.time
+        self.ingredients = recipie.ingredients.map(RecipieIngredientDraft.init)
+        self.steps = recipie.steps
+    }
+
+    func isValid(existingNames: [String] = []) -> Bool {
+        name.count >= 3 && !existingNames.contains(name)
+    }
+}
+
 @Model
 final class Recipie {
     @Attribute(.unique)
@@ -51,5 +85,11 @@ final class Recipie {
         }
         
         return true
+    }
+}
+
+extension Recipie {
+    static func descriptor(id: UUID) -> FetchDescriptor<Recipie> {
+        FetchDescriptor(predicate: #Predicate { $0.id == id })
     }
 }
