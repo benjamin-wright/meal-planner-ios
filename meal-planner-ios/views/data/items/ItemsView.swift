@@ -54,14 +54,12 @@ struct ItemsView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .id(let id):
-                    WithEditContext(from: context) {
-                        ItemEdit(
-                            id: id,
-                            draft: id.flatMap { itemID in
-                                items.first(where: { $0.id == itemID }).map(ItemDraft.init)
-                            }
-                        )
-                    }
+                    ItemEdit(
+                        id: id,
+                        draft: id.flatMap { itemID in
+                            items.first(where: { $0.id == itemID }).map(ItemDraft.init)
+                        }
+                    )
                 }
             }
             .navigationTitle("Items")

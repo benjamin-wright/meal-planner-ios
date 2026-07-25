@@ -19,24 +19,30 @@ struct RecipiesFilteredView: View {
     
     @Query private var recipies: [Recipie]
     @State var recipieType: RecipieType
+    @State private var deletionError: String?
     
     init(type: RecipieType) {
         self.recipieType = type
         
         _recipies = Query(filter: #Predicate { $0.type == type.rawValue })
     }
+
+    private func delete(at offsets: IndexSet) {
+        do {
+            let store = RecipieStore(context: context)
+            for id in offsets.map({ recipies[$0].id }) {
+                try store.delete(id: id)
+            }
+        } catch {
+            deletionError = error.localizedDescription
+        }
+    }
     
     var body: some View {
         return List {
             ForEach(recipies) { recipie in
                 NavigationLink(recipie.name, value: Route.edit(recipie.id))
-            }.onDelete { offsets in
-                for (index, unit) in recipies.enumerated() {
-                    if offsets.contains(index) {
-                        context.delete(unit)
-                    }
-                }
-            }
+            }.onDelete(perform: delete)
             Section {
                 NavigationLink(value: Route.add) {
                     Text("Add").foregroundStyle(.accent)
@@ -47,18 +53,24 @@ struct RecipiesFilteredView: View {
             EditButton()
         }
         .navigationDestination(for: Route.self) { route in
-            WithEditContext(from: context) {
-                switch route {
-                case .add:
-                    RecipieEdit(type: recipieType)
-                case .edit(let id):
-                    if let recipie = recipies.first(where: { $0.id == id }) {
-                        RecipieEdit(id: id, type: recipie.recipieType, draft: RecipieDraft(recipie: recipie))
-                    } else {
-                        ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
-                    }
+            switch route {
+            case .add:
+                RecipieEdit(type: recipieType)
+            case .edit(let id):
+                if let recipie = recipies.first(where: { $0.id == id }) {
+                    RecipieEdit(id: id, type: recipie.recipieType)
+                } else {
+                    ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
                 }
             }
+        }
+        .alert("Recipe", isPresented: Binding(
+            get: { deletionError != nil },
+            set: { if !$0 { deletionError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deletionError ?? "")
         }
     }
 }

@@ -15,6 +15,20 @@ enum RecipieType: Int, Codable {
 }
 
 struct RecipieDraft {
+    enum ValidationError: Hashable, LocalizedError {
+        case nameTooShort
+        case duplicateName
+
+        var errorDescription: String? {
+            switch self {
+            case .nameTooShort:
+                return "Recipe names must be at least 3 characters."
+            case .duplicateName:
+                return "A recipe with this name already exists."
+            }
+        }
+    }
+
     var name: String
     var type: RecipieType
     var summary: String
@@ -43,8 +57,21 @@ struct RecipieDraft {
         self.steps = recipie.steps
     }
 
+    func validate(existingNames: [String] = []) -> [ValidationError] {
+        var errors: [ValidationError] = []
+
+        if name.count < 3 {
+            errors.append(.nameTooShort)
+        }
+        if existingNames.contains(name) {
+            errors.append(.duplicateName)
+        }
+
+        return errors
+    }
+
     func isValid(existingNames: [String] = []) -> Bool {
-        name.count >= 3 && !existingNames.contains(name)
+        validate(existingNames: existingNames).isEmpty
     }
 }
 

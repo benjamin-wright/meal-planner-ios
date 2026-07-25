@@ -13,7 +13,6 @@ struct RecipieEdit: View {
     @Environment(\.modelContext) private var context
 
     private let id: UUID?
-    private let initialDraft: RecipieDraft?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: RecipieDraft
@@ -24,71 +23,36 @@ struct RecipieEdit: View {
     @Query private var items: [Item]
     @State private var editMode: EditMode = .inactive
 
-    init(id: UUID? = nil, type: RecipieType, draft: RecipieDraft? = nil) {
+    init(id: UUID? = nil, type: RecipieType) {
         self.id = id
-        self.initialDraft = draft
-        self._draft = State(initialValue: draft ?? RecipieDraft(type: type))
+        self._draft = State(initialValue: RecipieDraft(type: type))
+    }
+
+    private var validationErrors: [RecipieDraft.ValidationError] {
+        draft.validate(existingNames: existing.filter { $0.id != id }.map(\.name))
     }
 
     private var isInvalid: Bool {
-        !draft.isValid(existingNames: existing.filter { $0.id != id }.map(\.name))
+        !validationErrors.isEmpty
     }
 
     private func loadDraft() {
-        guard initialDraft == nil, let id else { return }
+        guard let id else { return }
         isLoading = true
         defer { isLoading = false }
         do {
-            guard let recipie = try context.fetch(Recipie.descriptor(id: id)).first else {
-                saveError = "This recipe no longer exists."
-                return
-            }
-            draft = RecipieDraft(recipie: recipie)
+            draft = try RecipieStore(context: context).draft(id: id)
         } catch {
-            saveError = "Could not load this recipe: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
     private func save() {
         do {
-            let recipie: Recipie
-            if let id {
-                guard let existing = try context.fetch(Recipie.descriptor(id: id)).first else {
-                    saveError = "This recipe no longer exists."
-                    return
-                }
-                recipie = existing
-            } else {
-                recipie = Recipie(type: draft.type)
-                context.insert(recipie)
-            }
-            recipie.name = draft.name
-            recipie.type = draft.type.rawValue
-            recipie.summary = draft.summary
-            recipie.serves = draft.serves
-            recipie.time = draft.time
-            recipie.steps = draft.steps
-
-            let oldIngredients = recipie.ingredients
-            recipie.ingredients = try draft.ingredients.map { ingredientDraft in
-                guard let item = try context.fetch(Item.descriptor(id: ingredientDraft.itemID)).first,
-                      let unit = try context.fetch(Unit.descriptor(id: ingredientDraft.unitID)).first else {
-                    throw NSError(domain: "RecipieEdit", code: 1, userInfo: [NSLocalizedDescriptionKey: "An ingredient or unit no longer exists."])
-                }
-                if let ingredient = oldIngredients.first(where: { $0.id == ingredientDraft.id }) {
-                    ingredient.item = item
-                    ingredient.unit = unit
-                    ingredient.quantity = ingredientDraft.quantity
-                    return ingredient
-                }
-                return RecipieIngredient(id: ingredientDraft.id, item: item, unit: unit, quantity: ingredientDraft.quantity)
-            }
-            let retainedIDs = Set(draft.ingredients.map(\.id))
-            oldIngredients.filter { !retainedIDs.contains($0.id) }.forEach(context.delete)
-            try context.save()
+            try RecipieStore(context: context).save(draft, id: id)
             dismiss()
         } catch {
-            saveError = "Could not save this recipe: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
@@ -101,6 +65,10 @@ struct RecipieEdit: View {
                     Form {
                         Section {
                             TextInput(text: $draft.name, label: "Name", placeholder: "recipe name")
+                            if let validationError = validationErrors.first {
+                                Text(validationError.localizedDescription)
+                                    .foregroundStyle(.red)
+                            }
                         }
                         Section("Details") {
                             TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
