@@ -64,7 +64,7 @@ final class RecipieStore {
             }
             recipie = existing
         } else {
-            recipie = Recipie(type: draft.type)
+            recipie = Recipie()
             context.insert(recipie)
         }
 
@@ -89,7 +89,8 @@ final class RecipieStore {
         }
 
         recipie.name = draft.name
-        recipie.type = draft.type.rawValue
+        recipie.mealType = draft.mealType
+        recipie.course = draft.course
         recipie.summary = draft.summary
         recipie.serves = draft.serves
         recipie.time = draft.time

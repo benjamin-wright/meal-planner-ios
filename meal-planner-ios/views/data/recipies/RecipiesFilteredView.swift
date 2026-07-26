@@ -18,13 +18,13 @@ struct RecipiesFilteredView: View {
     @Environment(\.editMode) private var editMode
     
     @Query private var recipies: [Recipie]
-    @State var recipieType: RecipieType
+    @State var mealType: MealType
     @State private var deletionError: String?
     
-    init(type: RecipieType) {
-        self.recipieType = type
+    init(mealType: MealType) {
+        self.mealType = mealType
         
-        _recipies = Query(filter: #Predicate { $0.type == type.rawValue })
+        _recipies = Query(filter: #Predicate { $0.mealType == mealType })
     }
 
     private func delete(at offsets: IndexSet) {
@@ -55,10 +55,10 @@ struct RecipiesFilteredView: View {
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .add:
-                RecipieEdit(type: recipieType)
+                RecipieEdit(mealType: mealType)
             case .edit(let id):
                 if let recipie = recipies.first(where: { $0.id == id }) {
-                    RecipieEdit(id: id, type: recipie.recipieType)
+                    RecipieEdit(id: id, mealType: recipie.mealType)
                 } else {
                     ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
                 }
@@ -78,7 +78,7 @@ struct RecipiesFilteredView: View {
 #Preview {
     NavigationStack {
         RecipiesFilteredView(
-            type: .dinner
+            mealType: .dinner
         )
     }
     .modelContainer(Models.testing.modelContainer)

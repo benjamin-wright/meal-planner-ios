@@ -23,9 +23,9 @@ struct RecipieEdit: View {
     @Query private var items: [Item]
     @State private var editMode: EditMode = .inactive
 
-    init(id: UUID? = nil, type: RecipieType) {
+    init(id: UUID? = nil, mealType: MealType) {
         self.id = id
-        self._draft = State(initialValue: RecipieDraft(type: type))
+        self._draft = State(initialValue: RecipieDraft())
     }
 
     private var validationErrors: [RecipieDraft.ValidationError] {
@@ -70,6 +70,8 @@ struct RecipieEdit: View {
                         }
                         Section("Details") {
                             TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
+                            EnumPicker(label: "Meal", selection: $draft.mealType)
+                            EnumPicker(label: "Course", selection: $draft.course)
                             IntegerInput(number: $draft.serves, label: "Serves", placeholder: "number of portions")
                             IntegerInput(number: $draft.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
                         }
@@ -130,7 +132,7 @@ struct RecipieEdit: View {
 
 #Preview {
     NavigationStack {
-        RecipieEdit(type: .dinner)
+        RecipieEdit(mealType: .dinner)
     }
     .modelContainer(Models.testing.modelContainer)
 }

@@ -1,4 +1,3 @@
-//
 //  Recipie.swift
 //  meal-planner-ios
 //
@@ -7,12 +6,6 @@
 
 import Foundation
 import SwiftData
-
-enum RecipieType: Int, Codable {
-    case breakfast
-    case lunch
-    case dinner
-}
 
 struct RecipieDraft {
     enum ValidationError: Hashable, LocalizedError {
@@ -30,16 +23,18 @@ struct RecipieDraft {
     }
 
     var name: String
-    var type: RecipieType
+    var mealType: MealType
+    var course: CourseType
     var summary: String
     var serves: Int
     var time: Int
     var ingredients: [RecipieIngredientDraft]
     var steps: [String]
 
-    init(type: RecipieType) {
+    init() {
         self.name = ""
-        self.type = type
+        self.mealType = .dinner
+        self.course = .main
         self.summary = ""
         self.serves = 2
         self.time = 15
@@ -49,7 +44,8 @@ struct RecipieDraft {
 
     init(recipie: Recipie) {
         self.name = recipie.name
-        self.type = recipie.recipieType
+        self.mealType = recipie.mealType
+        self.course = recipie.course
         self.summary = recipie.summary
         self.serves = recipie.serves
         self.time = recipie.time
@@ -77,10 +73,8 @@ final class Recipie {
     @Attribute(.unique)
     var id: UUID = UUID()
     var name: String = ""
-    var type: Int
-    var recipieType: RecipieType {
-        RecipieType(rawValue: type) ?? RecipieType.dinner
-    }
+    var mealType: MealType
+    var course: CourseType
     var summary: String = ""
     var serves: Int = 2
     var time: Int = 15
@@ -88,10 +82,11 @@ final class Recipie {
     var ingredients: [RecipieIngredient]
     var steps: [String]
     
-    init(id: UUID = UUID(), name: String = "", type: RecipieType, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
+    init(id: UUID = UUID(), name: String = "", mealType: MealType = .dinner, course: CourseType = .main, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
         self.id = id
         self.name = name
-        self.type = type.rawValue
+        self.mealType = mealType
+        self.course = course
         self.summary = summary
         self.serves = serves
         self.time = time

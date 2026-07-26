@@ -29,6 +29,7 @@ class Models {
     
     static func reset(_ context: ModelContext) {
         do {
+            try Models.clear(Meal.self, context)
             try Models.clear(Recipie.self, context)
             try Models.clear(Item.self, context)
             try Models.clear(Category.self, context)
@@ -49,6 +50,7 @@ class Models {
             AppSettings.self,
             Item.self,
             Recipie.self,
+            Meal.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
 
@@ -133,7 +135,8 @@ class Models {
         
         let soup = Recipie(
             name: "soup",
-            type: .dinner,
+            mealType: .dinner,
+            course: .main,
             summary: "A tasty soup",
             ingredients: [
                 RecipieIngredient(
