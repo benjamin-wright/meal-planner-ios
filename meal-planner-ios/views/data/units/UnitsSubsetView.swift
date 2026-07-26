@@ -17,12 +17,9 @@ struct UnitsSubsetView: View {
     @Environment(\.modelContext) private var context
     
     @Query private var units: [Unit]
-    @Query private var settings: [AppSettings]
-    @Query private var recipies: [Recipie]
 
     private let unitType: UnitType
     @State private var saveError: String?
-    @State private var deletionError: String?
     
     init(type: UnitType) {
         self.unitType = type
@@ -33,27 +30,13 @@ struct UnitsSubsetView: View {
         )
     }
 
-    private func isInUse(_ unit: Unit) -> Bool {
-        settings.contains {
-            $0.preferredWeight.id == unit.id || $0.preferredVolume.id == unit.id
-        } || recipies.contains {
-            $0.ingredients.contains { $0.unit.id == unit.id }
-        }
-    }
-
     private func delete(_ offsets: IndexSet) {
         let selectedUnits = offsets.map { units[$0] }
-        guard let referencedUnit = selectedUnits.first(where: isInUse) else {
-            selectedUnits.forEach(context.delete)
-            do {
-                try context.save()
-            } catch {
-                saveError = "Could not delete the selected unit: \(error.localizedDescription)"
-            }
-            return
+        do {
+            try UnitStore(context: context).delete(ids: selectedUnits.map(\.id))
+        } catch {
+            saveError = error.localizedDescription
         }
-
-        deletionError = "\(referencedUnit.name) is used by settings or a recipe and cannot be deleted."
     }
     
     var body: some View {
@@ -75,20 +58,8 @@ struct UnitsSubsetView: View {
             case .add:
                 UnitEdit(type: unitType)
             case .edit(let id):
-                if let unit = units.first(where: { $0.id == id }) {
-                    UnitEdit(id: id, type: unitType, draft: UnitDraft(unit: unit))
-                } else {
-                    ContentUnavailableView("Unit Not Found", systemImage: "exclamationmark.triangle")
-                }
+                UnitEdit(id: id, type: unitType)
             }
-        }
-        .alert("Could Not Delete Unit", isPresented: Binding(
-            get: { deletionError != nil },
-            set: { if !$0 { deletionError = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(deletionError ?? "")
         }
         .alert("Could Not Save", isPresented: Binding(
             get: { saveError != nil },
@@ -105,6 +76,7 @@ struct UnitsSubsetView: View {
     NavigationStack {
         UnitsSubsetView(
             type: .weight
-        ).modelContainer(Models.testing.modelContainer)
+        )
     }
+    .modelContainer(Models.testing.modelContainer)
 }

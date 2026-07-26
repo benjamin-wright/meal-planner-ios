@@ -20,6 +20,7 @@ struct UnitsView: View {
 
 #Preview {
     NavigationStack {
-        UnitsView().modelContainer(Models.testing.modelContainer)
+        UnitsView()
     }
+    .modelContainer(Models.testing.modelContainer)
 }

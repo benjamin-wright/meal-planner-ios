@@ -30,6 +30,7 @@ struct RecipiesView: View {
 
 #Preview {
     NavigationStack {
-        RecipiesView().modelContainer(Models.testing.modelContainer)
+        RecipiesView()
     }
+    .modelContainer(Models.testing.modelContainer)
 }

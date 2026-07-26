@@ -48,6 +48,26 @@ struct Magnitude: Codable, Identifiable, Hashable {
 }
 
 struct UnitDraft {
+    enum ValidationError: Hashable, LocalizedError {
+        case nameTooShort
+        case nonPositiveBase
+        case missingMagnitudes
+        case invalidMagnitude
+
+        var errorDescription: String? {
+            switch self {
+            case .nameTooShort:
+                return "Unit names must be at least 3 characters."
+            case .nonPositiveBase:
+                return "The base value must be greater than zero."
+            case .missingMagnitudes:
+                return "Add at least one magnitude."
+            case .invalidMagnitude:
+                return "Each magnitude needs singular and plural names and a positive multiplier."
+            }
+        }
+    }
+
     var name: String
     var type: UnitType
     var base: Double
@@ -67,15 +87,22 @@ struct UnitDraft {
         self.magnitudes = unit.magnitudes
     }
 
-    func isValid() -> Bool {
-        guard name.count >= 3, base > 0, !magnitudes.isEmpty else {
-            return false
+    func validate() -> [ValidationError] {
+        var errors: [ValidationError] = []
+        if name.count < 3 {
+            errors.append(.nameTooShort)
         }
-
-        return magnitudes.allSatisfy {
-            $0.multiplier > 0 && !$0.singular.isEmpty && !$0.plural.isEmpty
+        if base <= 0 {
+            errors.append(.nonPositiveBase)
         }
+        if magnitudes.isEmpty && type != .count {
+            errors.append(.missingMagnitudes)
+        } else if !magnitudes.allSatisfy({ $0.multiplier > 0 && !$0.singular.isEmpty && !$0.plural.isEmpty }) {
+            errors.append(.invalidMagnitude)
+        }
+        return errors
     }
+
 }
 
 @Model

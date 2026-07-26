@@ -79,6 +79,7 @@ struct RecipiesFilteredView: View {
     NavigationStack {
         RecipiesFilteredView(
             type: .dinner
-        ).modelContainer(Models.testing.modelContainer)
+        )
     }
+    .modelContainer(Models.testing.modelContainer)
 }

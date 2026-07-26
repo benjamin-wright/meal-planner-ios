@@ -13,7 +13,6 @@ struct CategoryEdit: View {
     @Environment(\.modelContext) private var context
 
     private let id: UUID?
-    private let initialDraft: CategoryDraft?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: CategoryDraft
@@ -21,50 +20,34 @@ struct CategoryEdit: View {
     @State private var saveError: String?
     @Query(sort: \Category.order) private var categories: [Category]
 
-    init(id: UUID? = nil, draft: CategoryDraft? = nil) {
+    init(id: UUID? = nil) {
         self.id = id
-        self.initialDraft = draft
-        self._draft = State(initialValue: draft ?? CategoryDraft())
+        self._draft = State(initialValue: CategoryDraft())
+    }
+
+    private var validationErrors: [CategoryDraft.ValidationError] {
+        draft.validate(existingNames: categories.filter { $0.id != id }.map(\.name))
     }
 
     private var isInvalid: Bool {
-        draft.name.count < 3 || categories.contains { $0.id != id && $0.name == draft.name }
+        !validationErrors.isEmpty
     }
 
     private func loadDraft() {
-        guard initialDraft == nil, let id else { return }
-        isLoading = true
-        defer { isLoading = false }
         do {
-            guard let category = try context.fetch(Category.descriptor(id: id)).first else {
-                saveError = "This category no longer exists."
-                return
-            }
-            draft = CategoryDraft(category: category)
+            let store = CategoryStore(context: context)
+            draft = try id.map(store.draft) ?? store.newDraft()
         } catch {
-            saveError = "Could not load this category: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
     private func save() {
         do {
-            let category: Category
-            if let id {
-                guard let existing = try context.fetch(Category.descriptor(id: id)).first else {
-                    saveError = "This category no longer exists."
-                    return
-                }
-                category = existing
-            } else {
-                category = Category(name: draft.name, order: draft.order)
-                context.insert(category)
-            }
-            category.name = draft.name
-            category.order = draft.order
-            try context.save()
+            try CategoryStore(context: context).save(draft, id: id)
             dismiss()
         } catch {
-            saveError = "Could not save this category: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
@@ -76,6 +59,10 @@ struct CategoryEdit: View {
                 Form {
                     Section {
                         TextInput(text: $draft.name, label: "Name", placeholder: "category")
+                        if let validationError = validationErrors.first {
+                            Text(validationError.localizedDescription)
+                                .foregroundStyle(.red)
+                        }
                     }
                     Button(action: save) {
                         Text(isEditing ? "Save" : "Add")
@@ -84,7 +71,7 @@ struct CategoryEdit: View {
                 .navigationTitle("Category")
             }
         }
-        .task(id: id) { loadDraft() }
+        .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Category", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

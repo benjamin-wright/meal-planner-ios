@@ -38,8 +38,6 @@ struct RecipieEdit: View {
 
     private func loadDraft() {
         guard let id else { return }
-        isLoading = true
-        defer { isLoading = false }
         do {
             draft = try RecipieStore(context: context).draft(id: id)
         } catch {
@@ -118,7 +116,7 @@ struct RecipieEdit: View {
                 }
             }
         }
-        .task(id: id) { loadDraft() }
+        .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Recipe", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

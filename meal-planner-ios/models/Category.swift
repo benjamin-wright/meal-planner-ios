@@ -9,6 +9,20 @@ import Foundation
 import SwiftData
 
 struct CategoryDraft {
+    enum ValidationError: Hashable, LocalizedError {
+        case nameTooShort
+        case duplicateName
+
+        var errorDescription: String? {
+            switch self {
+            case .nameTooShort:
+                return "Category names must be at least 3 characters."
+            case .duplicateName:
+                return "A category with this name already exists."
+            }
+        }
+    }
+
     var name: String
     var order: Int
 
@@ -22,9 +36,17 @@ struct CategoryDraft {
         self.order = category.order
     }
 
-    func isValid(existingNames: [String] = []) -> Bool {
-        name.count >= 3 && !existingNames.contains(name)
+    func validate(existingNames: [String] = []) -> [ValidationError] {
+        var errors: [ValidationError] = []
+        if name.count < 3 {
+            errors.append(.nameTooShort)
+        }
+        if existingNames.contains(name) {
+            errors.append(.duplicateName)
+        }
+        return errors
     }
+
 }
 
 @Model
@@ -43,17 +65,6 @@ final class Category: Identifiable {
         self.items = items
     }
     
-    func isValid() -> Bool {
-        if self.name.isEmpty {
-            return false
-        }
-        
-        if self.name.count < 3 {
-            return false
-        }
-        
-        return true
-    }
 }
 
 extension Category {

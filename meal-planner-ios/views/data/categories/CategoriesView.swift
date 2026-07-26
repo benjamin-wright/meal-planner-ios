@@ -17,6 +17,7 @@ struct CategoriesView: View {
     @Environment(\.editMode) private var editMode
     
     @State var search: String = ""
+    @State private var saveError: String?
 
     @Query(sort: \Category.order) private var categories: [Category]
 
@@ -28,28 +29,21 @@ struct CategoriesView: View {
             }) { category in
                 NavigationLink(category.name, value: Route.id(category.id))
             }.onDelete { offsets in
-                var updated = categories
-                for (index, category) in categories.enumerated() {
-                    if offsets.contains(index) {
-                        context.delete(category)
-                        updated.remove(at: index)
+                do {
+                    let filteredCategories = categories.filter {
+                        search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
                     }
+                    try CategoryStore(context: context).delete(ids: offsets.map { filteredCategories[$0].id })
+                } catch {
+                    saveError = error.localizedDescription
                 }
-
-                for (index, _) in updated.enumerated() {
-                    updated[index].order = index
-                }
-
-                try! context.save()
             }.onMove { from, to in
-                var updated = categories
-                updated.move(fromOffsets: from, toOffset: to)
-
-                for (index, category) in updated.enumerated() {
-                    category.order = index
+                guard search.isEmpty else { return }
+                do {
+                    try CategoryStore(context: context).move(fromOffsets: from, toOffset: to)
+                } catch {
+                    saveError = error.localizedDescription
                 }
-
-                try! context.save()
             }
             Section {
                 NavigationLink(
@@ -68,15 +62,18 @@ struct CategoriesView: View {
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .id(let id):
-                CategoryEdit(
-                    id: id,
-                    draft: id.flatMap { categoryID in
-                        categories.first(where: { $0.id == categoryID }).map(CategoryDraft.init)
-                    } ?? CategoryDraft(order: categories.count)
-                )
+                CategoryEdit(id: id)
             }
         }
         .navigationTitle("Categories")
+        .alert("Category", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 }
 
@@ -84,6 +81,7 @@ struct CategoriesView: View {
     let container = Models.testing.modelContainer
 
     NavigationStack {
-        CategoriesView().modelContainer(container)
+        CategoriesView()
     }
+    .modelContainer(container)
 }

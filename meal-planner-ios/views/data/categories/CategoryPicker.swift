@@ -10,10 +10,9 @@ import SwiftData
 
 struct CategoryPicker: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var context
 
     @Query(sort: \Category.order) private var categories: [Category]
-    @Binding var selected: UUID
+    @Binding var selectedID: UUID?
 
     @State private var search = ""
     @State private var isAddingCategory = false
@@ -26,18 +25,23 @@ struct CategoryPicker: View {
 
     var body: some View {
         List {
-            Picker("category", selection: $selected) {
-                ForEach(filteredCategories) { category in
-                    Text(category.name).tag(category.id)
+            ForEach(filteredCategories) { category in
+                Button {
+                    selectedID = category.id
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(category.name)
+                        Spacer()
+                        if category.id == selectedID {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                        }
+                    }
                 }
             }
-            .pickerStyle(.inline)
-            .labelsHidden()
         }
         .searchable(text: $search)
-        .onChange(of: selected) {
-            dismiss()
-        }
         .toolbar {
             Button("Add") {
                 isAddingCategory = true
@@ -52,16 +56,16 @@ struct CategoryPicker: View {
 
 #Preview {
     struct Preview: View {
-        @State private var selected: UUID
+        @State private var selectedID: UUID?
         
         init() {
-            self._selected = State(initialValue: UUID())
+            self._selectedID = State(initialValue: UUID())
         }
         
         var body: some View {
             NavigationStack {
                 CategoryPicker(
-                    selected: $selected
+                    selectedID: $selectedID
                 )
             }
         }

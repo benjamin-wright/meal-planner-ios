@@ -70,9 +70,6 @@ struct RecipieDraft {
         return errors
     }
 
-    func isValid(existingNames: [String] = []) -> Bool {
-        validate(existingNames: existingNames).isEmpty
-    }
 }
 
 @Model
@@ -102,17 +99,6 @@ final class Recipie {
         self.steps = steps
     }
     
-    func isValid() -> Bool {
-        if self.name.isEmpty {
-            return false
-        }
-        
-        if self.name.count < 3 {
-            return false
-        }
-        
-        return true
-    }
 }
 
 extension Recipie {

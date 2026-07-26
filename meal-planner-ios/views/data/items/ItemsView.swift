@@ -20,6 +20,7 @@ struct ItemsView: View {
     @Query(sort: \Category.order) private var categories: [Category]
     
     @State var search: String = ""
+    @State private var saveError: String?
     
     var body: some View {
         return VStack {
@@ -31,13 +32,16 @@ struct ItemsView: View {
                 })) { item in
                     NavigationLink(item.name, value: Route.id(item.id))
                 }.onDelete { offsets in
-                    for (index, item) in items.enumerated() {
-                        if offsets.contains(index) {
-                            context.delete(item)
+                    do {
+                        let filteredItems = items.filter {
+                            search == ""
+                            || $0.name.localizedCaseInsensitiveContains(search)
+                            || $0.category.name.localizedCaseInsensitiveContains(search)
                         }
+                        try ItemStore(context: context).delete(ids: offsets.map { filteredItems[$0].id })
+                    } catch {
+                        saveError = error.localizedDescription
                     }
-                    
-                    try! context.save()
                 }
                 Section {
                     NavigationLink(
@@ -54,21 +58,25 @@ struct ItemsView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .id(let id):
-                    ItemEdit(
-                        id: id,
-                        draft: id.flatMap { itemID in
-                            items.first(where: { $0.id == itemID }).map(ItemDraft.init)
-                        }
-                    )
+                    ItemEdit(id: id)
                 }
             }
             .navigationTitle("Items")
+        }
+        .alert("Item", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        ItemsView().modelContainer(Models.testing.modelContainer)
+        ItemsView()
     }
+    .modelContainer(Models.testing.modelContainer)
 }

@@ -15,6 +15,23 @@ enum ItemKind: Int, Codable {
 }
 
 struct ItemDraft {
+    enum ValidationError: Hashable, LocalizedError {
+        case nameTooShort
+        case missingCategory
+        case duplicateName
+
+        var errorDescription: String? {
+            switch self {
+            case .nameTooShort:
+                return "Item names must be at least 3 characters."
+            case .missingCategory:
+                return "Please choose a category."
+            case .duplicateName:
+                return "An item with this name already exists."
+            }
+        }
+    }
+
     var name: String
     var categoryID: UUID?
     var kind: ItemKind
@@ -31,9 +48,20 @@ struct ItemDraft {
         self.kind = item.itemKind
     }
 
-    func isValid(existingNames: [String] = []) -> Bool {
-        name.count >= 3 && categoryID != nil && !existingNames.contains(name)
+    func validate(existingNames: [String] = []) -> [ValidationError] {
+        var errors: [ValidationError] = []
+        if name.count < 3 {
+            errors.append(.nameTooShort)
+        }
+        if categoryID == nil {
+            errors.append(.missingCategory)
+        }
+        if existingNames.contains(name) {
+            errors.append(.duplicateName)
+        }
+        return errors
     }
+
 }
 
 @Model
@@ -70,7 +98,4 @@ extension Item {
         return item
     }
     
-    func isValid() -> Bool {
-        !name.isEmpty && name.count >= 3
-    }
 }

@@ -14,7 +14,6 @@ struct UnitEdit: View {
 
     private let id: UUID?
     private let type: UnitType
-    private let initialDraft: UnitDraft?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: UnitDraft
@@ -22,52 +21,32 @@ struct UnitEdit: View {
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
     
-    init(id: UUID? = nil, type: UnitType, draft: UnitDraft? = nil) {
+    init(id: UUID? = nil, type: UnitType) {
         self.id = id
         self.type = type
-        self.initialDraft = draft
-        self._draft = State(initialValue: draft ?? UnitDraft(type: type))
+        self._draft = State(initialValue: UnitDraft(type: type))
+    }
+
+    private var validationErrors: [UnitDraft.ValidationError] {
+        draft.validate()
     }
     
     private func loadDraft() {
-        guard initialDraft == nil, let id else { return }
-
-        isLoading = true
-        defer { isLoading = false }
+        guard let id else { return }
 
         do {
-            guard let unit = try context.fetch(Unit.descriptor(id: id)).first else {
-                saveError = "This unit no longer exists."
-                return
-            }
-            draft = UnitDraft(unit: unit)
+            draft = try UnitStore(context: context).draft(id: id)
         } catch {
-            saveError = "Could not load this unit: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
     private func save() {
         do {
-            let unit: Unit
-            if let id {
-                guard let existing = try context.fetch(Unit.descriptor(id: id)).first else {
-                    saveError = "This unit no longer exists."
-                    return
-                }
-                unit = existing
-            } else {
-                unit = Unit(name: draft.name, type: draft.type, base: draft.base, magnitudes: draft.magnitudes)
-                context.insert(unit)
-            }
-
-            unit.name = draft.name
-            unit.type = draft.type.rawValue
-            unit.base = draft.base
-            unit.magnitudes = draft.magnitudes
-            try context.save()
+            try UnitStore(context: context).save(draft, id: id)
             dismiss()
         } catch {
-            saveError = "Could not save this unit: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
@@ -96,6 +75,10 @@ struct UnitEdit: View {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
                 NumberInput(number: $draft.base, label: "Base", placeholder: "base")
+                if let validationError = validationErrors.first {
+                    Text(validationError.localizedDescription)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section {
@@ -139,7 +122,7 @@ struct UnitEdit: View {
                 save()
             } label: {
                 Text(isEditing ? "Save" : "Add")
-            }.disabled(editMode.isEditing || !draft.isValid())
+            }.disabled(editMode.isEditing || !validationErrors.isEmpty)
                 }
             }
         }
@@ -148,9 +131,7 @@ struct UnitEdit: View {
         }
         .environment(\.editMode, $editMode)
         .navigationTitle("Unit")
-        .task(id: id) {
-            loadDraft()
-        }
+        .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Unit", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

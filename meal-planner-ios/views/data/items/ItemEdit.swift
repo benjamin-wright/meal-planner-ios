@@ -17,7 +17,6 @@ struct ItemEdit: View {
     @Environment(\.modelContext) private var context
     
     private let id: UUID?
-    private let initialDraft: ItemDraft?
     private var isEditing: Bool { id != nil }
     
     @State private var draft: ItemDraft
@@ -26,67 +25,34 @@ struct ItemEdit: View {
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
     
-    init(id: UUID? = nil, draft: ItemDraft? = nil) {
+    init(id: UUID? = nil) {
         self.id = id
-        self.initialDraft = draft
-        self._draft = State(initialValue: draft ?? ItemDraft())
+        self._draft = State(initialValue: ItemDraft())
     }
     
-    private var isInvalid: Bool {
-        !draft.isValid(existingNames: items.filter { $0.id != id }.map(\.name))
+    private var validationErrors: [ItemDraft.ValidationError] {
+        draft.validate(existingNames: items.filter { $0.id != id }.map(\.name))
     }
 
-    private var categorySelection: Binding<UUID> {
-        Binding(
-            get: { draft.categoryID ?? categories.first?.id ?? UUID() },
-            set: { draft.categoryID = $0 }
-        )
+    private var isInvalid: Bool {
+        !validationErrors.isEmpty
     }
 
     private func loadDraft() {
-        guard initialDraft == nil else { return }
-        isLoading = true
-        defer { isLoading = false }
         do {
-            if let id {
-                guard let item = try context.fetch(Item.descriptor(id: id)).first else {
-                    saveError = "This item no longer exists."
-                    return
-                }
-                draft = ItemDraft(item: item)
-            } else {
-                draft.categoryID = try context.fetch(Category.orderedDescriptor).first?.id
-            }
+            let store = ItemStore(context: context)
+            draft = try id.map(store.draft) ?? store.newDraft()
         } catch {
-            saveError = "Could not load this item: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
 
     private func save() {
         do {
-            guard let categoryID = draft.categoryID,
-                  let category = try context.fetch(Category.descriptor(id: categoryID)).first else {
-                saveError = "Please choose a category."
-                return
-            }
-            let item: Item
-            if let id {
-                guard let existing = try context.fetch(Item.descriptor(id: id)).first else {
-                    saveError = "This item no longer exists."
-                    return
-                }
-                item = existing
-            } else {
-                item = Item(name: draft.name, category: category, kind: draft.kind)
-                context.insert(item)
-            }
-            item.name = draft.name
-            item.category = category
-            item.kind = draft.kind.rawValue
-            try context.save()
+            try ItemStore(context: context).save(draft, id: id)
             dismiss()
         } catch {
-            saveError = "Could not save this item: \(error.localizedDescription)"
+            saveError = error.localizedDescription
         }
     }
     
@@ -98,6 +64,10 @@ struct ItemEdit: View {
                 Form {
                     Section {
                         TextInput(text: $draft.name, label: "Name", placeholder: "item name")
+                        if let validationError = validationErrors.first {
+                            Text(validationError.localizedDescription)
+                                .foregroundStyle(.red)
+                        }
                         NavigationLink(value: Route.picker) {
                             Text("Category:").badge(categories.first(where: { $0.id == draft.categoryID })?.name ?? "")
                         }
@@ -110,9 +80,9 @@ struct ItemEdit: View {
             }
         }
         .navigationDestination(for: Route.self) { _ in
-            CategoryPicker(selected: categorySelection)
+            CategoryPicker(selectedID: $draft.categoryID)
         }
-        .task(id: id) { loadDraft() }
+        .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Item", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
