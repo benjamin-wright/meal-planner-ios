@@ -41,7 +41,13 @@ struct CategoryPicker: View {
                 }
             }
         }
-        .searchable(text: $search)
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
+        .onChange(of: search) {
+            let lowercase = search.lowercased()
+            if lowercase != search {
+                search = lowercase
+            }
+        }
         .toolbar {
             Button("Add") {
                 isAddingCategory = true

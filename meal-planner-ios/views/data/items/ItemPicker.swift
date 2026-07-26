@@ -28,7 +28,7 @@ struct ItemPicker: View {
             }.pickerStyle(.inline)
                 .labelsHidden()
         }
-        .searchable(text: $search)
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
         .onChange(of: search) {
             let lowercase = search.lowercased()
             if lowercase != search {
