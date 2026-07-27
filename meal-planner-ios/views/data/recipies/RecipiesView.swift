@@ -9,21 +9,21 @@ import SwiftUI
 import SwiftData
 
 struct RecipiesView: View {
+    @State var mealType: MealType = .dinner
+    @State var course: CourseType = .main
+    
     var body: some View {
-        TabbedStack(pages: [
-            TabPage(
-                title: "Dinner",
-                content: {AnyView(RecipiesFilteredView(mealType: .dinner))}
-            ),
-            TabPage(
-                title: "Lunch",
-                content: {AnyView(RecipiesFilteredView(mealType: .lunch))}
-            ),
-            TabPage(
-                title: "Breakfast",
-                content: {AnyView(RecipiesFilteredView(mealType: .breakfast))}
-            ),
-        ])
+        VStack {
+            EnumPicker(label: "Meal", selection: $mealType)
+                .pickerStyle(.segmented)
+                .padding(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
+            if mealType == .dinner {
+                EnumPicker(label: "Course", selection: $course)
+                    .pickerStyle(.segmented)
+                    .padding(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+            }
+            RecipiesFilteredView(mealType: mealType, course: course)
+        }
         .navigationTitle("Recipies")
     }
 }

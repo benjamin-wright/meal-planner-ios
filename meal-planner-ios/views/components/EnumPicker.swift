@@ -33,7 +33,7 @@ struct EnumPicker<T: LabeledEnum>: View
     
     Form {
         EnumPicker(label: "Meal", selection: $meal)
-        EnumPicker(label: "Course", selection: $course)
+        EnumPicker(label: "Course", selection: $course).pickerStyle(.segmented)
     }
 }
 

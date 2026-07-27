@@ -70,8 +70,10 @@ struct RecipieEdit: View {
                         }
                         Section("Details") {
                             TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
-                            EnumPicker(label: "Meal", selection: $draft.mealType)
-                            EnumPicker(label: "Course", selection: $draft.course)
+                            EnumPicker(label: "Meal", selection: $draft.mealType).pickerStyle(.segmented)
+                            if draft.mealType == .dinner {
+                                EnumPicker(label: "Course", selection: $draft.course).pickerStyle(.segmented)
+                            }
                             IntegerInput(number: $draft.serves, label: "Serves", placeholder: "number of portions")
                             IntegerInput(number: $draft.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
                         }
@@ -84,6 +86,11 @@ struct RecipieEdit: View {
                                 }
                             }
                             .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
+                            .onChange(of: draft.mealType) {
+                                if draft.mealType != .dinner {
+                                    draft.course = .main
+                                }
+                            }
                             if let item = items.first, let unit = units.first {
                                 NavigationLink(value: RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1)) {
                                     Text("Add").foregroundColor(.accent)

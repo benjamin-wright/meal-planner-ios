@@ -68,6 +68,15 @@ struct ItemEdit: View {
                             Text(validationError.localizedDescription)
                                 .foregroundStyle(.red)
                         }
+                        EnumPicker(selection: $draft.kind).pickerStyle(.segmented)
+                        if draft.kind == .readymeal {
+                            EnumPicker(label: "Meal", selection: $draft.readymealData.mealTypeEnum).pickerStyle(.segmented)
+                            if draft.readymealData.mealTypeEnum == .dinner {
+                                EnumPicker(label: "Course", selection: $draft.readymealData.courseEnum).pickerStyle(.segmented)
+                            }
+                            IntegerInput(number: $draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
+                            IntegerInput(number: $draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
+                        }
                         NavigationLink(value: Route.picker) {
                             Text("Category:").badge(categories.first(where: { $0.id == draft.categoryID })?.name ?? "")
                         }

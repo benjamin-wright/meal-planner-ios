@@ -20,13 +20,17 @@ struct RecipiesFilteredView: View {
     
     @Query private var recipies: [Recipie]
     @State var mealType: MealType
+    @State var course: CourseType
     @State private var deletionError: String?
     
-    init(mealType: MealType) {
+    init(mealType: MealType, course: CourseType) {
         self.mealType = mealType
+        self.course = course
+        
+        let dinner = MealType.dinner
         
         _recipies = Query(filter: #Predicate<Recipie> { recipie in
-            recipie.mealType == mealType.rawValue
+            recipie.mealType == mealType.rawValue && (recipie.mealType != dinner.rawValue || recipie.course == course.rawValue)
         })
     }
 
@@ -81,7 +85,8 @@ struct RecipiesFilteredView: View {
 #Preview {
     NavigationStack {
         RecipiesFilteredView(
-            mealType: .dinner
+            mealType: .dinner,
+            course: .main
         )
     }
     .modelContainer(Models.testing.modelContainer)
