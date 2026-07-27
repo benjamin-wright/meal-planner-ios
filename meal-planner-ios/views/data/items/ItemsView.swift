@@ -21,15 +21,46 @@ struct ItemsView: View {
     
     @State var search: String = ""
     @State private var saveError: String?
+    @State private var showIngredients = false
+    @State private var showReadymeals = false
+    @State private var showMisc = false
+    
+    func filterItem(item: Item) -> Bool {
+        var searchFound = false
+        var filtered = false
+        
+        if search.isEmpty {
+            searchFound = true
+        } else {
+            searchFound = item.name.lowercased().contains(search.lowercased())
+                || item.category.name.lowercased().contains(search.lowercased())
+        }
+        
+        if !showIngredients && !showReadymeals && !showMisc {
+            filtered = false
+        } else {
+            switch item.itemKind {
+            case .ingredient:
+                filtered = !showIngredients
+            case .readymeal:
+                filtered = !showReadymeals
+            case .misc:
+                filtered = !showMisc
+            }
+        }
+        
+        return searchFound && !filtered
+    }
     
     var body: some View {
         return VStack {
+            HStack {
+                FilterButton(image: "carrot.fill", selected: $showIngredients)
+                FilterButton(image: "takeoutbag.and.cup.and.straw.fill", selected: $showReadymeals)
+                FilterButton(image: "bag.fill", selected: $showMisc)
+            }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             List {
-                ForEach(items.filter({
-                    search == ""
-                    || $0.name.localizedCaseInsensitiveContains(search)
-                    || $0.category.name.localizedCaseInsensitiveContains(search)
-                })) { item in
+                ForEach(items.filter(filterItem)) { item in
                     NavigationLink(item.name, value: Route.id(item.id))
                 }.onDelete { offsets in
                     do {
@@ -54,7 +85,7 @@ struct ItemsView: View {
             .toolbar {
                 EditButton()
             }
-            .searchable(text: $search)
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .id(let id):

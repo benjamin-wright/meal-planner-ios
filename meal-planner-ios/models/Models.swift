@@ -113,11 +113,13 @@ class Models {
         let fruitCategory = Category(name: "fruit", order: 1)
         let vegetableCategory = Category(name: "vegetables", order: 2)
         let dairyCategory = Category(name: "dairy", order: 3)
+        let precookedCategory = Category(name: "precooked", order: 4)
 
         context.insert(drugCategory)
         context.insert(fruitCategory)
         context.insert(vegetableCategory)
         context.insert(dairyCategory)
+        context.insert(precookedCategory)
         
         try? context.save()
         
@@ -125,11 +127,17 @@ class Models {
         let onions = Item(name: "onions", category: vegetableCategory, kind: .ingredient)
         let apples = Item(name: "apples", category: fruitCategory, kind: .ingredient)
         let milk = Item(name: "milk", category: dairyCategory, kind: .ingredient)
+        let paracetamol = Item(name: "paracetamol", category: drugCategory, kind: .misc)
+        let pastaPot = Item(name: "pasta pot", category: precookedCategory, kind: .readymeal, readymealData: ReadymealData(
+            mealType: MealType.dinner.rawValue, course: CourseType.main.rawValue, serves: 1, time: 5
+        ))
         
         context.insert(carrots)
         context.insert(onions)
         context.insert(apples)
         context.insert(milk)
+        context.insert(paracetamol)
+        context.insert(pastaPot)
         
         try? context.save()
         

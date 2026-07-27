@@ -33,6 +33,13 @@ struct ReadymealData: Codable {
     var serves: Int
     var time: Int
     
+    init(mealType: Int = 0, course: Int = 0, serves: Int = 1, time: Int = 0) {
+        self.mealType = mealType
+        self.course = course
+        self.serves = serves
+        self.time = time
+    }
+    
     var mealTypeEnum: MealType {
         get { MealType(rawValue: mealType)! }
         set { mealType = newValue.rawValue }

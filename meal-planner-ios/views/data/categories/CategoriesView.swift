@@ -58,7 +58,7 @@ struct CategoriesView: View {
         .toolbar {
             EditButton()
         }
-        .searchable(text: $search)
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
         .navigationDestination(for: Route.self) { route in
             switch route {
             case .id(let id):

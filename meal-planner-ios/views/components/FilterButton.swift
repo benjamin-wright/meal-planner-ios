@@ -1,5 +1,5 @@
 //
-//  FilterBar.swift
+//  FilterButton.swift
 //  meal-planner-ios
 //
 //  Created by Benjamin Wright on 21/06/2026.
@@ -19,7 +19,7 @@ struct SelectableButtonStyle: ViewModifier {
     }
 }
 
-struct ImageButton: View {
+struct FilterButton: View {
     @State var image: String
     @Binding var selected: Bool
     
@@ -30,7 +30,7 @@ struct ImageButton: View {
     
     var body: some View {
         Button(action: {
-            
+            selected = !selected
         }) {
             Image(systemName: image)
                 .resizable()
@@ -42,16 +42,14 @@ struct ImageButton: View {
     }
 }
 
-struct FilterBar: View {
-    var body: some View {
-        HStack {
-            ImageButton(image: "carrot.fill", selected: .constant(false))
-            ImageButton(image: "microwave.fill", selected: .constant(true))
-            ImageButton(image: "toilet.fill", selected: .constant(false))
-        }
-    }
-}
-
 #Preview {
-    FilterBar()
+    @Previewable @State var forkSelected: Bool = false
+    @Previewable @State var leafSelected: Bool = false
+    @Previewable @State var flameSelected: Bool = false
+    
+    HStack {
+        FilterButton(image: "fork.knife", selected: $forkSelected)
+        FilterButton(image: "leaf", selected: $leafSelected)
+        FilterButton(image: "flame", selected: $flameSelected)
+    }
 }
