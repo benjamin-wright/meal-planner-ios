@@ -27,7 +27,7 @@ struct MealPlannerView: View {
         TabView {
             ForEach(tabs) { tab in
                 Tab(tab.name, systemImage: tab.image) {
-                    tab.component
+                    tab.component.padding(EdgeInsets(top: 0, leading: 0, bottom: 10, trailing: 0))
                 }
             }
         }

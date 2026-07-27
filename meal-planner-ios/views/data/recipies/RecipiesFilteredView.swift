@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 struct RecipiesFilteredView: View {
     private enum Route: Hashable {
@@ -24,7 +25,9 @@ struct RecipiesFilteredView: View {
     init(mealType: MealType) {
         self.mealType = mealType
         
-        _recipies = Query(filter: #Predicate { $0.mealType == mealType })
+        _recipies = Query(filter: #Predicate<Recipie> { recipie in
+            recipie.mealType == mealType.rawValue
+        })
     }
 
     private func delete(at offsets: IndexSet) {
@@ -58,7 +61,7 @@ struct RecipiesFilteredView: View {
                 RecipieEdit(mealType: mealType)
             case .edit(let id):
                 if let recipie = recipies.first(where: { $0.id == id }) {
-                    RecipieEdit(id: id, mealType: recipie.mealType)
+                    RecipieEdit(id: id, mealType: recipie.mealTypeEnum)
                 } else {
                     ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
                 }

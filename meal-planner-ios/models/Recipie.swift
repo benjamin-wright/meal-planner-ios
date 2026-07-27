@@ -44,8 +44,8 @@ struct RecipieDraft {
 
     init(recipie: Recipie) {
         self.name = recipie.name
-        self.mealType = recipie.mealType
-        self.course = recipie.course
+        self.mealType = recipie.mealTypeEnum
+        self.course = recipie.courseEnum
         self.summary = recipie.summary
         self.serves = recipie.serves
         self.time = recipie.time
@@ -73,8 +73,8 @@ final class Recipie {
     @Attribute(.unique)
     var id: UUID = UUID()
     var name: String = ""
-    var mealType: MealType
-    var course: CourseType
+    var mealType: Int
+    var course: Int
     var summary: String = ""
     var serves: Int = 2
     var time: Int = 15
@@ -85,8 +85,8 @@ final class Recipie {
     init(id: UUID = UUID(), name: String = "", mealType: MealType = .dinner, course: CourseType = .main, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
         self.id = id
         self.name = name
-        self.mealType = mealType
-        self.course = course
+        self.mealType = mealType.rawValue
+        self.course = course.rawValue
         self.summary = summary
         self.serves = serves
         self.time = time
@@ -94,6 +94,15 @@ final class Recipie {
         self.steps = steps
     }
     
+    var mealTypeEnum: MealType {
+        get { return MealType(rawValue: mealType)! }
+        set { mealType = newValue.rawValue }
+    }
+    
+    var courseEnum: CourseType {
+        get { return CourseType(rawValue: course)! }
+        set { course = newValue.rawValue }
+    }
 }
 
 extension Recipie {
