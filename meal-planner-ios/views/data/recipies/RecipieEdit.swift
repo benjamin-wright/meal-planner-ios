@@ -53,6 +53,45 @@ struct RecipieEdit: View {
             saveError = error.localizedDescription
         }
     }
+    
+    private func addStep() {
+        draft.steps.append("")
+    }
+    
+    var detailsSection: some View {
+        Section("Details") {
+            TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
+            EnumPicker(label: "Meal", selection: $draft.mealType).pickerStyle(.segmented)
+            if draft.mealType == .dinner {
+                EnumPicker(label: "Course", selection: $draft.course).pickerStyle(.segmented)
+            }
+            IntegerInput(number: $draft.serves, label: "Serves", placeholder: "number of portions")
+            IntegerInput(number: $draft.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
+        }
+    }
+    
+    var ingredientsSection: some View {
+        Section("Ingredients") {
+            ForEach(draft.ingredients) { ingredient in
+                NavigationLink(value: ingredient) {
+                    let item = items.first(where: { $0.id == ingredient.itemID })
+                    let unit = units.first(where: { $0.id == ingredient.unitID })
+                    Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
+                }
+            }
+            .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
+            .onChange(of: draft.mealType) {
+                if draft.mealType != .dinner {
+                    draft.course = .main
+                }
+            }
+            if let item = items.first, let unit = units.first {
+                NavigationLink(value: RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1)) {
+                    Text("Add").foregroundColor(.accent)
+                }
+            }
+        }
+    }
 
     var body: some View {
         Group {
@@ -68,37 +107,14 @@ struct RecipieEdit: View {
                                     .foregroundStyle(.red)
                             }
                         }
-                        Section("Details") {
-                            TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
-                            EnumPicker(label: "Meal", selection: $draft.mealType).pickerStyle(.segmented)
-                            if draft.mealType == .dinner {
-                                EnumPicker(label: "Course", selection: $draft.course).pickerStyle(.segmented)
-                            }
-                            IntegerInput(number: $draft.serves, label: "Serves", placeholder: "number of portions")
-                            IntegerInput(number: $draft.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
-                        }
-                        Section("Ingredients") {
-                            ForEach(draft.ingredients) { ingredient in
-                                NavigationLink(value: ingredient) {
-                                    let item = items.first(where: { $0.id == ingredient.itemID })
-                                    let unit = units.first(where: { $0.id == ingredient.unitID })
-                                    Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
-                                }
-                            }
-                            .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
-                            .onChange(of: draft.mealType) {
-                                if draft.mealType != .dinner {
-                                    draft.course = .main
-                                }
-                            }
-                            if let item = items.first, let unit = units.first {
-                                NavigationLink(value: RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1)) {
-                                    Text("Add").foregroundColor(.accent)
-                                }
-                            }
-                        }
+                        detailsSection
+                        ingredientsSection
                         Section("Steps") {
-                            AddButton { }
+                            ForEach($draft.steps.enumerated(), id: \.offset) { index, step in
+                                TextInput(text: step, label: "\(index)", placeholder: "Step \(index)")
+                            }
+                            .onDelete { offsets in draft.steps.remove(atOffsets: offsets) }
+                            AddButton(addStep)
                         }
                     }
                     Button(action: save) {
