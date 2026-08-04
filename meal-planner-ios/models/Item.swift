@@ -58,15 +58,12 @@ struct ReadymealData: Codable {
 struct ItemDraft {
     enum ValidationError: Hashable, LocalizedError {
         case nameTooShort
-        case missingCategory
         case duplicateName
 
         var errorDescription: String? {
             switch self {
             case .nameTooShort:
                 return "Item names must be at least 3 characters."
-            case .missingCategory:
-                return "Please choose a category."
             case .duplicateName:
                 return "An item with this name already exists."
             }
@@ -74,11 +71,11 @@ struct ItemDraft {
     }
 
     var name: String
-    var categoryID: UUID?
+    var categoryID: UUID
     var kind: ItemKind
     var readymealData: ReadymealData
 
-    init(categoryID: UUID? = nil, kind: ItemKind = .ingredient, readymealData: ReadymealData = .default) {
+    init(categoryID: UUID, kind: ItemKind = .ingredient, readymealData: ReadymealData = .default) {
         self.name = ""
         self.categoryID = categoryID
         self.kind = kind
@@ -96,9 +93,6 @@ struct ItemDraft {
         var errors: [ValidationError] = []
         if name.count < 3 {
             errors.append(.nameTooShort)
-        }
-        if categoryID == nil {
-            errors.append(.missingCategory)
         }
         if existingNames.contains(name) {
             errors.append(.duplicateName)

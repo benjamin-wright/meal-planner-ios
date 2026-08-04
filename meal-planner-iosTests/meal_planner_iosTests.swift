@@ -57,7 +57,7 @@ struct meal_planner_iosTests {
         try context.save()
 
         let ingredientID = UUID()
-        var draft = RecipieDraft(type: .dinner)
+        var draft = RecipieDraft()
         draft.name = "Carrot soup"
         draft.ingredients = [
             RecipieIngredientDraft(id: ingredientID, itemID: item.id, unitID: unit.id, quantity: 100)
@@ -84,7 +84,7 @@ struct meal_planner_iosTests {
     @MainActor
     @Test func recipieStoreRejectsMissingIngredientReferences() throws {
         let context = try makeRecipieContext()
-        var draft = RecipieDraft(type: .dinner)
+        var draft = RecipieDraft()
         draft.name = "Missing item soup"
         draft.ingredients = [
             RecipieIngredientDraft(itemID: UUID(), unitID: UUID(), quantity: 1)
@@ -126,6 +126,21 @@ struct meal_planner_iosTests {
         #expect(try context.fetch(FetchDescriptor<Item>()).isEmpty)
         try categoryStore.delete(ids: [savedCategory.id])
         #expect(try context.fetch(FetchDescriptor<meal_planner_ios.Category>()).isEmpty)
+    }
+
+    @MainActor
+    @Test func itemStoreRequiresCategoryToCreateDraft() throws {
+        let context = try makeDataContext()
+
+        do {
+            _ = try ItemStore(context: context).newDraft()
+            Issue.record("Creating an item draft without a category should fail.")
+        } catch let error as ItemStore.Error {
+            guard case .missingCategory = error else {
+                Issue.record("Expected a missing category error, got \(error).")
+                return
+            }
+        }
     }
 
     @MainActor

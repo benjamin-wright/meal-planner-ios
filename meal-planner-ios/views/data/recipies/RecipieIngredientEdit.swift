@@ -28,15 +28,19 @@ struct RecipieIngredientEdit: View {
                 NavigationLink {
                     ItemPicker(
                         items: items,
-                        selected: Binding(
-                            get: { items.first(where: { $0.id == value.itemID }) ?? items[0] },
-                            set: { value.itemID = $0.id }
-                        )
+                        selectedID: $value.itemID
                     )
                 } label: {
                     Text("Item").badge(items.first(where: { $0.id == value.itemID })?.name ?? "")
                 }
-                UnitPicker(label: "Unit", selectedID: $value.unitID)
+                NavigationLink {
+                    UnitPicker(
+                        units: units,
+                        selectedID: $value.unitID
+                    )
+                } label: {
+                    Text("Unit").badge(units.first(where: { $0.id == value.unitID })?.name ?? "")
+                }
                 if let unit = units.first(where: { $0.id == value.unitID }) {
                     UnitInput(
                         label: "Quantity",

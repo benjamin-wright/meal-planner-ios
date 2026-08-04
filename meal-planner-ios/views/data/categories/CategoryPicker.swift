@@ -11,8 +11,8 @@ import SwiftData
 struct CategoryPicker: View {
     @Environment(\.dismiss) private var dismiss
 
-    @Query(sort: \Category.order) private var categories: [Category]
-    @Binding var selectedID: UUID?
+    let categories: [Category]
+    @Binding var selectedID: UUID
 
     @State private var search = ""
     @State private var isAddingCategory = false
@@ -62,20 +62,18 @@ struct CategoryPicker: View {
 
 #Preview {
     struct Preview: View {
-        @State private var selectedID: UUID?
-        
-        init() {
-            self._selectedID = State(initialValue: UUID())
-        }
-        
+        @Query(sort: \Category.order) private var categories: [Category]
+        @State private var selectedID: UUID = UUID()
+
         var body: some View {
             NavigationStack {
                 CategoryPicker(
+                    categories: categories,
                     selectedID: $selectedID
                 )
             }
         }
     }
-    
+
     return Preview().modelContainer(Models.testing.modelContainer)
 }

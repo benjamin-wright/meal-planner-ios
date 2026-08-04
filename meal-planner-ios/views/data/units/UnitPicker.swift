@@ -9,46 +9,71 @@ import SwiftUI
 import SwiftData
 
 struct UnitPicker: View {
-    let label: String
+    @Environment(\.dismiss) private var dismiss
+
+    let units: [Unit]
     @Binding var selectedID: UUID
-    @Query(sort: \Unit.name) private var units: [Unit]
 
-    init(label: String, selectedID: Binding<UUID>) {
-        self.label = label
-        self._selectedID = selectedID
-    }
-    
-    var body: some View {
-        Picker(label, selection: $selectedID) {
-            ForEach(units) { unit in
-                Text(unit.name).tag(unit.id)
-            }
+    @State private var search = ""
+    @State private var isAddingUnit = false
+
+    var filteredUnits: [Unit] {
+        units.filter {
+            search.isEmpty || $0.name.contains(search)
         }
     }
-}
 
-struct Preview: View {
-    @Query private var units: [Unit]
-    @State private var selectedID: UUID?
-    
     var body: some View {
-        if let selectedID {
-            Form {
-                UnitPicker(label: "Unit", selectedID: Binding(
-                    get: { selectedID },
-                    set: { self.selectedID = $0 }
-                ))
-            }
-        } else {
-            ProgressView()
-                .task {
-                    selectedID = units.first?.id
+        List {
+            ForEach(filteredUnits) { unit in
+                Button {
+                    selectedID = unit.id
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(unit.name)
+                        Spacer()
+                        if unit.id == selectedID {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                        }
+                    }
                 }
+            }
         }
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
+        .onChange(of: search) {
+            let lowercase = search.lowercased()
+            if lowercase != search {
+                search = lowercase
+            }
+        }
+        .toolbar {
+            Button("Add") {
+                isAddingUnit = true
+            }
+        }
+        .navigationDestination(isPresented: $isAddingUnit) {
+            UnitEdit(type: .weight)
+        }
+        .navigationTitle("Unit")
     }
 }
 
 #Preview {
-    let container = Models.testing.modelContainer
-    Preview().modelContainer(container)
+    struct Preview: View {
+        @Query(sort: \Unit.name) private var units: [Unit]
+        @State private var selectedID: UUID = UUID()
+
+        var body: some View {
+            NavigationStack {
+                UnitPicker(
+                    units: units,
+                    selectedID: $selectedID
+                )
+            }
+        }
+    }
+
+    return Preview().modelContainer(Models.testing.modelContainer)
 }

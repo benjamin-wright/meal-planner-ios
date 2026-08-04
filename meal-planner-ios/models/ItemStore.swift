@@ -32,7 +32,10 @@ final class ItemStore {
     }
 
     func newDraft() throws -> ItemDraft {
-        ItemDraft(categoryID: try context.fetch(Category.orderedDescriptor).first?.id)
+        guard let categoryID = try context.fetch(Category.orderedDescriptor).first?.id else {
+            throw Error.missingCategory
+        }
+        return ItemDraft(categoryID: categoryID)
     }
 
     func draft(id: UUID) throws -> ItemDraft {
@@ -50,8 +53,7 @@ final class ItemStore {
         guard validationErrors.isEmpty else {
             throw Error.invalidDraft(validationErrors)
         }
-        guard let categoryID = draft.categoryID,
-              let category = try context.fetch(Category.descriptor(id: categoryID)).first else {
+        guard let category = try context.fetch(Category.descriptor(id: draft.categoryID)).first else {
             throw Error.missingCategory
         }
 

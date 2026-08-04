@@ -19,7 +19,7 @@ struct ItemEdit: View {
     private let id: UUID?
     private var isEditing: Bool { id != nil }
     
-    @State private var draft: ItemDraft
+    @State private var draft: ItemDraft?
     @State private var isLoading = false
     @State private var saveError: String?
     @Query(sort: \Item.category.order) private var items: [Item]
@@ -27,15 +27,15 @@ struct ItemEdit: View {
     
     init(id: UUID? = nil) {
         self.id = id
-        self._draft = State(initialValue: ItemDraft())
+        self._draft = State(initialValue: nil)
     }
     
     private var validationErrors: [ItemDraft.ValidationError] {
-        draft.validate(existingNames: items.filter { $0.id != id }.map(\.name))
+        draft?.validate(existingNames: items.filter { $0.id != id }.map(\.name)) ?? []
     }
 
     private var isInvalid: Bool {
-        !validationErrors.isEmpty
+        draft == nil || !validationErrors.isEmpty
     }
 
     private func loadDraft() {
@@ -48,6 +48,7 @@ struct ItemEdit: View {
     }
 
     private func save() {
+        guard let draft else { return }
         do {
             try ItemStore(context: context).save(draft, id: id)
             dismiss()
@@ -58,27 +59,31 @@ struct ItemEdit: View {
     
     var body: some View {
         Group {
-            if isLoading {
+            if isLoading || draft == nil {
                 ProgressView()
             } else {
+                let draft = Binding(
+                    get: { self.draft! },
+                    set: { self.draft = $0 }
+                )
                 Form {
                     Section {
-                        TextInput(text: $draft.name, label: "Name", placeholder: "item name")
+                        TextInput(text: draft.name, label: "Name", placeholder: "item name")
                         if let validationError = validationErrors.first {
                             Text(validationError.localizedDescription)
                                 .foregroundStyle(.red)
                         }
-                        EnumPicker(selection: $draft.kind).pickerStyle(.segmented)
-                        if draft.kind == .readymeal {
-                            EnumPicker(label: "Meal", selection: $draft.readymealData.mealTypeEnum).pickerStyle(.segmented)
-                            if draft.readymealData.mealTypeEnum == .dinner {
-                                EnumPicker(label: "Course", selection: $draft.readymealData.courseEnum).pickerStyle(.segmented)
+                        EnumPicker(selection: draft.kind).pickerStyle(.segmented)
+                        if draft.wrappedValue.kind == .readymeal {
+                            EnumPicker(label: "Meal", selection: draft.readymealData.mealTypeEnum).pickerStyle(.segmented)
+                            if draft.wrappedValue.readymealData.mealTypeEnum == .dinner {
+                                EnumPicker(label: "Course", selection: draft.readymealData.courseEnum).pickerStyle(.segmented)
                             }
-                            IntegerInput(number: $draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
-                            IntegerInput(number: $draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
+                            IntegerInput(number: draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
+                            IntegerInput(number: draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
                         }
                         NavigationLink(value: Route.picker) {
-                            Text("Category:").badge(categories.first(where: { $0.id == draft.categoryID })?.name ?? "")
+                            Text("Category:").badge(categories.first(where: { $0.id == draft.wrappedValue.categoryID })?.name ?? "")
                         }
                     }
                     Button(action: save) {
@@ -89,7 +94,15 @@ struct ItemEdit: View {
             }
         }
         .navigationDestination(for: Route.self) { _ in
-            CategoryPicker(selectedID: $draft.categoryID)
+            if draft != nil {
+                CategoryPicker(
+                    categories: categories,
+                    selectedID: Binding(
+                        get: { self.draft!.categoryID },
+                        set: { self.draft!.categoryID = $0 }
+                    )
+                )
+            }
         }
         .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Item", isPresented: Binding(
