@@ -124,6 +124,40 @@ final class Item {
     }
 }
 
+struct ItemFilter {
+    var search: String = ""
+    var ingredients: Bool = false
+    var readymeals: Bool = false
+    var misc: Bool = false
+    
+    func filter(item: Item) -> Bool {
+        var searchFound = false
+        var filtered = false
+        
+        if search.isEmpty {
+            searchFound = true
+        } else {
+            searchFound = item.name.lowercased().contains(search.lowercased())
+                || item.category.name.lowercased().contains(search.lowercased())
+        }
+        
+        if !ingredients && !readymeals && !misc {
+            filtered = false
+        } else {
+            switch item.itemKind {
+            case .ingredient:
+                filtered = !ingredients
+            case .readymeal:
+                filtered = !readymeals
+            case .misc:
+                filtered = !misc
+            }
+        }
+        
+        return searchFound && !filtered
+    }
+}
+
 extension Item {
     static func descriptor(id: UUID) -> FetchDescriptor<Item> {
         FetchDescriptor(predicate: #Predicate { $0.id == id })
@@ -135,5 +169,4 @@ extension Item {
         let item = Item(name: "", category: defaultCategory, kind: .ingredient)
         return item
     }
-    
 }

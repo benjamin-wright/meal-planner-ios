@@ -13,40 +13,37 @@ struct ItemPicker: View {
 
     let items: [Item]
     @Binding var selectedID: UUID
-    @State var search: String = ""
+    @State var filter: ItemFilter = ItemFilter()
 
     var filteredItems: [Item] {
-        items.filter {
-            search.isEmpty ||
-            $0.name.contains(search) ||
-            $0.category.name.contains(search)
-        }
+        items.filter(filter.filter)
     }
 
     var body: some View {
-        List {
-            ForEach(filteredItems) { item in
-                Button {
-                    selectedID = item.id
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(item.name)
-                        Spacer()
-                        if item.id == selectedID {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
+        VStack {
+            HStack {
+                FilterButton(image: "carrot.fill", selected: $filter.ingredients)
+                FilterButton(image: "takeoutbag.and.cup.and.straw.fill", selected: $filter.readymeals)
+                FilterButton(image: "bag.fill", selected: $filter.misc)
+            }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+            List {
+                ForEach(filteredItems) { item in
+                    Button {
+                        selectedID = item.id
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(item.name)
+                            Spacer()
+                            if item.id == selectedID {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                            }
                         }
                     }
                 }
             }
-        }
-        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
-        .onChange(of: search) {
-            let lowercase = search.lowercased()
-            if lowercase != search {
-                search = lowercase
-            }
+            .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
         }
         .navigationTitle("Item")
     }

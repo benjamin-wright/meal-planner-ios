@@ -18,57 +18,23 @@ struct ItemsView: View {
     
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
-    
-    @State var search: String = ""
+
     @State private var saveError: String?
-    @State private var showIngredients = false
-    @State private var showReadymeals = false
-    @State private var showMisc = false
-    
-    func filterItem(item: Item) -> Bool {
-        var searchFound = false
-        var filtered = false
-        
-        if search.isEmpty {
-            searchFound = true
-        } else {
-            searchFound = item.name.lowercased().contains(search.lowercased())
-                || item.category.name.lowercased().contains(search.lowercased())
-        }
-        
-        if !showIngredients && !showReadymeals && !showMisc {
-            filtered = false
-        } else {
-            switch item.itemKind {
-            case .ingredient:
-                filtered = !showIngredients
-            case .readymeal:
-                filtered = !showReadymeals
-            case .misc:
-                filtered = !showMisc
-            }
-        }
-        
-        return searchFound && !filtered
-    }
+    @State private var filter: ItemFilter = ItemFilter()
     
     var body: some View {
         return VStack {
             HStack {
-                FilterButton(image: "carrot.fill", selected: $showIngredients)
-                FilterButton(image: "takeoutbag.and.cup.and.straw.fill", selected: $showReadymeals)
-                FilterButton(image: "bag.fill", selected: $showMisc)
+                FilterButton(image: "carrot.fill", selected: $filter.ingredients)
+                FilterButton(image: "takeoutbag.and.cup.and.straw.fill", selected: $filter.readymeals)
+                FilterButton(image: "bag.fill", selected: $filter.misc)
             }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             List {
-                ForEach(items.filter(filterItem)) { item in
+                ForEach(items.filter(filter.filter)) { item in
                     NavigationLink(item.name, value: Route.id(item.id))
                 }.onDelete { offsets in
                     do {
-                        let filteredItems = items.filter {
-                            search == ""
-                            || $0.name.localizedCaseInsensitiveContains(search)
-                            || $0.category.name.localizedCaseInsensitiveContains(search)
-                        }
+                        let filteredItems = items.filter(filter.filter)
                         try ItemStore(context: context).delete(ids: offsets.map { filteredItems[$0].id })
                     } catch {
                         saveError = error.localizedDescription
@@ -85,7 +51,7 @@ struct ItemsView: View {
             .toolbar {
                 EditButton()
             }
-            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
+            .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .id(let id):
