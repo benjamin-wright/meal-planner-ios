@@ -65,7 +65,6 @@ struct RecipieDraft {
 
         return errors
     }
-
 }
 
 @Model
@@ -108,5 +107,31 @@ final class Recipie {
 extension Recipie {
     static func descriptor(id: UUID) -> FetchDescriptor<Recipie> {
         FetchDescriptor(predicate: #Predicate { $0.id == id })
+    }
+
+    private var ingredientDietary: Set<Dietary> {
+        ingredients.reduce(into: Set<Dietary>()) { dietary, ingredient in
+            dietary.formUnion(ingredient.item.dietary)
+        }
+    }
+
+    var isVegan: Bool {
+        ingredientDietary.isDisjoint(with: [.dairy, .fish, .meat])
+    }
+
+    var isVegetarian: Bool {
+        ingredientDietary.isDisjoint(with: [.fish, .meat])
+    }
+
+    var isPescetarian: Bool {
+        !ingredientDietary.contains(.meat)
+    }
+
+    var isGlutenFree: Bool {
+        !ingredientDietary.contains(.gluten)
+    }
+    
+    var isQuick: Bool {
+        time <= 15
     }
 }

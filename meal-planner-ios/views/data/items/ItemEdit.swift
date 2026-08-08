@@ -82,6 +82,16 @@ struct ItemEdit: View {
                             IntegerInput(number: draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
                             IntegerInput(number: draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
                         }
+                        if draft.wrappedValue.kind != .misc {
+                            HStack {
+                                FilterButton(image: .asset("milk"), aspect: 0.7, selected: draft.dietary.dairy)
+                                FilterButton(image: .asset("fish"), selected: draft.dietary.fish)
+                                FilterButton(image: .asset("wheat"), selected: draft.dietary.gluten)
+                                FilterButton(image: .asset("beef"), selected: draft.dietary.meat)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+                        }
                         NavigationLink(value: Route.picker) {
                             Text("Category:").badge(categories.first(where: { $0.id == draft.wrappedValue.categoryID })?.name ?? "")
                         }

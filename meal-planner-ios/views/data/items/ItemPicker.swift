@@ -22,9 +22,9 @@ struct ItemPicker: View {
     var body: some View {
         VStack {
             HStack {
-                FilterButton(image: "carrot.fill", selected: $filter.ingredients)
-                FilterButton(image: "takeoutbag.and.cup.and.straw.fill", selected: $filter.readymeals)
-                FilterButton(image: "bag.fill", selected: $filter.misc)
+                FilterButton(image: .system("carrot.fill"), selected: $filter.ingredients)
+                FilterButton(image: .system("takeoutbag.and.cup.and.straw.fill"), selected: $filter.readymeals)
+                FilterButton(image: .system("bag.fill"), selected: $filter.misc)
             }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             List {
                 ForEach(filteredItems) { item in

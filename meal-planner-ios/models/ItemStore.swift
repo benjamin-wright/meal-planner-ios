@@ -70,6 +70,7 @@ final class ItemStore {
         item.name = draft.name
         item.category = category
         item.kind = draft.kind.rawValue
+        item.dietary = draft.dietary.toSet()
         item.readymealData = draft.kind == .readymeal ? draft.readymealData : nil
         try context.save()
     }

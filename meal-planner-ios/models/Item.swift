@@ -27,6 +27,44 @@ enum ItemKind: Int, Codable, CaseIterable, LabeledEnum {
     }
 }
 
+enum Dietary: Int, Codable, CaseIterable, LabeledEnum {
+    var id: Self { self }
+    
+    case dairy
+    case gluten
+    case fish
+    case meat
+    
+    var label: String {
+        switch self {
+        case .dairy:
+            return "Dairy"
+        case .gluten:
+            return "Gluten"
+        case .fish:
+            return "Fish"
+        case .meat:
+            return "Meat"
+        }
+    }
+}
+
+struct DietaryItems {
+    var dairy: Bool = false
+    var gluten: Bool = false
+    var fish: Bool = false
+    var meat: Bool = false
+    
+    func toSet() -> Set<Dietary> {
+        var set = Set<Dietary>()
+        if dairy { set.insert(.dairy) }
+        if gluten { set.insert(.gluten) }
+        if fish { set.insert(.fish) }
+        if meat { set.insert(.meat) }
+        return set
+    }
+}
+
 struct ReadymealData: Codable {
     var mealType: Int
     var course: Int
@@ -73,12 +111,19 @@ struct ItemDraft {
     var name: String
     var categoryID: UUID
     var kind: ItemKind
+    var dietary: DietaryItems
     var readymealData: ReadymealData
 
-    init(categoryID: UUID, kind: ItemKind = .ingredient, readymealData: ReadymealData = .default) {
+    init(categoryID: UUID, kind: ItemKind = .ingredient, dietary: Set<Dietary> = [],  readymealData: ReadymealData = .default) {
         self.name = ""
         self.categoryID = categoryID
         self.kind = kind
+        self.dietary = DietaryItems(
+            dairy: dietary.contains(.dairy),
+            gluten: dietary.contains(.gluten),
+            fish: dietary.contains(.fish),
+            meat: dietary.contains(.meat)
+        )
         self.readymealData = readymealData
     }
 
@@ -86,6 +131,12 @@ struct ItemDraft {
         self.name = item.name
         self.categoryID = item.category.id
         self.kind = item.itemKind
+        self.dietary = DietaryItems(
+            dairy: item.dietary.contains(.dairy),
+            gluten: item.dietary.contains(.gluten),
+            fish: item.dietary.contains(.fish),
+            meat: item.dietary.contains(.meat)
+        )
         self.readymealData = item.readymealData ?? .default
     }
 
@@ -109,17 +160,19 @@ final class Item {
     var name: String
     var category: Category
     var kind: Int
+    var dietary: Set<Dietary>
     var readymealData: Optional<ReadymealData>
     
     var itemKind: ItemKind {
         ItemKind(rawValue: kind) ?? ItemKind.ingredient
     }
     
-    init(id: UUID = UUID(), name: String = "", category: Category, kind: ItemKind, readymealData: ReadymealData? = nil) {
+    init(id: UUID = UUID(), name: String = "", category: Category, kind: ItemKind, dietary: Set<Dietary> = [], readymealData: ReadymealData? = nil) {
         self.id = id
         self.name = name
         self.category = category
         self.kind = kind.rawValue
+        self.dietary = dietary
         self.readymealData = readymealData
     }
 }

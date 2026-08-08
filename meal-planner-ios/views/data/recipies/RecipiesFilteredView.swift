@@ -45,10 +45,34 @@ struct RecipiesFilteredView: View {
         }
     }
     
+    private func badge(_ recipie: Recipie) -> String {
+        var terms: [String] = []
+        
+        if recipie.isQuick {
+            terms.append("Q")
+        }
+        if recipie.isVegan {
+            terms.append("Ve")
+        } else if recipie.isVegetarian {
+            terms.append("Vg")
+        } else if recipie.isPescetarian {
+            terms.append("Pe")
+        }
+        if recipie.isGlutenFree {
+            terms.append("GF")
+        }
+        
+        return terms.joined(separator: ", ")
+    }
+    
     var body: some View {
         return List {
             ForEach(recipies) { recipie in
-                NavigationLink(recipie.name, value: Route.edit(recipie.id))
+                NavigationLink(value: Route.edit(recipie.id)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipie.name).badge(badge(recipie))
+                    }
+                }
             }.onDelete(perform: delete)
             Section {
                 NavigationLink(value: Route.add) {
