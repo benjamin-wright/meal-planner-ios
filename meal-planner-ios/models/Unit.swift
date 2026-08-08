@@ -8,10 +8,23 @@
 import Foundation
 import SwiftData
 
-enum UnitType: Int, Codable {
+enum UnitType: Int, Codable, LabeledEnum {
+    var id: Self { self }
+    
     case count
     case weight
     case volume
+    
+    var label: String {
+        switch self {
+        case .count:
+            return "Count"
+        case .weight:
+            return "Weight"
+        case .volume:
+            return "Volume"
+        }
+    }
 }
 
 struct Magnitude: Codable, Identifiable, Hashable {

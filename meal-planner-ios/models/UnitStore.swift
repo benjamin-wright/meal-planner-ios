@@ -56,7 +56,7 @@ final class UnitStore {
         }
         unit.name = draft.name
         unit.type = draft.type.rawValue
-        unit.base = draft.base
+        unit.base = draft.type == .count ? 1 : draft.base
         unit.magnitudes = draft.magnitudes
         try context.save()
     }

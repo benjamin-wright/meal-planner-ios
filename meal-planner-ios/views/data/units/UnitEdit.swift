@@ -13,7 +13,6 @@ struct UnitEdit: View {
     @Environment(\.modelContext) private var context
 
     private let id: UUID?
-    private let type: UnitType
     private var isEditing: Bool { id != nil }
 
     @State private var draft: UnitDraft
@@ -23,7 +22,6 @@ struct UnitEdit: View {
     
     init(id: UUID? = nil, type: UnitType) {
         self.id = id
-        self.type = type
         self._draft = State(initialValue: UnitDraft(type: type))
     }
 
@@ -74,7 +72,10 @@ struct UnitEdit: View {
                 Form {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
-                NumberInput(number: $draft.base, label: "Base", placeholder: "base")
+                EnumPicker(label: "Type", selection: $draft.type)
+                if draft.type != .count {   
+                    NumberInput(number: $draft.base, label: "Base", placeholder: "base")
+                }
                 if let validationError = validationErrors.first {
                     Text(validationError.localizedDescription)
                         .foregroundStyle(.red)
