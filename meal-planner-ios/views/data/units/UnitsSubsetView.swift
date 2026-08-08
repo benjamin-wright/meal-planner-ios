@@ -9,11 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct UnitsSubsetView: View {
-    private enum Route: Hashable {
-        case add
-        case edit(UUID)
-    }
-
     @Environment(\.modelContext) private var context
     
     @Query private var units: [Unit]
@@ -42,24 +37,16 @@ struct UnitsSubsetView: View {
     var body: some View {
         return List {
             ForEach(units) { unit in
-                NavigationLink(unit.name, value: Route.edit(unit.id))
+                NavigationLink(unit.name, value: FlowRouter.Route.editUnit(id: unit.id, type: unitType))
             }.onDelete(perform: delete)
             Section {
-                NavigationLink(value: Route.add) {
+                NavigationLink(value: FlowRouter.Route.newUnit(unitType)) {
                     Text("Add").foregroundStyle(.accent)
                 }
             }
         }
         .toolbar {
             EditButton()
-        }
-        .navigationDestination(for: Route.self) { route in
-            switch route {
-            case .add:
-                UnitEdit(type: unitType)
-            case .edit(let id):
-                UnitEdit(id: id, type: unitType)
-            }
         }
         .alert("Could Not Save", isPresented: Binding(
             get: { saveError != nil },
@@ -73,7 +60,7 @@ struct UnitsSubsetView: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         UnitsSubsetView(
             type: .weight
         )

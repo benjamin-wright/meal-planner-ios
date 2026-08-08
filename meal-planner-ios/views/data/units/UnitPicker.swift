@@ -10,13 +10,13 @@ import SwiftData
 
 struct UnitPicker: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(FlowRouter.self) private var router
 
     let units: [Unit]
     @Binding var selectedID: UUID
 
     @State private var type = -1
     @State private var search = ""
-    @State private var isAddingUnit = false
 
     var filteredUnits: [Unit] {
         units.filter {
@@ -39,7 +39,7 @@ struct UnitPicker: View {
             List {
                 ForEach(filteredUnits) { unit in
                     Button {
-                        selectedID = unit.id
+                        router.selectUnit(unit.id)
                         dismiss()
                     } label: {
                         HStack {
@@ -62,12 +62,9 @@ struct UnitPicker: View {
             }
             .toolbar {
                 Button("Add") {
-                    isAddingUnit = true
+                    router.path.append(.newUnit(.weight))
                 }
             }
-        }
-        .navigationDestination(isPresented: $isAddingUnit) {
-            UnitEdit(type: .weight)
         }
         .navigationTitle("Unit")
     }
@@ -79,7 +76,7 @@ struct UnitPicker: View {
         @State private var selectedID: UUID = UUID()
 
         var body: some View {
-            NavigationStack {
+            FlowContainer {
                 UnitPicker(
                     units: units,
                     selectedID: $selectedID
@@ -88,5 +85,6 @@ struct UnitPicker: View {
         }
     }
 
-    return Preview().modelContainer(Models.testing.modelContainer)
+    return Preview()
+        .modelContainer(Models.testing.modelContainer)
 }

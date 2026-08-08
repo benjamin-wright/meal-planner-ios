@@ -8,27 +8,20 @@
 import SwiftUI
 import SwiftData
 
-struct TabData: Identifiable {
-    var id: Int
-    var name: String
-    var component: AnyView
-    var image: String
-}
-
-var tabs: [TabData] = [
-    TabData(id: 1, name: "Data", component: AnyView(DataView()), image: "externaldrive"),
-    TabData(id: 2, name: "Planner", component: AnyView(Text("Planner")), image: "calendar"),
-    TabData(id: 3, name: "List", component: AnyView(Text("List")), image: "checklist"),
-    TabData(id: 4, name: "Settings", component: AnyView(SettingsView()), image: "gearshape.fill")
-]
-
 struct MealPlannerView: View {
     var body: some View {
         TabView {
-            ForEach(tabs) { tab in
-                Tab(tab.name, systemImage: tab.image) {
-                    tab.component.padding(EdgeInsets(top: 0, leading: 0, bottom: 10, trailing: 0))
-                }
+            Tab("Data", systemImage: "externaldrive") {
+                DataFlowView().padding(.bottom, 10)
+            }
+            Tab("Planner", systemImage: "calendar") {
+                PlannerFlowView().padding(.bottom, 10)
+            }
+            Tab("List", systemImage: "checklist") {
+                ListFlowView().padding(.bottom, 10)
+            }
+            Tab("Settings", systemImage: "gearshape.fill") {
+                SettingsView().padding(.bottom, 10)
             }
         }
     }

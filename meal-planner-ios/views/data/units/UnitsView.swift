@@ -19,7 +19,7 @@ struct UnitsView: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         UnitsView()
     }
     .modelContainer(Models.testing.modelContainer)

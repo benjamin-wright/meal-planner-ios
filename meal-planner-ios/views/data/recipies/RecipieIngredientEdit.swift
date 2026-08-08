@@ -7,6 +7,7 @@ import SwiftUI
 
 struct RecipieIngredientEdit: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(FlowRouter.self) private var router
 
     let edit: Bool
     @State private var value: RecipieIngredientDraft
@@ -25,19 +26,17 @@ struct RecipieIngredientEdit: View {
     var body: some View {
         Form {
             Section {
-                NavigationLink {
-                    ItemPicker(
-                        items: items,
-                        selectedID: $value.itemID
-                    )
+                Button {
+                    router.showItemPicker(selectedID: value.itemID) { id in
+                        value.itemID = id
+                    }
                 } label: {
                     Text("Item").badge(items.first(where: { $0.id == value.itemID })?.name ?? "")
                 }
-                NavigationLink {
-                    UnitPicker(
-                        units: units,
-                        selectedID: $value.unitID
-                    )
+                Button {
+                    router.showUnitPicker(selectedID: value.unitID) { id in
+                        value.unitID = id
+                    }
                 } label: {
                     Text("Unit").badge(units.first(where: { $0.id == value.unitID })?.name ?? "")
                 }

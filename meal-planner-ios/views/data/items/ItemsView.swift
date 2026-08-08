@@ -9,10 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct ItemsView: View {
-    enum Route: Hashable {
-        case id(_ id: UUID?)
-    }
-    
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
@@ -31,7 +27,7 @@ struct ItemsView: View {
             }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
             List {
                 ForEach(items.filter(filter.filter)) { item in
-                    NavigationLink(item.name, value: Route.id(item.id))
+                    NavigationLink(item.name, value: FlowRouter.Route.editItem(item.id))
                 }.onDelete { offsets in
                     do {
                         let filteredItems = items.filter(filter.filter)
@@ -42,7 +38,7 @@ struct ItemsView: View {
                 }
                 Section {
                     NavigationLink(
-                        value: Route.id(nil), label: {
+                        value: FlowRouter.Route.newItem, label: {
                             Text("Add").foregroundColor(.accent)
                         }
                     )
@@ -52,12 +48,6 @@ struct ItemsView: View {
                 EditButton()
             }
             .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
-            .navigationDestination(for: Route.self) { route in
-                switch route {
-                case .id(let id):
-                    ItemEdit(id: id)
-                }
-            }
             .navigationTitle("Items")
         }
         .alert("Item", isPresented: Binding(
@@ -72,7 +62,7 @@ struct ItemsView: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         ItemsView()
     }
     .modelContainer(Models.testing.modelContainer)

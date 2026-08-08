@@ -9,12 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct ItemEdit: View {
-    enum Route: Hashable {
-        case picker
-    }
-    
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
     
     private let id: UUID?
     private var isEditing: Bool { id != nil }
@@ -92,7 +89,11 @@ struct ItemEdit: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
                         }
-                        NavigationLink(value: Route.picker) {
+                        Button {
+                            router.showCategoryPicker(selectedID: draft.wrappedValue.categoryID) { id in
+                                self.draft?.categoryID = id
+                            }
+                        } label: {
                             Text("Category:").badge(categories.first(where: { $0.id == draft.wrappedValue.categoryID })?.name ?? "")
                         }
                     }
@@ -101,17 +102,6 @@ struct ItemEdit: View {
                     }.disabled(isInvalid)
                 }
                 .navigationTitle("Item")
-            }
-        }
-        .navigationDestination(for: Route.self) { _ in
-            if draft != nil {
-                CategoryPicker(
-                    categories: categories,
-                    selectedID: Binding(
-                        get: { self.draft!.categoryID },
-                        set: { self.draft!.categoryID = $0 }
-                    )
-                )
             }
         }
         .onFirstAppear(perform: loadDraft, loading: $isLoading)
@@ -127,7 +117,8 @@ struct ItemEdit: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         ItemEdit()
-    }.modelContainer(Models.testing.modelContainer)
+    }
+    .modelContainer(Models.testing.modelContainer)
 }

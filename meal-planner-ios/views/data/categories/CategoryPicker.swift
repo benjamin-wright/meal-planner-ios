@@ -10,12 +10,12 @@ import SwiftData
 
 struct CategoryPicker: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(FlowRouter.self) private var router
 
     let categories: [Category]
     @Binding var selectedID: UUID
 
     @State private var search = ""
-    @State private var isAddingCategory = false
 
     var filteredCategories: [Category] {
         categories.filter {
@@ -27,7 +27,7 @@ struct CategoryPicker: View {
         List {
             ForEach(filteredCategories) { category in
                 Button {
-                    selectedID = category.id
+                    router.selectCategory(category.id)
                     dismiss()
                 } label: {
                     HStack {
@@ -50,11 +50,8 @@ struct CategoryPicker: View {
         }
         .toolbar {
             Button("Add") {
-                isAddingCategory = true
+                router.path.append(.newCategory)
             }
-        }
-        .navigationDestination(isPresented: $isAddingCategory) {
-            CategoryEdit()
         }
         .navigationTitle("Category")
     }
@@ -66,7 +63,7 @@ struct CategoryPicker: View {
         @State private var selectedID: UUID = UUID()
 
         var body: some View {
-            NavigationStack {
+            FlowContainer {
                 CategoryPicker(
                     categories: categories,
                     selectedID: $selectedID
@@ -75,5 +72,6 @@ struct CategoryPicker: View {
         }
     }
 
-    return Preview().modelContainer(Models.testing.modelContainer)
+    return Preview()
+        .modelContainer(Models.testing.modelContainer)
 }

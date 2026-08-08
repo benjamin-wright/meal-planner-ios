@@ -10,6 +10,7 @@ import SwiftData
 
 struct ItemPicker: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(FlowRouter.self) private var router
 
     let items: [Item]
     @Binding var selectedID: UUID
@@ -29,7 +30,7 @@ struct ItemPicker: View {
             List {
                 ForEach(filteredItems) { item in
                     Button {
-                        selectedID = item.id
+                        router.selectItem(item.id)
                         dismiss()
                     } label: {
                         HStack {
@@ -45,6 +46,13 @@ struct ItemPicker: View {
             }
             .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Add") {
+                    router.path.append(.newItem)
+                }
+            }
+        }
         .navigationTitle("Item")
     }
 }
@@ -55,7 +63,7 @@ struct ItemPicker: View {
         @State private var selectedID: UUID = UUID()
 
         var body: some View {
-            NavigationStack {
+            FlowContainer {
                 ItemPicker(
                     items: items,
                     selectedID: $selectedID
@@ -64,5 +72,6 @@ struct ItemPicker: View {
         }
     }
 
-    return Preview().modelContainer(Models.testing.modelContainer)
+    return Preview()
+        .modelContainer(Models.testing.modelContainer)
 }

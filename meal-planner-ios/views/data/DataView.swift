@@ -9,37 +9,20 @@
 import SwiftUI
 import SwiftData
 
-extension DataView {
-    enum ViewDestination: Hashable, CaseIterable {
-        case units, categories, items, recipies
-    }
-}
-
 struct DataView: View {
+    @Environment(FlowRouter.self) private var router
+
     var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink("Units", value: ViewDestination.units)
-                NavigationLink("Categories", value: ViewDestination.categories)
-                NavigationLink("Items", value: ViewDestination.items)
-                NavigationLink("Recipies", value: ViewDestination.recipies)
-            }.navigationTitle("Data")
-            .navigationDestination(for: ViewDestination.self) { view in
-                switch view {
-                case .units:
-                    UnitsView()
-                case .categories:
-                    CategoriesView()
-                case .items:
-                    ItemsView()
-                case .recipies:
-                    RecipiesView()
-                }
-            }
+        List {
+            NavigationLink("Units", value: FlowRouter.Route.units)
+            NavigationLink("Categories", value: FlowRouter.Route.categories)
+            NavigationLink("Items", value: FlowRouter.Route.items)
+            NavigationLink("Recipies", value: FlowRouter.Route.recipies)
         }
+        .navigationTitle("Data")
     }
 }
 
 #Preview {
-    DataView().modelContainer(Models.testing.modelContainer)
+    DataFlowView().modelContainer(Models.testing.modelContainer)
 }

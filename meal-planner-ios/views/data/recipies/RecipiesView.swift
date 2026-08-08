@@ -29,7 +29,7 @@ struct RecipiesView: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         RecipiesView()
     }
     .modelContainer(Models.testing.modelContainer)

@@ -144,7 +144,7 @@ struct UnitEdit: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         UnitEdit(type: .weight)
     }
     .modelContainer(Models.testing.modelContainer)

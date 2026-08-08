@@ -9,10 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct CategoriesView: View {
-    enum Route: Hashable {
-        case id(_ id: UUID?)
-    }
-
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
@@ -27,7 +23,7 @@ struct CategoriesView: View {
                 search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
             
             }) { category in
-                NavigationLink(category.name, value: Route.id(category.id))
+                NavigationLink(category.name, value: FlowRouter.Route.editCategory(category.id))
             }.onDelete { offsets in
                 do {
                     let filteredCategories = categories.filter {
@@ -47,7 +43,7 @@ struct CategoriesView: View {
             }
             Section {
                 NavigationLink(
-                    value: Route.id(nil),
+                    value: FlowRouter.Route.newCategory,
                     label: {
                         Text("Add")
                             .foregroundColor(.accent)
@@ -59,12 +55,6 @@ struct CategoriesView: View {
             EditButton()
         }
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
-        .navigationDestination(for: Route.self) { route in
-            switch route {
-            case .id(let id):
-                CategoryEdit(id: id)
-            }
-        }
         .navigationTitle("Categories")
         .alert("Category", isPresented: Binding(
             get: { saveError != nil },
@@ -80,7 +70,7 @@ struct CategoriesView: View {
 #Preview {
     let container = Models.testing.modelContainer
 
-    NavigationStack {
+    FlowContainer {
         CategoriesView()
     }
     .modelContainer(container)

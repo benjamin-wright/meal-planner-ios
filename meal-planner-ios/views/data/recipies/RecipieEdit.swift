@@ -11,6 +11,7 @@ import SwiftData
 struct RecipieEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
     private var isEditing: Bool { id != nil }
@@ -73,7 +74,13 @@ struct RecipieEdit: View {
     var ingredientsSection: some View {
         Section("Ingredients") {
             ForEach(draft.ingredients) { ingredient in
-                NavigationLink(value: ingredient) {
+                Button {
+                    router.showRecipieIngredient(ingredient, isEditing: true) { updated in
+                        if let index = self.draft.ingredients.firstIndex(where: { $0.id == updated.id }) {
+                            self.draft.ingredients[index] = updated
+                        }
+                    }
+                } label: {
                     let item = items.first(where: { $0.id == ingredient.itemID })
                     let unit = units.first(where: { $0.id == ingredient.unitID })
                     Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
@@ -86,7 +93,14 @@ struct RecipieEdit: View {
                 }
             }
             if let item = items.first, let unit = units.first {
-                NavigationLink(value: RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1)) {
+                Button {
+                    router.showRecipieIngredient(
+                        RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1),
+                        isEditing: false
+                    ) { ingredient in
+                        self.draft.ingredients.append(ingredient)
+                    }
+                } label: {
                     Text("Add").foregroundColor(.accent)
                 }
             }
@@ -127,20 +141,6 @@ struct RecipieEdit: View {
         .toolbar { EditButton() }
         .environment(\.editMode, $editMode)
         .navigationTitle("Recipe")
-        .navigationDestination(for: RecipieIngredientDraft.self) { ingredient in
-            RecipieIngredientEdit(
-                edit: draft.ingredients.contains(where: { $0.id == ingredient.id }),
-                value: ingredient,
-                items: items,
-                units: units
-            ) { updated in
-                if let index = draft.ingredients.firstIndex(where: { $0.id == updated.id }) {
-                    draft.ingredients[index] = updated
-                } else {
-                    draft.ingredients.append(updated)
-                }
-            }
-        }
         .onFirstAppear(perform: loadDraft, loading: $isLoading)
         .alert("Recipe", isPresented: Binding(
             get: { saveError != nil },
@@ -154,7 +154,7 @@ struct RecipieEdit: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         RecipieEdit(mealType: .dinner)
     }
     .modelContainer(Models.testing.modelContainer)

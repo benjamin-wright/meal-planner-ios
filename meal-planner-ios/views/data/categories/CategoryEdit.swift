@@ -84,7 +84,8 @@ struct CategoryEdit: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         CategoryEdit(id: nil)
-    }.modelContainer(Models.testing.modelContainer)
+    }
+    .modelContainer(Models.testing.modelContainer)
 }

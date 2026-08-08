@@ -10,11 +10,6 @@ import SwiftData
 import OSLog
 
 struct RecipiesFilteredView: View {
-    private enum Route: Hashable {
-        case add
-        case edit(UUID)
-    }
-
     @Environment(\.modelContext) private var context
     @Environment(\.editMode) private var editMode
     
@@ -68,32 +63,20 @@ struct RecipiesFilteredView: View {
     var body: some View {
         return List {
             ForEach(recipies) { recipie in
-                NavigationLink(value: Route.edit(recipie.id)) {
+                NavigationLink(value: FlowRouter.Route.editRecipie(recipie.id)) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(recipie.name).badge(badge(recipie))
                     }
                 }
             }.onDelete(perform: delete)
             Section {
-                NavigationLink(value: Route.add) {
+                NavigationLink(value: FlowRouter.Route.newRecipie(mealType)) {
                     Text("Add").foregroundStyle(.accent)
                 }
             }
         }
         .toolbar {
             EditButton()
-        }
-        .navigationDestination(for: Route.self) { route in
-            switch route {
-            case .add:
-                RecipieEdit(mealType: mealType)
-            case .edit(let id):
-                if let recipie = recipies.first(where: { $0.id == id }) {
-                    RecipieEdit(id: id, mealType: recipie.mealTypeEnum)
-                } else {
-                    ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
-                }
-            }
         }
         .alert("Recipe", isPresented: Binding(
             get: { deletionError != nil },
@@ -107,7 +90,7 @@ struct RecipiesFilteredView: View {
 }
 
 #Preview {
-    NavigationStack {
+    FlowContainer {
         RecipiesFilteredView(
             mealType: .dinner,
             course: .main
