@@ -178,6 +178,63 @@ struct meal_planner_iosTests {
         }
     }
 
+    @MainActor
+    @Test func mealStoreCreatesUpdatesAndDeletesMeals() throws {
+        let context = try makeMealContext()
+        let recipie = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
+        let category = Category(name: "Prepared", order: 0)
+        let readymeal = Item(
+            name: "Prepared salad",
+            category: category,
+            kind: .readymeal,
+            readymealData: ReadymealData(mealType: MealType.dinner.rawValue, course: CourseType.side.rawValue)
+        )
+        context.insert(category)
+        context.insert(recipie)
+        context.insert(readymeal)
+        try context.save()
+
+        var draft = MealDraft(mealType: .dinner)
+        draft.name = "Soup supper"
+        draft.dishes = [.recipe(recipie.id), .readymeal(readymeal.id)]
+
+        let store = MealStore(context: context)
+        try store.save(draft, id: nil)
+
+        let meal = try #require(context.fetch(FetchDescriptor<Meal>()).first)
+        #expect(meal.name == "Soup supper")
+        #expect(meal.recipies.map(\.id) == [recipie.id])
+        #expect(meal.readymeals.map(\.id) == [readymeal.id])
+        #expect(try store.draft(id: meal.id).dishes == draft.dishes)
+
+        draft.name = "Updated soup supper"
+        try store.save(draft, id: meal.id)
+        #expect(meal.name == "Updated soup supper")
+
+        try store.delete(ids: [meal.id])
+        #expect(try context.fetch(FetchDescriptor<Meal>()).isEmpty)
+    }
+
+    @MainActor
+    @Test func mealStoreRejectsMissingDishReferences() throws {
+        let context = try makeMealContext()
+        var draft = MealDraft(mealType: .dinner)
+        draft.name = "Missing dish meal"
+        draft.dishes = [.recipe(UUID())]
+
+        do {
+            try MealStore(context: context).save(draft, id: nil)
+            Issue.record("Saving with a missing dish reference should fail.")
+        } catch let error as MealStore.Error {
+            guard case .missingDishReference = error else {
+                Issue.record("Expected a missing dish reference error, got \(error).")
+                return
+            }
+        }
+
+        #expect(try context.fetch(FetchDescriptor<Meal>()).isEmpty)
+    }
+
     private func makeRecipieContext() throws -> ModelContext {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(
@@ -200,6 +257,18 @@ struct meal_planner_iosTests {
             RecipieIngredient.self,
             Recipie.self,
             AppSettings.self,
+            configurations: configuration
+        )
+        return ModelContext(container)
+    }
+
+    private func makeMealContext() throws -> ModelContext {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: Category.self,
+            Item.self,
+            Recipie.self,
+            Meal.self,
             configurations: configuration
         )
         return ModelContext(container)

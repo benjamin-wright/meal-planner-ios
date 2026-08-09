@@ -14,6 +14,7 @@ struct FlowDestination: View {
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Unit.name) private var units: [Unit]
     @Query private var recipies: [Recipie]
+    @Query private var meals: [Meal]
 
     var body: some View {
         @Bindable var router = router
@@ -27,6 +28,8 @@ struct FlowDestination: View {
             ItemsView()
         case .recipies:
             RecipiesView()
+        case .meals:
+            MealsView()
         case .plannerDay, .plannerMeal:
             ContentUnavailableView("Planner Navigation", systemImage: "calendar")
         case .categoryPicker:
@@ -47,6 +50,13 @@ struct FlowDestination: View {
             UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
+        case .dishPicker(let courseFilter):
+            DishPicker(
+                recipies: recipies,
+                readymeals: items,
+                selectedID: $router.selectedDishID,
+                initialCourseFilter: courseFilter
+            )
         case .newRecipie(let mealType):
             RecipieEdit(mealType: mealType)
         case .editRecipie(let id):
@@ -66,6 +76,16 @@ struct FlowDestination: View {
                 )
             } else {
                 ContentUnavailableView("Ingredient Not Found", systemImage: "exclamationmark.triangle")
+            }
+        case .mealPicker:
+            MealPicker(meals: meals, selectedID: $router.selectedMealID)
+        case .newMeal(let mealType):
+            MealEdit(mealType: mealType)
+        case .editMeal(let id):
+            if let meal = meals.first(where: { $0.id == id }) {
+                MealEdit(id: id, mealType: meal.mealType)
+            } else {
+                ContentUnavailableView("Meal Not Found", systemImage: "exclamationmark.triangle")
             }
         }
     }

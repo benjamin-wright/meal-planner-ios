@@ -135,3 +135,27 @@ extension Recipie {
         time <= 15
     }
 }
+
+struct RecipieFilter {
+    var search: String = ""
+    var mealType: MealType? = nil
+    
+    func filter(recipie: Recipie) -> Bool {
+        var searchFound = false
+        var filtered = false
+        
+        if search.isEmpty {
+            searchFound = true
+        } else {
+            searchFound = recipie.name.lowercased().contains(search.lowercased())
+        }
+        
+        if mealType == nil {
+            filtered = false
+        } else {
+            filtered = recipie.mealTypeEnum != mealType
+        }
+        
+        return searchFound && !filtered
+    }
+}

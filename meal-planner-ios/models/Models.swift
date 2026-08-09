@@ -112,12 +112,14 @@ class Models {
         let drugCategory = Category(name: "drugs", order: 0)
         let fruitCategory = Category(name: "fruit", order: 1)
         let vegetableCategory = Category(name: "vegetables", order: 2)
-        let dairyCategory = Category(name: "dairy", order: 3)
-        let precookedCategory = Category(name: "precooked", order: 4)
+        let spicesCategory = Category(name: "spices", order: 3)
+        let dairyCategory = Category(name: "dairy", order: 4)
+        let precookedCategory = Category(name: "precooked", order: 5)
 
         context.insert(drugCategory)
         context.insert(fruitCategory)
         context.insert(vegetableCategory)
+        context.insert(spicesCategory)
         context.insert(dairyCategory)
         context.insert(precookedCategory)
         
@@ -126,7 +128,10 @@ class Models {
         let carrots = Item(name: "carrots", category: vegetableCategory, kind: .ingredient)
         let onions = Item(name: "onions", category: vegetableCategory, kind: .ingredient)
         let apples = Item(name: "apples", category: fruitCategory, kind: .ingredient)
-        let milk = Item(name: "milk", category: dairyCategory, kind: .ingredient)
+        let milk = Item(name: "milk", category: dairyCategory, kind: .ingredient, dietary: [.dairy])
+        let potatoes = Item(name: "potatoes", category: vegetableCategory, kind: .ingredient)
+        let chickenThighs = Item(name: "chicken thighs", category: precookedCategory, kind: .ingredient, dietary: [.meat])
+        let rosemary = Item(name: "rosemary", category: spicesCategory, kind: .ingredient)
         let paracetamol = Item(name: "paracetamol", category: drugCategory, kind: .misc)
         let pastaPot = Item(name: "pasta pot", category: precookedCategory, kind: .readymeal, readymealData: ReadymealData(
             mealType: MealType.dinner.rawValue, course: CourseType.main.rawValue, serves: 1, time: 5
@@ -136,6 +141,9 @@ class Models {
         context.insert(onions)
         context.insert(apples)
         context.insert(milk)
+        context.insert(potatoes)
+        context.insert(chickenThighs)
+        context.insert(rosemary)
         context.insert(paracetamol)
         context.insert(pastaPot)
         
@@ -169,7 +177,54 @@ class Models {
                 )
             ]
         )
+        let roastChicken = Recipie(
+            name: "roast chicken",
+            mealType: .dinner,
+            course: .main,
+            summary: "A tasty roast chicken",
+            ingredients: [
+                RecipieIngredient(
+                    item: chickenThighs,
+                    unit: countUnit,
+                    quantity: 2
+                ),
+                RecipieIngredient(
+                    item: rosemary,
+                    unit: gramsUnit,
+                    quantity: 5
+                ),
+            ]
+        )
+        let mashedPotatoes = Recipie(
+            name: "mashed potatoes",
+            mealType: .dinner,
+            course: .side,
+            summary: "A tasty side of mashed potatoes",
+            ingredients: [
+                RecipieIngredient(
+                    item: potatoes,
+                    unit: gramsUnit,
+                    quantity: 200
+                ),
+                RecipieIngredient(
+                    item: milk,
+                    unit: litresUnit,
+                    quantity: 0.1
+                )
+            ]
+        )
+        
         context.insert(soup)
+        context.insert(roastChicken)
+        context.insert(mashedPotatoes)
+        
+        let roastChickenMeal = Meal(
+            name: "Roast Chicken Dinner",
+            mealType: .dinner,
+            recipies: [roastChicken, mashedPotatoes]
+        )
+        
+        context.insert(roastChickenMeal)
         
         try? context.save()
     }

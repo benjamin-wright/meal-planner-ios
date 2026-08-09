@@ -15,6 +15,7 @@ final class FlowRouter {
         case categories
         case items
         case recipies
+        case meals
 
         // Planner roots, reserved for the forthcoming planner flow.
         case plannerDay(Date)
@@ -30,21 +31,29 @@ final class FlowRouter {
         case unitPicker
         case newUnit(UnitType)
         case editUnit(id: UUID, type: UnitType)
+        case dishPicker(courseFilter: CourseType)
         case newRecipie(MealType)
         case editRecipie(UUID)
         case recipieIngredient
+        case mealPicker
+        case newMeal(MealType)
+        case editMeal(UUID)
     }
 
     var path: [Route] = []
     var selectedCategoryID = UUID()
     var selectedItemID = UUID()
     var selectedUnitID = UUID()
+    var selectedDishID: DishID = .recipe(UUID())
+    var selectedMealID = UUID()
     private(set) var recipieIngredient: RecipieIngredientDraft?
     private(set) var isEditingRecipieIngredient = false
 
     private var onCategorySelected: ((UUID) -> Void)?
     private var onItemSelected: ((UUID) -> Void)?
     private var onUnitSelected: ((UUID) -> Void)?
+    private var onDishSelected: ((DishID) -> Void)?
+    private var onMealSelected: ((UUID) -> Void)?
     private var onRecipieIngredientSaved: ((RecipieIngredientDraft) -> Void)?
 
     func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
@@ -78,6 +87,32 @@ final class FlowRouter {
     func selectUnit(_ id: UUID) {
         selectedUnitID = id
         onUnitSelected?(id)
+    }
+    
+    func showDishPicker(
+        selectedID: DishID,
+        courseFilter: CourseType,
+        onSelect: @escaping (DishID) -> Void
+    ) {
+        selectedDishID = selectedID
+        onDishSelected = onSelect
+        path.append(.dishPicker(courseFilter: courseFilter))
+    }
+
+    func selectDish(_ dish: DishID) {
+        selectedDishID = dish
+        onDishSelected?(dish)
+    }
+
+    func showMealPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
+        selectedMealID = selectedID
+        onMealSelected = onSelect
+        path.append(.mealPicker)
+    }
+
+    func selectMeal(_ id: UUID) {
+        selectedMealID = id
+        onMealSelected?(id)
     }
 
     func showRecipieIngredient(

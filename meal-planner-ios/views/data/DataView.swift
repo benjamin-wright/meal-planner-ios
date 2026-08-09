@@ -18,6 +18,7 @@ struct DataView: View {
             NavigationLink("Categories", value: FlowRouter.Route.categories)
             NavigationLink("Items", value: FlowRouter.Route.items)
             NavigationLink("Recipies", value: FlowRouter.Route.recipies)
+            NavigationLink("Meals", value: FlowRouter.Route.meals)
         }
         .navigationTitle("Data")
     }
