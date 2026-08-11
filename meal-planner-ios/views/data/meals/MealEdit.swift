@@ -51,10 +51,11 @@ struct MealEdit: View {
         }
     }
 
-    private func newDish(for course: CourseType) {
+    private func newDish(course: CourseType, meal: MealType) {
         router.showDishPicker(
-            selectedID: draft.dishes.first ?? .recipe(UUID()),
-            courseFilter: course
+            selectedID: .recipe(UUID()),
+            courseFilter: course,
+            mealFilter: meal
         ) { dish in
             guard !draft.dishes.contains(dish) else { return }
             draft.dishes.append(dish)
@@ -66,14 +67,12 @@ struct MealEdit: View {
             switch dish {
             case .recipe(let id):
                 guard let recipie = recipies.first(where: { $0.id == id }),
-                      recipie.mealTypeEnum == draft.mealType,
                       recipie.courseEnum == course else { return nil }
                 return (dish, recipie.name)
             case .readymeal(let id):
                 guard let item = items.first(where: { $0.id == id }),
                       item.itemKind == .readymeal,
                       let data = item.readymealData,
-                      data.mealTypeEnum == draft.mealType,
                       data.courseEnum == course else { return nil }
                 return (dish, item.name)
             }
@@ -86,6 +85,41 @@ struct MealEdit: View {
         let dishesToDelete = offsets.map { courseDishes[$0].dish }
         draft.dishes.removeAll { dishesToDelete.contains($0) }
     }
+    
+    private func courseRow(course: CourseType) -> some View {
+        Section {
+            let courseDishes = dishes(for: course)
+            if !courseDishes.isEmpty {
+                ForEach(courseDishes, id: \.dish) { dish in
+                    HStack {
+                        Text(dish.name)
+                        Spacer()
+                        if case .readymeal = dish.dish {
+                            Image(systemName: "microwave")
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Ready meal")
+                        }
+                    }
+                }
+                .onDelete { offsets in
+                    deleteDishes(at: offsets, for: course)
+                }
+            }
+        } header: {
+            HStack {
+                Text(course.label)
+                Spacer()
+                Button {
+                    newDish(course: course, meal: draft.mealType)
+                } label: {
+                    Image(systemName: "plus")
+                        .accessibilityLabel("Add \(course.label) dish")
+                }
+                .disabled(editMode.isEditing)
+            }
+        }
+    }
+        
 
     var body: some View {
         Group {
@@ -102,32 +136,12 @@ struct MealEdit: View {
                                 .foregroundStyle(.red)
                         }
                     }
-
-                    ForEach(CourseType.allCases, id: \.id) { course in
-                        Section {
-                            let courseDishes = dishes(for: course)
-                            if !courseDishes.isEmpty {
-                                ForEach(courseDishes, id: \.dish) { dish in
-                                    Text(dish.name)
-                                }
-                                .onDelete { offsets in
-                                    deleteDishes(at: offsets, for: course)
-                                }
-                            }
-                        } header: {
-                            HStack {
-                                Text(course.label)
-                                Spacer()
-                                Button {
-                                    newDish(for: course)
-                                } label: {
-                                    Image(systemName: "plus")
-                                        .accessibilityLabel("Add \(course.label) dish")
-                                }
-                                .disabled(editMode.isEditing)
-                            }
-                        }
-                    }
+                    
+                    courseRow(course: .starter)
+                    courseRow(course: .main)
+                    courseRow(course: .side)
+                    courseRow(course: .dessert)
+                    
 
                     Button(isEditing ? "Save" : "Add", action: save)
                         .disabled(editMode.isEditing || !validationErrors.isEmpty)

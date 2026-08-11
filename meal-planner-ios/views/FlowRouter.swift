@@ -31,7 +31,7 @@ final class FlowRouter {
         case unitPicker
         case newUnit(UnitType)
         case editUnit(id: UUID, type: UnitType)
-        case dishPicker(courseFilter: CourseType)
+        case dishPicker(courseFilter: CourseType, mealFilter: MealType)
         case newRecipie(MealType)
         case editRecipie(UUID)
         case recipieIngredient
@@ -92,11 +92,12 @@ final class FlowRouter {
     func showDishPicker(
         selectedID: DishID,
         courseFilter: CourseType,
+        mealFilter: MealType,
         onSelect: @escaping (DishID) -> Void
     ) {
         selectedDishID = selectedID
         onDishSelected = onSelect
-        path.append(.dishPicker(courseFilter: courseFilter))
+        path.append(.dishPicker(courseFilter: courseFilter, mealFilter: mealFilter))
     }
 
     func selectDish(_ dish: DishID) {

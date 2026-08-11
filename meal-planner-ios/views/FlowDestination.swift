@@ -50,12 +50,13 @@ struct FlowDestination: View {
             UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
-        case .dishPicker(let courseFilter):
+        case .dishPicker(let courseFilter, let mealFilter):
             DishPicker(
                 recipies: recipies,
                 readymeals: items,
                 selectedID: $router.selectedDishID,
-                initialCourseFilter: courseFilter
+                initialCourseFilter: courseFilter,
+                initialMealFilter: mealFilter
             )
         case .newRecipie(let mealType):
             RecipieEdit(mealType: mealType)
