@@ -8,7 +8,7 @@ import SwiftUI
 struct PlannerFlowView: View {
     var body: some View {
         FlowContainer {
-            Text("Planner")
+            PlannerView()
         }
     }
 }

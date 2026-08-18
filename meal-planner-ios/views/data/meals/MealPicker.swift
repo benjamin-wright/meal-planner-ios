@@ -15,7 +15,13 @@ struct MealPicker: View {
     let meals: [Meal]
     @Binding var selectedID: UUID
     @State private var search = ""
-    @State private var mealType: MealType = .dinner
+    @State private var mealType: MealType
+
+    init(meals: [Meal], selectedID: Binding<UUID>, initialMealType: MealType = .dinner) {
+        self.meals = meals
+        self._selectedID = selectedID
+        self._mealType = State(initialValue: initialMealType)
+    }
 
     private var filteredMeals: [Meal] {
         meals.filter {

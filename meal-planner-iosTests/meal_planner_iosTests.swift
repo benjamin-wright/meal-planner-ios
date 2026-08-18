@@ -235,6 +235,74 @@ struct meal_planner_iosTests {
         #expect(try context.fetch(FetchDescriptor<Meal>()).isEmpty)
     }
 
+    @MainActor
+    @Test func plannedMealsKeepIndependentCopiesAndMoveBetweenDinnerDays() throws {
+        let context = try makePlannerContext()
+        let recipie = Recipie(name: "Tomato soup", mealType: .dinner, course: .main)
+        context.insert(recipie)
+        try context.save()
+
+        var firstDraft = MealDraft(mealType: .dinner)
+        firstDraft.name = "Saturday soup"
+        firstDraft.dishes = [.recipe(recipie.id)]
+        let store = PlannedMealStore(context: context)
+        try store.save(firstDraft, id: nil, mealType: .dinner, day: .saturday)
+
+        var secondDraft = firstDraft
+        secondDraft.name = "Sunday soup"
+        try store.save(secondDraft, id: nil, mealType: .dinner, day: .sunday)
+
+        let plannedMeals = try context.fetch(FetchDescriptor<PlannedMeal>())
+        let saturday = try #require(plannedMeals.first { $0.dayEnum == .saturday })
+        let sunday = try #require(plannedMeals.first { $0.dayEnum == .sunday })
+        try store.moveDinner(id: saturday.id, to: .sunday)
+
+        #expect(saturday.dayEnum == .sunday)
+        #expect(sunday.dayEnum == .saturday)
+        let movedSaturday = try #require(
+            context.fetch(FetchDescriptor<PlannedMeal>()).first { $0.id == saturday.id }
+        )
+        #expect(movedSaturday.recipies.map(\.id) == [recipie.id])
+    }
+
+    @MainActor
+    @Test func plannedMiscEntriesSupportNotesAndSavedItems() throws {
+        let context = try makePlannerContext()
+        let category = Category(name: "Household", order: 0)
+        let item = Item(name: "Bin bags", category: category, kind: .misc)
+        context.insert(category)
+        context.insert(item)
+        try context.save()
+
+        let store = PlannedMiscStore(context: context)
+        try store.saveNote("Birthday candles")
+        try store.saveItem(item.id)
+
+        let entries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
+            .sorted { $0.sortOrder < $1.sortOrder }
+        #expect(entries.map(\.displayName) == ["Birthday candles", "Bin bags"])
+        #expect(entries[0].item == nil)
+        #expect(entries[1].item?.id == item.id)
+    }
+
+    @MainActor
+    @Test func movingDinnerShiftsInterveningDays() throws {
+        let context = try makePlannerContext()
+        let saturday = PlannedMeal(mealType: .dinner, day: .saturday, name: "Saturday dinner")
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
+        let monday = PlannedMeal(mealType: .dinner, day: .monday, name: "Monday dinner")
+        context.insert(saturday)
+        context.insert(sunday)
+        context.insert(monday)
+        try context.save()
+
+        try PlannedMealStore(context: context).moveDinner(id: saturday.id, to: .monday)
+
+        #expect(saturday.dayEnum == .monday)
+        #expect(sunday.dayEnum == .saturday)
+        #expect(monday.dayEnum == .sunday)
+    }
+
     private func makeRecipieContext() throws -> ModelContext {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(
@@ -269,6 +337,20 @@ struct meal_planner_iosTests {
             Item.self,
             Recipie.self,
             Meal.self,
+            configurations: configuration
+        )
+        return ModelContext(container)
+    }
+
+    private func makePlannerContext() throws -> ModelContext {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: Category.self,
+            Item.self,
+            Recipie.self,
+            Meal.self,
+            PlannedMeal.self,
+            PlannedMiscEntry.self,
             configurations: configuration
         )
         return ModelContext(container)

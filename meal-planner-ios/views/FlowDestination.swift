@@ -30,8 +30,20 @@ struct FlowDestination: View {
             RecipiesView()
         case .meals:
             MealsView()
-        case .plannerDay, .plannerMeal:
-            ContentUnavailableView("Planner Navigation", systemImage: "calendar")
+        case .newPlannedMeal(let mealType, let day):
+            PlannedMealEdit(mealType: mealType, day: day)
+        case .editPlannedMeal(let id):
+            PlannedMealEdit(id: id)
+        case .plannerMealPicker(let mealType):
+            MealPicker(
+                meals: meals,
+                selectedID: $router.selectedMealID,
+                initialMealType: mealType
+            )
+        case .newPlannedMisc:
+            PlannedMiscEdit()
+        case .editPlannedMisc(let id):
+            PlannedMiscEdit(id: id)
         case .categoryPicker:
             CategoryPicker(categories: categories, selectedID: $router.selectedCategoryID)
         case .newCategory:

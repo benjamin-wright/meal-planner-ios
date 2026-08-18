@@ -34,4 +34,8 @@ enum Day: Int, Codable, CaseIterable {
             return "Friday"
         }
     }
+
+    var shortLabel: String {
+        String(label.prefix(2))
+    }
 }

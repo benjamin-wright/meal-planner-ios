@@ -17,9 +17,12 @@ final class FlowRouter {
         case recipies
         case meals
 
-        // Planner roots, reserved for the forthcoming planner flow.
-        case plannerDay(Date)
-        case plannerMeal(UUID)
+        // Planner destinations.
+        case newPlannedMeal(mealType: MealType, day: Day?)
+        case editPlannedMeal(UUID)
+        case plannerMealPicker(MealType)
+        case newPlannedMisc
+        case editPlannedMisc(UUID)
 
         // Shared catalog and editor destinations.
         case categoryPicker
@@ -114,6 +117,12 @@ final class FlowRouter {
     func selectMeal(_ id: UUID) {
         selectedMealID = id
         onMealSelected?(id)
+    }
+
+    func showPlannerMealPicker(mealType: MealType, onSelect: @escaping (UUID) -> Void) {
+        selectedMealID = UUID()
+        onMealSelected = onSelect
+        path.append(.plannerMealPicker(mealType))
     }
 
     func showRecipieIngredient(
