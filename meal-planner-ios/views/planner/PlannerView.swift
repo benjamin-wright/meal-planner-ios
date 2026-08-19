@@ -73,9 +73,7 @@ private struct DinnerPlannerView: View {
             let fromDay = Day.allCases[fromIndex]
             let toDay = Day.allCases[destinationIndex]
 
-            if let fromMeal = meal(for: fromDay) {
-                try PlannedMealStore(context: context).moveDinner(id: fromMeal.id, to: toDay)
-            }
+            try PlannedMealStore(context: context).moveDinner(from: fromDay, to: toDay)
         } catch {
             saveError = error.localizedDescription
         }

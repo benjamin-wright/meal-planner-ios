@@ -165,22 +165,21 @@ final class PlannedMealStore {
         try context.save()
     }
 
-    func moveDinner(id: UUID, to day: Day) throws {
-        guard let meal = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
-            throw Error.notFound
-        }
-        guard meal.mealTypeEnum == .dinner,
-              let sourceDay = meal.dayEnum,
-              sourceDay != day,
+    /// Moves the dinner slot at `sourceDay` to `day`, shifting intervening slots.
+    /// The source may be empty, in which case the empty slot itself is moved.
+    func moveDinner(from sourceDay: Day, to day: Day) throws {
+        guard sourceDay != day,
               let sourceIndex = Day.allCases.firstIndex(of: sourceDay),
               let destinationIndex = Day.allCases.firstIndex(of: day) else { return }
 
         let dinners = try context.fetch(FetchDescriptor<PlannedMeal>())
-            .filter { $0.id != id && $0.mealTypeEnum == .dinner }
+            .filter { $0.mealTypeEnum == .dinner }
 
         func dinner(for slot: Day) -> PlannedMeal? {
             dinners.first { $0.dayEnum == slot }
         }
+
+        let movingMeal = dinner(for: sourceDay)
 
         if sourceIndex < destinationIndex {
             for index in (sourceIndex + 1)...destinationIndex {
@@ -192,7 +191,7 @@ final class PlannedMealStore {
             }
         }
 
-        meal.dayEnum = day
+        movingMeal?.dayEnum = day
         try context.save()
     }
 }

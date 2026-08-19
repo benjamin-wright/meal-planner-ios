@@ -258,7 +258,7 @@ struct meal_planner_iosTests {
         
         #expect(saturday.recipies.map(\.id) == [recipie.id])
         
-        try store.moveDinner(id: saturday.id, to: .sunday)
+        try store.moveDinner(from: .saturday, to: .sunday)
 
         #expect(saturday.dayEnum == .sunday)
         #expect(sunday.dayEnum == .saturday)
@@ -299,11 +299,43 @@ struct meal_planner_iosTests {
         context.insert(monday)
         try context.save()
 
-        try PlannedMealStore(context: context).moveDinner(id: saturday.id, to: .monday)
+        try PlannedMealStore(context: context).moveDinner(from: .saturday, to: .monday)
 
         #expect(saturday.dayEnum == .monday)
         #expect(sunday.dayEnum == .saturday)
         #expect(monday.dayEnum == .sunday)
+    }
+
+    @MainActor
+    @Test func movingEmptyDinnerSlotForwardPersistsTheReorder() throws {
+        let context = try makePlannerContext()
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
+        let monday = PlannedMeal(mealType: .dinner, day: .monday, name: "Monday dinner")
+        context.insert(sunday)
+        context.insert(monday)
+        try context.save()
+
+        try PlannedMealStore(context: context).moveDinner(from: .saturday, to: .monday)
+
+        #expect(sunday.dayEnum == .saturday)
+        #expect(monday.dayEnum == .sunday)
+        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != .monday })
+    }
+
+    @MainActor
+    @Test func movingEmptyDinnerSlotBackwardPersistsTheReorder() throws {
+        let context = try makePlannerContext()
+        let saturday = PlannedMeal(mealType: .dinner, day: .saturday, name: "Saturday dinner")
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
+        context.insert(saturday)
+        context.insert(sunday)
+        try context.save()
+
+        try PlannedMealStore(context: context).moveDinner(from: .monday, to: .saturday)
+
+        #expect(saturday.dayEnum == .sunday)
+        #expect(sunday.dayEnum == .monday)
+        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != .saturday })
     }
 
     private func makeRecipieContext() throws -> ModelContext {
