@@ -255,6 +255,9 @@ struct meal_planner_iosTests {
         let plannedMeals = try context.fetch(FetchDescriptor<PlannedMeal>())
         let saturday = try #require(plannedMeals.first { $0.dayEnum == .saturday })
         let sunday = try #require(plannedMeals.first { $0.dayEnum == .sunday })
+        
+        #expect(saturday.recipies.map(\.id) == [recipie.id])
+        
         try store.moveDinner(id: saturday.id, to: .sunday)
 
         #expect(saturday.dayEnum == .sunday)

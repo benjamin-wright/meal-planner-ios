@@ -162,6 +162,10 @@ final class Item {
     var kind: Int
     var dietary: Set<Dietary>
     var readymealData: Optional<ReadymealData>
+    @Relationship(inverse: \Meal.readymeals)
+    var meals: [Meal] = []
+    @Relationship(inverse: \PlannedMeal.readymeals)
+    var plannedMeals: [PlannedMeal] = []
     
     var itemKind: ItemKind {
         ItemKind(rawValue: kind) ?? ItemKind.ingredient

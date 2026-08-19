@@ -79,6 +79,10 @@ final class Recipie {
     var time: Int = 15
     @Relationship(deleteRule: .cascade)
     var ingredients: [RecipieIngredient]
+    @Relationship(inverse: \Meal.recipies)
+    var meals: [Meal] = []
+    @Relationship(inverse: \PlannedMeal.recipies)
+    var plannedMeals: [PlannedMeal] = []
     var steps: [String]
     
     init(id: UUID = UUID(), name: String = "", mealType: MealType = .dinner, course: CourseType = .main, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
