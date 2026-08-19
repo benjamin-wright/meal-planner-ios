@@ -242,14 +242,12 @@ struct meal_planner_iosTests {
         context.insert(recipie)
         try context.save()
 
-        var firstDraft = MealDraft(mealType: .dinner)
-        firstDraft.name = "Saturday soup"
+        var firstDraft = PlannedMealDraft()
         firstDraft.dishes = [.recipe(recipie.id)]
         let store = PlannedMealStore(context: context)
         try store.save(firstDraft, id: nil, mealType: .dinner, day: .saturday)
 
-        var secondDraft = firstDraft
-        secondDraft.name = "Sunday soup"
+        let secondDraft = firstDraft
         try store.save(secondDraft, id: nil, mealType: .dinner, day: .sunday)
 
         let plannedMeals = try context.fetch(FetchDescriptor<PlannedMeal>())
@@ -266,6 +264,39 @@ struct meal_planner_iosTests {
             context.fetch(FetchDescriptor<PlannedMeal>()).first { $0.id == saturday.id }
         )
         #expect(movedSaturday.recipies.map(\.id) == [recipie.id])
+    }
+
+    @Test func plannedMealDerivesItsDisplayNameFromMainsAndSides() {
+        let starter = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
+        let main = Recipie(name: "Roast chicken", mealType: .dinner, course: .main)
+        let side = Recipie(name: "Mashed potatoes", mealType: .dinner, course: .side)
+        let category = Category(name: "Prepared", order: 0)
+        let readySide = Item(
+            name: "Peas",
+            category: category,
+            kind: .readymeal,
+            readymealData: ReadymealData(mealType: MealType.dinner.rawValue, course: CourseType.side.rawValue)
+        )
+        let meal = PlannedMeal(
+            mealType: .dinner,
+            recipies: [starter, main, side],
+            readymeals: [readySide]
+        )
+
+        #expect(meal.displayName == "Roast chicken, Mashed potatoes, Peas")
+
+        meal.recipies = [main]
+        meal.readymeals = []
+        #expect(meal.displayName == "Roast chicken")
+    }
+
+    @Test func plannedMealDisplayNameFallsBackWhenThereAreNoMainsOrSides() {
+        let starter = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
+        let dessert = Recipie(name: "Apple crumble", mealType: .dinner, course: .dessert)
+        let meal = PlannedMeal(mealType: .dinner, recipies: [starter, dessert])
+
+        #expect(meal.displayName == "Tomato soup, Apple crumble")
+        #expect(PlannedMeal(mealType: .dinner).displayName == "No dishes")
     }
 
     @MainActor
@@ -291,9 +322,9 @@ struct meal_planner_iosTests {
     @MainActor
     @Test func movingDinnerShiftsInterveningDays() throws {
         let context = try makePlannerContext()
-        let saturday = PlannedMeal(mealType: .dinner, day: .saturday, name: "Saturday dinner")
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
-        let monday = PlannedMeal(mealType: .dinner, day: .monday, name: "Monday dinner")
+        let saturday = PlannedMeal(mealType: .dinner, day: .saturday)
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
+        let monday = PlannedMeal(mealType: .dinner, day: .monday)
         context.insert(saturday)
         context.insert(sunday)
         context.insert(monday)
@@ -309,8 +340,8 @@ struct meal_planner_iosTests {
     @MainActor
     @Test func movingEmptyDinnerSlotForwardPersistsTheReorder() throws {
         let context = try makePlannerContext()
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
-        let monday = PlannedMeal(mealType: .dinner, day: .monday, name: "Monday dinner")
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
+        let monday = PlannedMeal(mealType: .dinner, day: .monday)
         context.insert(sunday)
         context.insert(monday)
         try context.save()
@@ -325,8 +356,8 @@ struct meal_planner_iosTests {
     @MainActor
     @Test func movingEmptyDinnerSlotBackwardPersistsTheReorder() throws {
         let context = try makePlannerContext()
-        let saturday = PlannedMeal(mealType: .dinner, day: .saturday, name: "Saturday dinner")
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday, name: "Sunday dinner")
+        let saturday = PlannedMeal(mealType: .dinner, day: .saturday)
+        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
         context.insert(saturday)
         context.insert(sunday)
         try context.save()

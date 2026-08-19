@@ -1,6 +1,34 @@
 import Foundation
 import SwiftData
 
+struct PlannedMealDraft {
+    enum ValidationError: Hashable, LocalizedError {
+        case noDishes
+
+        var errorDescription: String? {
+            switch self {
+            case .noDishes:
+                return "Please add at least one dish."
+            }
+        }
+    }
+
+    var dishes: [DishID]
+
+    init(dishes: [DishID] = []) {
+        self.dishes = dishes
+    }
+
+    init(meal: Meal) {
+        self.dishes = meal.recipies.map { .recipe($0.id) }
+            + meal.readymeals.map { .readymeal($0.id) }
+    }
+
+    func validate() -> [ValidationError] {
+        dishes.isEmpty ? [.noDishes] : []
+    }
+}
+
 @Model
 final class PlannedMeal {
     @Attribute(.unique)
@@ -9,7 +37,6 @@ final class PlannedMeal {
     var day: Int?
     var sortOrder: Int
     var sourceMealID: UUID?
-    var name: String
     @Relationship(deleteRule: .nullify)
     var recipies: [Recipie]
     @Relationship(deleteRule: .nullify)
@@ -31,7 +58,6 @@ final class PlannedMeal {
         day: Day? = nil,
         sortOrder: Int = 0,
         sourceMealID: UUID? = nil,
-        name: String = "",
         recipies: [Recipie] = [],
         readymeals: [Item] = []
     ) {
@@ -40,9 +66,21 @@ final class PlannedMeal {
         self.day = day?.rawValue
         self.sortOrder = sortOrder
         self.sourceMealID = sourceMealID
-        self.name = name
         self.recipies = recipies
         self.readymeals = readymeals
+    }
+
+    var displayName: String {
+        let mainAndSideNames = names(for: .main) + names(for: .side)
+        let names = mainAndSideNames.isEmpty
+            ? recipies.map(\.name) + readymeals.map(\.name)
+            : mainAndSideNames
+        return names.isEmpty ? "No dishes" : names.joined(separator: ", ")
+    }
+
+    private func names(for course: CourseType) -> [String] {
+        recipies.filter { $0.courseEnum == course }.map(\.name)
+            + readymeals.filter { $0.readymealData?.courseEnum == course }.map(\.name)
     }
 }
 
@@ -56,7 +94,7 @@ extension PlannedMeal {
 final class PlannedMealStore {
     enum Error: LocalizedError {
         case notFound
-        case invalidDraft([MealDraft.ValidationError])
+        case invalidDraft([PlannedMealDraft.ValidationError])
         case missingDishReference
 
         var errorDescription: String? {
@@ -77,19 +115,17 @@ final class PlannedMealStore {
         self.context = context
     }
 
-    func draft(id: UUID) throws -> MealDraft {
+    func draft(id: UUID) throws -> PlannedMealDraft {
         guard let meal = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
             throw Error.notFound
         }
-        return MealDraft(
-            name: meal.name,
-            mealType: meal.mealTypeEnum,
+        return PlannedMealDraft(
             dishes: meal.recipies.map { .recipe($0.id) } + meal.readymeals.map { .readymeal($0.id) }
         )
     }
 
     func save(
-        _ draft: MealDraft,
+        _ draft: PlannedMealDraft,
         id: UUID?,
         mealType: MealType,
         day: Day?,
@@ -136,7 +172,6 @@ final class PlannedMealStore {
             context.insert(plannedMeal)
         }
 
-        plannedMeal.name = draft.name
         plannedMeal.mealTypeEnum = mealType
         plannedMeal.dayEnum = day
         plannedMeal.sourceMealID = sourceMealID ?? plannedMeal.sourceMealID
@@ -193,13 +228,5 @@ final class PlannedMealStore {
 
         movingMeal?.dayEnum = day
         try context.save()
-    }
-}
-
-private extension MealDraft {
-    init(name: String, mealType: MealType, dishes: [DishID]) {
-        self.name = name
-        self.mealType = mealType
-        self.dishes = dishes
     }
 }

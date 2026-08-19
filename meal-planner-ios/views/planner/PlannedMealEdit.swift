@@ -10,7 +10,7 @@ struct PlannedMealEdit: View {
     @State private var mealType: MealType
     @State private var day: Day?
     @State private var sourceMealID: UUID?
-    @State private var draft: MealDraft
+    @State private var draft: PlannedMealDraft
     @State private var isLoading = false
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
@@ -24,14 +24,14 @@ struct PlannedMealEdit: View {
         self._mealType = State(initialValue: mealType)
         self._day = State(initialValue: day)
         self._sourceMealID = State(initialValue: nil)
-        self._draft = State(initialValue: MealDraft(mealType: mealType))
+        self._draft = State(initialValue: PlannedMealDraft())
     }
 
     private var title: String {
         day.map { "\($0.label) Dinner" } ?? mealType.label
     }
 
-    private var validationErrors: [MealDraft.ValidationError] {
+    private var validationErrors: [PlannedMealDraft.ValidationError] {
         draft.validate()
     }
 
@@ -54,7 +54,7 @@ struct PlannedMealEdit: View {
     private func chooseTemplate() {
         router.showPlannerMealPicker(mealType: mealType) { selectedID in
             guard let template = meals.first(where: { $0.id == selectedID }) else { return }
-            draft = MealDraft(meal: template)
+            draft = PlannedMealDraft(meal: template)
             mealType = template.mealType
             sourceMealID = template.id
         }
@@ -134,7 +134,6 @@ struct PlannedMealEdit: View {
     var body: some View {
         Form {
             Section("Details") {
-                TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
                 if let validationError = validationErrors.first {
                     Text(validationError.localizedDescription)
                         .foregroundStyle(.red)

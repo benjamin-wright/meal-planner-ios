@@ -86,7 +86,7 @@ private struct DinnerPlannerView: View {
                     NavigationLink(value: FlowRouter.Route.editPlannedMeal(meal.id)) {
                         HStack(spacing: 12) {
                             DayBadge(day: day)
-                            Text(meal.name)
+                            Text(meal.displayName)
                         }
                     }
                     .swipeActions {
@@ -158,7 +158,7 @@ private struct PlannedMealListView: View {
     var body: some View {
         List {
             ForEach(displayedMeals) { meal in
-                NavigationLink(meal.name, value: FlowRouter.Route.editPlannedMeal(meal.id))
+                NavigationLink(meal.displayName, value: FlowRouter.Route.editPlannedMeal(meal.id))
             }
             .onDelete(perform: delete)
             Section {
