@@ -70,11 +70,11 @@ struct FlowDestination: View {
                 initialCourseFilter: courseFilter,
                 initialMealFilter: mealFilter
             )
-        case .newRecipie(let mealType):
-            RecipieEdit(mealType: mealType)
+        case .newRecipie(let mealType, let courseType):
+            RecipieEdit(mealType: mealType, courseType: courseType)
         case .editRecipie(let id):
             if let recipie = recipies.first(where: { $0.id == id }) {
-                RecipieEdit(id: id, mealType: recipie.mealTypeEnum)
+                RecipieEdit(id: id, mealType: recipie.mealTypeEnum, courseType: recipie.courseEnum)
             } else {
                 ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
             }

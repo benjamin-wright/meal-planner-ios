@@ -112,7 +112,7 @@ struct DishPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
-                    router.path.append(.newRecipie(.dinner))
+                    router.path.append(.newRecipie(mealFilter, courseFilter))
                 }
             }
         }

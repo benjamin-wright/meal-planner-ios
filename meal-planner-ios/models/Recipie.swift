@@ -31,10 +31,10 @@ struct RecipieDraft {
     var ingredients: [RecipieIngredientDraft]
     var steps: [String]
 
-    init() {
+    init(_ mealType: MealType = .dinner, _ course: CourseType = .main) {
         self.name = ""
-        self.mealType = .dinner
-        self.course = .main
+        self.mealType = mealType
+        self.course = course
         self.summary = ""
         self.serves = 2
         self.time = 15

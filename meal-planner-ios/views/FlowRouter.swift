@@ -35,7 +35,7 @@ final class FlowRouter {
         case newUnit(UnitType)
         case editUnit(id: UUID, type: UnitType)
         case dishPicker(courseFilter: CourseType, mealFilter: MealType)
-        case newRecipie(MealType)
+        case newRecipie(MealType, CourseType)
         case editRecipie(UUID)
         case recipieIngredient
         case mealPicker

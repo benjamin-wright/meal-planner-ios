@@ -14,18 +14,16 @@ struct RecipiesFilteredView: View {
     @Environment(\.editMode) private var editMode
     
     @Query private var recipies: [Recipie]
-    @State var mealType: MealType
-    @State var course: CourseType
+    let mealType: MealType
+    let course: CourseType
     @State private var deletionError: String?
     
     init(mealType: MealType, course: CourseType) {
         self.mealType = mealType
         self.course = course
         
-        let dinner = MealType.dinner
-        
         _recipies = Query(filter: #Predicate<Recipie> { recipie in
-            recipie.mealType == mealType.rawValue && (recipie.mealType != dinner.rawValue || recipie.course == course.rawValue)
+            recipie.mealType == mealType.rawValue && recipie.course == course.rawValue
         })
     }
 
@@ -59,7 +57,7 @@ struct RecipiesFilteredView: View {
         
         return terms.joined(separator: ", ")
     }
-    
+
     var body: some View {
         return List {
             ForEach(recipies) { recipie in
@@ -70,7 +68,7 @@ struct RecipiesFilteredView: View {
                 }
             }.onDelete(perform: delete)
             Section {
-                NavigationLink(value: FlowRouter.Route.newRecipie(mealType)) {
+                NavigationLink(value: FlowRouter.Route.newRecipie(mealType, course)) {
                     Text("Add").foregroundStyle(.accent)
                 }
             }
