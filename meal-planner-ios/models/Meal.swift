@@ -20,7 +20,7 @@ enum DishID: Identifiable, Hashable {
     }
 }
 
-struct MealDraft {
+struct MealDraft: Hashable {
     enum ValidationError: Hashable, LocalizedError {
         case nameTooShort
         case duplicateName
@@ -52,6 +52,12 @@ struct MealDraft {
         self.name = ""
         self.mealType = mealType
         self.dishes = []
+    }
+
+    init(plannedMeal: PlannedMealDraft, mealType: MealType) {
+        self.name = ""
+        self.mealType = mealType
+        self.dishes = plannedMeal.dishes
     }
 
     init(meal: Meal) {

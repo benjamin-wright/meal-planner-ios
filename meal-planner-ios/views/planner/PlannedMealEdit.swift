@@ -75,6 +75,11 @@ struct PlannedMealEdit: View {
         }
     }
 
+    private func saveAsMeal() {
+        let mealDraft = MealDraft(plannedMeal: draft, mealType: mealType)
+        router.path.append(.newMealDraft(mealDraft))
+    }
+
     private func dishes(for course: CourseType) -> [(DishID, String)] {
         draft.dishes.compactMap { dish in
             switch dish {
@@ -144,8 +149,23 @@ struct PlannedMealEdit: View {
             courseSection(.main)
             courseSection(.side)
             courseSection(.dessert)
-            Button(id == nil ? "Add" : "Save", action: save)
-                .disabled(editMode.isEditing || !validationErrors.isEmpty)
+            HStack(spacing: 12) {
+                Button(action: save) {
+                    Text(id == nil ? "Add" : "Save")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderless)
+
+                Button(action: saveAsMeal) {
+                    Image(systemName: "square.and.arrow.down")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Save as Meal")
+                .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
+            }
+            .disabled(editMode.isEditing || !validationErrors.isEmpty)
         }
         .toolbar { EditButton() }
         .environment(\.editMode, $editMode)

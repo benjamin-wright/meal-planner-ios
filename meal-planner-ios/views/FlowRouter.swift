@@ -40,6 +40,7 @@ final class FlowRouter {
         case recipieIngredient
         case mealPicker
         case newMeal(MealType)
+        case newMealDraft(MealDraft)
         case editMeal(UUID)
     }
 

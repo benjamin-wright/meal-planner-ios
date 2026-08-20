@@ -94,6 +94,8 @@ struct FlowDestination: View {
             MealPicker(meals: meals, selectedID: $router.selectedMealID)
         case .newMeal(let mealType):
             MealEdit(mealType: mealType)
+        case .newMealDraft(let draft):
+            MealEdit(draft: draft)
         case .editMeal(let id):
             if let meal = meals.first(where: { $0.id == id }) {
                 MealEdit(id: id, mealType: meal.mealType)

@@ -235,6 +235,17 @@ struct meal_planner_iosTests {
         #expect(try context.fetch(FetchDescriptor<Meal>()).isEmpty)
     }
 
+    @Test func plannedMealDraftPrefillsANewUnnamedMeal() {
+        let dishes: [DishID] = [.recipe(UUID()), .readymeal(UUID())]
+        let plannedDraft = PlannedMealDraft(dishes: dishes)
+
+        let mealDraft = MealDraft(plannedMeal: plannedDraft, mealType: .lunch)
+
+        #expect(mealDraft.name.isEmpty)
+        #expect(mealDraft.mealType == .lunch)
+        #expect(mealDraft.dishes == dishes)
+    }
+
     @MainActor
     @Test func plannedMealsKeepIndependentCopiesAndMoveBetweenDinnerDays() throws {
         let context = try makePlannerContext()

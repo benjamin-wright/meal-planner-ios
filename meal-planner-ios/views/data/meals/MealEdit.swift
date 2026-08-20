@@ -29,6 +29,11 @@ struct MealEdit: View {
         self._draft = State(initialValue: MealDraft(mealType: mealType))
     }
 
+    init(draft: MealDraft) {
+        self.id = nil
+        self._draft = State(initialValue: draft)
+    }
+
     private var validationErrors: [MealDraft.ValidationError] {
         draft.validate(existingNames: existingMeals.filter { $0.id != id }.map(\.name))
     }
