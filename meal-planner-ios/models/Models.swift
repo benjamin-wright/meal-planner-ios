@@ -29,6 +29,7 @@ class Models {
     
     static func reset(_ context: ModelContext) {
         do {
+            try Models.clear(ShoppingListEntry.self, context)
             try Models.clear(PlannedMiscEntry.self, context)
             try Models.clear(PlannedMeal.self, context)
             try Models.clear(Meal.self, context)
@@ -55,6 +56,7 @@ class Models {
             Meal.self,
             PlannedMeal.self,
             PlannedMiscEntry.self,
+            ShoppingListEntry.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
 

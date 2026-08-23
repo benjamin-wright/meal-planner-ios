@@ -244,6 +244,7 @@ struct meal_planner_iosTests {
         #expect(mealDraft.name.isEmpty)
         #expect(mealDraft.mealType == .lunch)
         #expect(mealDraft.dishes == dishes)
+        #expect(plannedDraft.servings == 2)
     }
 
     @MainActor
@@ -315,19 +316,163 @@ struct meal_planner_iosTests {
         let context = try makePlannerContext()
         let category = Category(name: "Household", order: 0)
         let item = Item(name: "Bin bags", category: category, kind: .misc)
+        let unit = Unit(name: "packs", type: .count, magnitudes: [
+            Magnitude(singular: "pack", plural: "packs", multiplier: 1)
+        ])
         context.insert(category)
         context.insert(item)
+        context.insert(unit)
         try context.save()
 
         let store = PlannedMiscStore(context: context)
-        try store.saveNote("Birthday candles")
-        try store.saveItem(item.id)
+        try store.saveNote("Birthday candles", categoryID: category.id, unitID: unit.id, quantity: 12)
+        try store.saveItem(item.id, unitID: unit.id, quantity: 2)
 
         let entries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
             .sorted { $0.sortOrder < $1.sortOrder }
         #expect(entries.map(\.displayName) == ["Birthday candles", "Bin bags"])
         #expect(entries[0].item == nil)
+        #expect(entries[0].note?.category.id == category.id)
+        #expect(entries[0].quantity == 12)
         #expect(entries[1].item?.id == item.id)
+        #expect(entries[1].unit?.id == unit.id)
+    }
+
+    @MainActor
+    @Test func shoppingListScalesConvertsAndKeepsDissimilarCountUnitsSeparate() throws {
+        let context = try makeShoppingContext()
+        let produce = Category(name: "Produce", order: 0)
+        let dairy = Category(name: "Dairy", order: 1)
+        let prepared = Category(name: "Prepared", order: 2)
+        let grams = Unit(name: "grams", type: .weight, base: 1, magnitudes: [
+            Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)
+        ])
+        let ounces = Unit(name: "ounces", type: .weight, base: 28.3495, magnitudes: [
+            Magnitude(abbreviation: "oz", singular: "ounce", plural: "ounces", multiplier: 1)
+        ])
+        let litres = Unit(name: "litres", type: .volume, base: 1, magnitudes: [
+            Magnitude(abbreviation: "l", singular: "litre", plural: "litres", multiplier: 1)
+        ])
+        let pints = Unit(name: "pints", type: .volume, base: 0.568261, magnitudes: [
+            Magnitude(abbreviation: "pt", singular: "pint", plural: "pints", multiplier: 1)
+        ])
+        let count = Unit(name: "count", type: .count, magnitudes: [])
+        let cans = Unit(name: "cans", type: .count, magnitudes: [
+            Magnitude(singular: "can", plural: "cans", multiplier: 1)
+        ])
+        let carrots = Item(name: "Carrots", category: produce, kind: .ingredient)
+        let milk = Item(name: "Milk", category: dairy, kind: .ingredient)
+        let beans = Item(name: "Beans", category: produce, kind: .ingredient)
+        let readymeal = Item(
+            name: "Curry",
+            category: prepared,
+            kind: .readymeal,
+            readymealData: ReadymealData(
+                mealType: MealType.dinner.rawValue,
+                course: CourseType.main.rawValue,
+                serves: 3,
+                time: 5
+            )
+        )
+        [produce, dairy, prepared].forEach(context.insert)
+        [grams, ounces, litres, pints, count, cans].forEach(context.insert)
+        [carrots, milk, beans, readymeal].forEach(context.insert)
+        context.insert(AppSettings(preferredVolume: litres, preferredWeight: grams))
+
+        let firstRecipe = Recipie(
+            name: "Soup",
+            serves: 2,
+            ingredients: [
+                RecipieIngredient(item: carrots, unit: grams, quantity: 100),
+                RecipieIngredient(item: milk, unit: pints, quantity: 1),
+                RecipieIngredient(item: beans, unit: count, quantity: 1),
+            ]
+        )
+        let secondRecipe = Recipie(
+            name: "Beans",
+            serves: 4,
+            ingredients: [
+                RecipieIngredient(item: carrots, unit: ounces, quantity: 1),
+                RecipieIngredient(item: beans, unit: cans, quantity: 3),
+            ]
+        )
+        context.insert(firstRecipe)
+        context.insert(secondRecipe)
+        context.insert(PlannedMeal(
+            mealType: .dinner,
+            servings: 4,
+            recipies: [firstRecipe, secondRecipe],
+            readymeals: [readymeal]
+        ))
+        context.insert(PlannedMiscEntry(
+            item: carrots,
+            quantity: 50,
+            unit: grams
+        ))
+        context.insert(PlannedMiscEntry(
+            note: PlannedMiscNote(text: "Birthday candles", category: produce),
+            quantity: 12,
+            unit: count
+        ))
+        try context.save()
+
+        let store = ShoppingListStore(context: context)
+        try store.addNote("Temporary", categoryID: dairy.id, unitID: count.id, quantity: 1)
+        try store.regenerate()
+
+        let entries = try context.fetch(FetchDescriptor<ShoppingListEntry>())
+        #expect(entries.count == 6)
+        #expect(!entries.contains { $0.name == "Temporary" })
+
+        let carrotEntry = try #require(entries.first { $0.name == "Carrots" })
+        #expect(carrotEntry.unit?.id == grams.id)
+        #expect(abs(carrotEntry.quantity - 278.3495) < 0.000_001)
+
+        let milkEntry = try #require(entries.first { $0.name == "Milk" })
+        #expect(milkEntry.unit?.id == litres.id)
+        #expect(abs(milkEntry.quantity - 1.136522) < 0.000_001)
+
+        let beanEntries = entries.filter { $0.name == "Beans" }
+        #expect(beanEntries.count == 2)
+        #expect(Set(beanEntries.compactMap { $0.unit?.id }) == Set([count.id, cans.id]))
+        #expect(beanEntries.first { $0.unit?.id == count.id }?.quantity == 2)
+        #expect(beanEntries.first { $0.unit?.id == cans.id }?.quantity == 3)
+
+        let note = try #require(entries.first { $0.name == "Birthday candles" })
+        #expect(note.category?.id == produce.id)
+        #expect(note.quantity == 12)
+        let packagedMeal = try #require(entries.first { $0.name == "Curry" })
+        #expect(packagedMeal.quantity == 2)
+    }
+
+    @MainActor
+    @Test func checkedShoppingEntriesCanBeRemovedAndRestored() throws {
+        let context = try makeShoppingContext()
+        let category = Category(name: "Produce", order: 0)
+        let count = Unit(name: "count", type: .count, magnitudes: [])
+        let item = Item(name: "Apples", category: category, kind: .ingredient)
+        context.insert(category)
+        context.insert(count)
+        context.insert(item)
+        context.insert(ShoppingListEntry(name: item.name, quantity: 3, isChecked: true, item: item, category: category, unit: count))
+        try context.save()
+
+        let store = ShoppingListStore(context: context)
+        let snapshots = try store.removeChecked()
+        #expect(snapshots.count == 1)
+        #expect(snapshots[0].itemID == item.id)
+        #expect(snapshots[0].categoryID == category.id)
+        #expect(snapshots[0].unitID == count.id)
+        #expect(try context.fetch(FetchDescriptor<ShoppingListEntry>()).isEmpty)
+
+        try store.restore(snapshots)
+        let restored = try #require(context.fetch(FetchDescriptor<ShoppingListEntry>()).first)
+        #expect(restored.name == "Apples")
+        #expect(restored.quantity == 3)
+        #expect(!restored.isChecked)
+        #expect(restored.item?.id == item.id)
+        #expect(restored.category?.id == category.id)
+        #expect(restored.unit?.id == count.id)
     }
 
     @MainActor
@@ -423,11 +568,30 @@ struct meal_planner_iosTests {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(
             for: Category.self,
+            Unit.self,
             Item.self,
             Recipie.self,
             Meal.self,
             PlannedMeal.self,
             PlannedMiscEntry.self,
+            configurations: configuration
+        )
+        return ModelContext(container)
+    }
+
+    private func makeShoppingContext() throws -> ModelContext {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: Category.self,
+            Unit.self,
+            AppSettings.self,
+            Item.self,
+            RecipieIngredient.self,
+            Recipie.self,
+            Meal.self,
+            PlannedMeal.self,
+            PlannedMiscEntry.self,
+            ShoppingListEntry.self,
             configurations: configuration
         )
         return ModelContext(container)

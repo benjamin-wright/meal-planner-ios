@@ -143,6 +143,15 @@ final class Unit {
         
         return magnitude?.toString(forValue: value) ?? String(format: "%g", value)
     }
+
+    func convert(_ value: Double, to destination: Unit) -> Double? {
+        guard unitType == destination.unitType,
+              unitType != .count,
+              base > 0,
+              destination.base > 0,
+              value.isFinite else { return nil }
+        return value * base / destination.base
+    }
     
     func selectMagnitude(forValue value: Double) -> Magnitude? {
         if magnitudes.count < 1 {

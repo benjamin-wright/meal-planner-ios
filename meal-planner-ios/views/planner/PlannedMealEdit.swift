@@ -143,6 +143,7 @@ struct PlannedMealEdit: View {
                     Text(validationError.localizedDescription)
                         .foregroundStyle(.red)
                 }
+                IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
                 Button("Choose Saved Meal", action: chooseTemplate)
             }
             courseSection(.starter)

@@ -4,28 +4,37 @@ import SwiftData
 struct PlannedMealDraft {
     enum ValidationError: Hashable, LocalizedError {
         case noDishes
+        case invalidServings
 
         var errorDescription: String? {
             switch self {
             case .noDishes:
                 return "Please add at least one dish."
+            case .invalidServings:
+                return "Planned meals must serve at least one person."
             }
         }
     }
 
     var dishes: [DishID]
+    var servings: Int
 
-    init(dishes: [DishID] = []) {
+    init(dishes: [DishID] = [], servings: Int = 2) {
         self.dishes = dishes
+        self.servings = servings
     }
 
     init(meal: Meal) {
         self.dishes = meal.recipies.map { .recipe($0.id) }
             + meal.readymeals.map { .readymeal($0.id) }
+        self.servings = 2
     }
 
     func validate() -> [ValidationError] {
-        dishes.isEmpty ? [.noDishes] : []
+        var errors: [ValidationError] = []
+        if dishes.isEmpty { errors.append(.noDishes) }
+        if servings < 1 { errors.append(.invalidServings) }
+        return errors
     }
 }
 
@@ -37,6 +46,7 @@ final class PlannedMeal {
     var day: Int?
     var sortOrder: Int
     var sourceMealID: UUID?
+    var servings: Int = 2
     @Relationship(deleteRule: .nullify)
     var recipies: [Recipie]
     @Relationship(deleteRule: .nullify)
@@ -58,6 +68,7 @@ final class PlannedMeal {
         day: Day? = nil,
         sortOrder: Int = 0,
         sourceMealID: UUID? = nil,
+        servings: Int = 2,
         recipies: [Recipie] = [],
         readymeals: [Item] = []
     ) {
@@ -66,6 +77,7 @@ final class PlannedMeal {
         self.day = day?.rawValue
         self.sortOrder = sortOrder
         self.sourceMealID = sourceMealID
+        self.servings = servings
         self.recipies = recipies
         self.readymeals = readymeals
     }
@@ -120,7 +132,8 @@ final class PlannedMealStore {
             throw Error.notFound
         }
         return PlannedMealDraft(
-            dishes: meal.recipies.map { .recipe($0.id) } + meal.readymeals.map { .readymeal($0.id) }
+            dishes: meal.recipies.map { .recipe($0.id) } + meal.readymeals.map { .readymeal($0.id) },
+            servings: meal.servings
         )
     }
 
@@ -175,6 +188,7 @@ final class PlannedMealStore {
         plannedMeal.mealTypeEnum = mealType
         plannedMeal.dayEnum = day
         plannedMeal.sourceMealID = sourceMealID ?? plannedMeal.sourceMealID
+        plannedMeal.servings = draft.servings
         plannedMeal.recipies = selectedRecipies
         plannedMeal.readymeals = selectedReadymeals
         try context.save()
