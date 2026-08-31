@@ -59,7 +59,7 @@ struct RecipiesFilteredView: View {
     }
 
     var body: some View {
-        return List {
+        return GlassList {
             ForEach(recipies) { recipie in
                 NavigationLink(value: FlowRouter.Route.editRecipie(recipie.id)) {
                     VStack(alignment: .leading, spacing: 4) {

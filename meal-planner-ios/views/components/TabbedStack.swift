@@ -27,10 +27,13 @@ struct TabbedStack: View {
                     Text(self.pages[$0].title)
                 }
             }
-            .frame(maxWidth: .infinity).padding(.top, 16)
+            .frame(maxWidth: .infinity)
             .pickerStyle(.segmented)
+            .glassControl()
             pages[selectedPage].content().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.top, 16)
+        .padding(.horizontal, 16)
     }
 }
 

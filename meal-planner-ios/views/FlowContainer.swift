@@ -17,10 +17,14 @@ struct FlowContainer<Content: View>: View {
         @Bindable var router = router
 
         NavigationStack(path: $router.path) {
-            content()
-                .navigationDestination(for: FlowRouter.Route.self) { route in
-                    FlowDestination(route: route)
-                }
+            AppGlassBackground {
+                content()
+                    .navigationDestination(for: FlowRouter.Route.self) { route in
+                        AppGlassBackground {
+                            FlowDestination(route: route)
+                        }
+                    }
+            }
         }
         .environment(router)
     }

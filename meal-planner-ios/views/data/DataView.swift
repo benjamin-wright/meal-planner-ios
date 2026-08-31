@@ -13,7 +13,7 @@ struct DataView: View {
     @Environment(FlowRouter.self) private var router
 
     var body: some View {
-        List {
+        GlassList {
             NavigationLink("Units", value: FlowRouter.Route.units)
             NavigationLink("Categories", value: FlowRouter.Route.categories)
             NavigationLink("Items", value: FlowRouter.Route.items)

@@ -35,8 +35,10 @@ struct MealPicker: View {
         VStack {
             EnumPicker(label: "Meal", selection: $mealType)
                 .pickerStyle(.segmented)
-                .padding(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
-            List {
+                .glassControl()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            GlassList {
                 ForEach(filteredMeals) { meal in
                     Button {
                         router.selectMeal(meal.id)

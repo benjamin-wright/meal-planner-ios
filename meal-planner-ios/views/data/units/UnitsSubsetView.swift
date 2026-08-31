@@ -35,7 +35,7 @@ struct UnitsSubsetView: View {
     }
     
     var body: some View {
-        return List {
+        return GlassList {
             ForEach(units) { unit in
                 NavigationLink(unit.name, value: FlowRouter.Route.editUnit(id: unit.id, type: unitType))
             }.onDelete(perform: delete)

@@ -31,7 +31,7 @@ struct EnumPicker<T: LabeledEnum>: View
     @Previewable @State var meal: MealType = .dinner
     @Previewable @State var course: CourseType = .main
     
-    Form {
+    GlassForm {
         EnumPicker(label: "Meal", selection: $meal)
         EnumPicker(label: "Course", selection: $course).pickerStyle(.segmented)
     }

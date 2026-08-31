@@ -14,12 +14,17 @@ struct RecipiesView: View {
     
     var body: some View {
         VStack {
-            EnumPicker(label: "Meal", selection: $mealType)
-                .pickerStyle(.segmented)
-                .padding(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
-            EnumPicker(label: "Course", selection: $course)
-                .pickerStyle(.segmented)
-                .padding(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+            VStack(spacing: 8) {
+                EnumPicker(label: "Meal", selection: $mealType)
+                    .pickerStyle(.segmented)
+                    .glassControl()
+                EnumPicker(label: "Course", selection: $course)
+                    .pickerStyle(.segmented)
+                    .glassControl()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+
             RecipiesFilteredView(mealType: mealType, course: course)
         }
         .navigationTitle("Recipies")

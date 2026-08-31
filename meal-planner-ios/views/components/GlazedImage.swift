@@ -9,10 +9,15 @@ import SwiftUI
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
+private let glazedImageContext = CIContext()
 
 func updateImage(name: String, darkMode: Bool) -> UIImage {
-    let inputImage = CIImage(image: UIImage(named: name)!)!
-    let textureImage = CIImage(image: UIImage(named: "Texture")!)!
+    guard let sourceImage = UIImage(named: name),
+          let texture = UIImage(named: "Texture"),
+          let inputImage = CIImage(image: sourceImage),
+          let textureImage = CIImage(image: texture) else {
+        return UIImage()
+    }
     
     let texHeight = textureImage.extent.height
     let texWidth = textureImage.extent.width
@@ -30,53 +35,42 @@ func updateImage(name: String, darkMode: Bool) -> UIImage {
     blurFilter.radius = 3
     
     let dimFilter = CIFilter.gammaAdjust()
-    dimFilter.inputImage = blurFilter.outputImage!
+    dimFilter.inputImage = blurFilter.outputImage?.cropped(to: inputImage.extent)
     dimFilter.power = darkMode ? 1.6 : 0.6
     
     let glassFilter = CIFilter.glassDistortion()
-    glassFilter.inputImage = dimFilter.outputImage!
-    glassFilter.textureImage = resizeFilter.outputImage!
+    glassFilter.inputImage = dimFilter.outputImage
+    glassFilter.textureImage = resizeFilter.outputImage
     glassFilter.center = CGPoint(x: 0.5, y: 0.5)
     glassFilter.scale = 500
-    
-    let context = CIContext()
 
     guard
-        let outputCIImage = glassFilter.outputImage,
-        let cgImage = context.createCGImage(outputCIImage, from: outputCIImage.extent)
+        let outputCIImage = glassFilter.outputImage?.cropped(to: inputImage.extent),
+        let cgImage = glazedImageContext.createCGImage(outputCIImage, from: inputImage.extent)
     else {
-        return UIImage()
+        return sourceImage
     }
 
     return UIImage(cgImage: cgImage)
 }
 
 struct GlazedImage: View {
-    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.colorScheme) private var colorScheme
     
-    @State var imageName: String
-    @State var image: UIImage
+    private let imageName: String
+    @State private var image: UIImage
     
     init(named: String) {
-        imageName = named
-        image = updateImage(name: named, darkMode: false)
+        self.imageName = named
+        _image = State(initialValue: updateImage(name: named, darkMode: false))
     }
     
     var body: some View {
-        return Image(uiImage: image)
+        Image(uiImage: image)
             .resizable()
             .aspectRatio(contentMode: .fill)
-            .edgesIgnoringSafeArea(.all)
-            .onChange(of: colorScheme) {
-                print("updating image")
+            .task(id: colorScheme) {
                 image = updateImage(name: imageName, darkMode: colorScheme == .dark)
-                print("updated image")
-            }
-            .task {
-                if colorScheme == .dark {
-                    print("running task")
-                    image = updateImage(name: imageName, darkMode: true)
-                }
             }
     }
 }

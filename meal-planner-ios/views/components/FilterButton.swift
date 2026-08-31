@@ -54,6 +54,7 @@ struct FilterButton: View {
                 .padding(.all, 10)
         }
         .frame(width: 70, height: 50)
+        .glassControl(in: Circle())
         .modifier(SelectableButtonStyle(selected: selected))
         .buttonBorderShape(.circle)
     }

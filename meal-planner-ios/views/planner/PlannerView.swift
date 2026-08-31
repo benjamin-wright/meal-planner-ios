@@ -26,8 +26,8 @@ struct PlannerView: View {
         VStack(spacing: 0) {
             EnumPicker(label: "Plan", selection: $section)
                 .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .glassControl()
+                .padding(.horizontal, 32)
 
             switch section {
             case .dinner:
@@ -80,7 +80,7 @@ private struct DinnerPlannerView: View {
     }
 
     var body: some View {
-        List {
+        GlassList {
             ForEach(Day.allCases, id: \.rawValue) { day in
                 if let meal = meal(for: day) {
                     NavigationLink(value: FlowRouter.Route.editPlannedMeal(meal.id)) {
@@ -156,7 +156,7 @@ private struct PlannedMealListView: View {
     }
 
     var body: some View {
-        List {
+        GlassList {
             ForEach(displayedMeals) { meal in
                 NavigationLink(meal.displayName, value: FlowRouter.Route.editPlannedMeal(meal.id))
             }
@@ -201,7 +201,7 @@ private struct MiscPlannerView: View {
     }
 
     var body: some View {
-        List {
+        GlassList {
             ForEach(displayedEntries) { entry in
                 NavigationLink(value: FlowRouter.Route.editPlannedMisc(entry.id)) {
                     HStack {

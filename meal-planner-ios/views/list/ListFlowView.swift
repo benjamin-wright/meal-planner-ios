@@ -109,7 +109,7 @@ private struct ShoppingListView: View {
     }
 
     var body: some View {
-        List {
+        GlassList {
             if entries.isEmpty {
                 ContentUnavailableView {
                     Label("Shopping List Is Empty", systemImage: "cart")
@@ -167,6 +167,7 @@ private struct ShoppingListView: View {
         }
         .sheet(isPresented: $showingAddEntry) {
             ShoppingListEntryEdit()
+                .presentationBackground(.thinMaterial)
         }
         .onAppear {
             if entries.contains(where: \.isChecked) { restartCompletionTimer() }

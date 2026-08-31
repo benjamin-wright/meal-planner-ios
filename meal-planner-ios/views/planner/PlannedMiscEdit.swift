@@ -78,7 +78,7 @@ struct PlannedMiscEdit: View {
     }
 
     var body: some View {
-        Form {
+        GlassForm {
             Section("Quantity") {
                 Button {
                     router.showUnitPicker(selectedID: selectedUnitID) { selectedUnitID = $0 }

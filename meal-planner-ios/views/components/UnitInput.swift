@@ -62,7 +62,7 @@ struct UnitInput: View {
         @State var magnitude: Magnitude?
         
         var body: some View {
-            Form {
+            GlassForm {
                 UnitInput(
                     label: "Quantity",
                     unit: $unit,

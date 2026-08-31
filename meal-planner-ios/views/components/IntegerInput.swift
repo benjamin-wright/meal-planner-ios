@@ -45,8 +45,8 @@ struct IntegerInput: View {
                     .padding(10)
                     .padding(.leading, 5)
                     .tint(.primary)
-            }.background(Color(UIColor.tertiarySystemBackground))
-                .cornerRadius(15)
+            }
+                .glassSurface()
                 .padding(.leading, 10)
         }.frame(height: .leastNormalMagnitude)
     }
@@ -66,7 +66,7 @@ struct IntegerInput: View {
     struct Preview: View {
         @State var number = 10
         var body: some View {
-            Form {
+            GlassForm {
                 IntegerInput(number: $number, label: "units", placeholder: "placeholder")
             }
         }

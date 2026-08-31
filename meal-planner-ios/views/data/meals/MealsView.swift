@@ -32,8 +32,10 @@ struct MealsView: View {
         VStack {
             EnumPicker(label: "Meal", selection: $mealType)
                 .pickerStyle(.segmented)
-                .padding(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
-            List {
+                .glassControl()
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+            GlassList {
                 ForEach(filteredMeals) { meal in
                     NavigationLink(value: FlowRouter.Route.editMeal(meal.id)) {
                         VStack(alignment: .leading, spacing: 4) {

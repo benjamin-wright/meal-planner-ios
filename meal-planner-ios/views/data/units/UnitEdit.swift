@@ -69,7 +69,7 @@ struct UnitEdit: View {
             if isLoading {
                 ProgressView()
             } else {
-                Form {
+                GlassForm {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
                 EnumPicker(label: "Type", selection: $draft.type)
@@ -83,7 +83,7 @@ struct UnitEdit: View {
             }
 
             Section {
-                List {
+                GlassList {
                     HStack {
                         if draft.type != .count {
                             Text("Abbr").frame(maxWidth: .infinity)

@@ -72,7 +72,7 @@ struct ShoppingListEntryEdit: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Picker("Type", selection: $kind) {
                     ForEach(EntryKind.allCases) { kind in
                         Text(kind.rawValue).tag(kind)

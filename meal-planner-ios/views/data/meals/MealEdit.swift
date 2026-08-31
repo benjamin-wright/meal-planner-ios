@@ -131,7 +131,7 @@ struct MealEdit: View {
             if isLoading {
                 ProgressView()
             } else {
-                Form {
+                GlassForm {
                     Section("Details") {
                         TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
                         EnumPicker(label: "Meal", selection: $draft.mealType)

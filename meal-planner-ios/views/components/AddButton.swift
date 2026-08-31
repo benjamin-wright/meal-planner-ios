@@ -32,7 +32,7 @@ struct AddButton: View {
 
 #Preview {
     NavigationStack {
-        List {
+        GlassList {
             AddButton {
                 print("hi")
             }

@@ -106,7 +106,7 @@ struct RecipieEdit: View {
                 ProgressView()
             } else {
                 VStack {
-                    Form {
+                    GlassForm {
                         Section {
                             TextInput(text: $draft.name, label: "Name", placeholder: "recipe name")
                             if let validationError = validationErrors.first {

@@ -83,7 +83,7 @@ struct DishPicker: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
 
-            List {
+            GlassList {
                 ForEach(dishes) { dish in
                     Button {
                         router.selectDish(dish.dish)

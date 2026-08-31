@@ -24,7 +24,7 @@ struct RecipieIngredientEdit: View {
     }
 
     var body: some View {
-        Form {
+        GlassForm {
             Section {
                 Button {
                     router.showItemPicker(selectedID: value.itemID) { id in

@@ -34,9 +34,12 @@ struct UnitPicker: View {
                 Text("Weight").tag(UnitType.weight.rawValue)
                 Text("Volume").tag(UnitType.volume.rawValue)
             }
-            .frame(maxWidth: .infinity).padding(.top, 16)
             .pickerStyle(.segmented)
-            List {
+            .frame(maxWidth: .infinity)
+            .glassControl()
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            GlassList {
                 ForEach(filteredUnits) { unit in
                     Button {
                         router.selectUnit(unit.id)

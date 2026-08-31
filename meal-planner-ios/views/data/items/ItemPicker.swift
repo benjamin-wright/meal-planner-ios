@@ -27,7 +27,7 @@ struct ItemPicker: View {
                 FilterButton(image: .system("microwave.fill"), aspect: 1.5, selected: $filter.readymeals)
                 FilterButton(image: .system("bag.fill"), selected: $filter.misc)
             }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
-            List {
+            GlassList {
                 ForEach(filteredItems) { item in
                     Button {
                         router.selectItem(item.id)

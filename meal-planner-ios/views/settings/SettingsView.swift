@@ -16,7 +16,7 @@ struct SettingsView: View {
     @State private var resetting = false
     
     var body: some View {
-        List {
+        GlassList {
             Section("Preferred Units") {
                 @Bindable var setting = settings[0]
                 Picker("Weight", selection: $setting.preferredWeight) {

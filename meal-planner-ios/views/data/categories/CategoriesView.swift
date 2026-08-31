@@ -18,7 +18,7 @@ struct CategoriesView: View {
     @Query(sort: \Category.order) private var categories: [Category]
 
     var body: some View {
-        return List {
+        return GlassList {
             ForEach(categories.filter {
                 search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
             

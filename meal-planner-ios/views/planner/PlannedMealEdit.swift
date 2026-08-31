@@ -137,7 +137,7 @@ struct PlannedMealEdit: View {
     }
 
     var body: some View {
-        Form {
+        GlassForm {
             Section("Details") {
                 if let validationError = validationErrors.first {
                     Text(validationError.localizedDescription)

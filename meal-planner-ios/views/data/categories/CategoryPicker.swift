@@ -24,7 +24,7 @@ struct CategoryPicker: View {
     }
 
     var body: some View {
-        List {
+        GlassList {
             ForEach(filteredCategories) { category in
                 Button {
                     router.selectCategory(category.id)

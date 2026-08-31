@@ -56,7 +56,7 @@ struct CategoryEdit: View {
             if isLoading {
                 ProgressView()
             } else {
-                Form {
+                GlassForm {
                     Section {
                         TextInput(text: $draft.name, label: "Name", placeholder: "category")
                         if let validationError = validationErrors.first {

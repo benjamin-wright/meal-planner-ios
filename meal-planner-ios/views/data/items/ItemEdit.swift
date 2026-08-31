@@ -63,7 +63,7 @@ struct ItemEdit: View {
                     get: { self.draft! },
                     set: { self.draft = $0 }
                 )
-                Form {
+                GlassForm {
                     Section {
                         TextInput(text: draft.name, label: "Name", placeholder: "item name")
                         if let validationError = validationErrors.first {
