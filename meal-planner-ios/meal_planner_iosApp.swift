@@ -10,6 +10,10 @@ import SwiftData
 
 @main
 struct meal_planner_iosApp: App {
+    init() {
+        GlassChrome.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
             MealPlannerView()

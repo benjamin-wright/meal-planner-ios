@@ -46,6 +46,7 @@ struct SettingsView: View {
         } message: {
             Text("Are you sure you want to reset all app data?")
         }
+        .navigationTitle("Settings")
     }
 }
 

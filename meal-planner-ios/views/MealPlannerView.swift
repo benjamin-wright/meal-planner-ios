@@ -10,25 +10,24 @@ import SwiftData
 
 struct MealPlannerView: View {
     var body: some View {
-        TabView {
-            Tab("Data", systemImage: "externaldrive") {
-                AppGlassBackground {
+        ZStack {
+            AppGlassBackground()
+
+            TabView {
+                Tab("Data", systemImage: "externaldrive") {
                     DataFlowView().padding(.bottom, 10)
                 }
-            }
-            Tab("Planner", systemImage: "calendar") {
-                AppGlassBackground {
+                Tab("Planner", systemImage: "calendar") {
                     PlannerFlowView().padding(.bottom, 10)
                 }
-            }
-            Tab("List", systemImage: "checklist") {
-                AppGlassBackground {
+                Tab("List", systemImage: "checklist") {
                     ListFlowView().padding(.bottom, 10)
                 }
-            }
-            Tab("Settings", systemImage: "gearshape.fill") {
-                AppGlassBackground {
-                    SettingsView().padding(.bottom, 10)
+                Tab("Settings", systemImage: "gearshape.fill") {
+                    FlowContainer {
+                        SettingsView()
+                    }
+                    .padding(.bottom, 10)
                 }
             }
         }
