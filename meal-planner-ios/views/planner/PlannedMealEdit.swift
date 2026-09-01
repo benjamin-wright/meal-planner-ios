@@ -106,9 +106,12 @@ struct PlannedMealEdit: View {
         }
     }
 
-    private func courseSection(_ course: CourseType) -> some View {
+    private func courseRows(_ course: CourseType) -> some View {
         let courseDishes = dishes(for: course)
-        return Section {
+        return Group {
+            Text(course.label)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
             ForEach(courseDishes, id: \.0) { dish, name in
                 HStack {
                     Text(name)
@@ -123,33 +126,34 @@ struct PlannedMealEdit: View {
                 let deleted = offsets.map { courseDishes[$0].0 }
                 draft.dishes.removeAll { deleted.contains($0) }
             }
-        } header: {
-            HStack {
-                Text(course.label)
-                Spacer()
-                Button { addDish(course: course) } label: {
-                    Image(systemName: "plus")
-                        .accessibilityLabel("Add \(course.label) dish")
-                }
-                .disabled(editMode.isEditing)
+            Button { addDish(course: course) } label: {
+                Label("Add \(course.label.lowercased())", systemImage: "plus")
+                    .foregroundStyle(.tint)
             }
+            .disabled(editMode.isEditing)
         }
     }
 
     var body: some View {
         GlassForm {
-            Section("Details") {
+            Section {
                 if let validationError = validationErrors.first {
                     Text(validationError.localizedDescription)
                         .foregroundStyle(.red)
                 }
                 IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
                 Button("Choose Saved Meal", action: chooseTemplate)
+            } header: {
+                GlassSectionHeader(title: "Details")
             }
-            courseSection(.starter)
-            courseSection(.main)
-            courseSection(.side)
-            courseSection(.dessert)
+            Section {
+                courseRows(.starter)
+                courseRows(.main)
+                courseRows(.side)
+                courseRows(.dessert)
+            } header: {
+                GlassSectionHeader(title: "Dishes")
+            }
             HStack(spacing: 12) {
                 Button(action: save) {
                     Text(id == nil ? "Add" : "Save")

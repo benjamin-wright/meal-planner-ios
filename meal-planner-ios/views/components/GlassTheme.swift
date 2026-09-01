@@ -207,6 +207,26 @@ private struct GlassControlModifier<ControlShape: Shape>: ViewModifier {
     }
 }
 
+/// A plain top-level `Section` header rendered as a small chip on its own
+/// glass panel. The system's default small/uppercase `.secondary` header
+/// text has poor contrast when it sits directly over `AppGlassBackground`'s
+/// photo (once `scrollContentBackground(.hidden)` exposes it), so this gives
+/// the header its own `glassSurface` backdrop to stay legible regardless of
+/// what's behind it.
+struct GlassSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .glassSurface(cornerRadius: 8)
+            .textCase(nil)
+    }
+}
+
 extension View {
     func glassSurface(cornerRadius: CGFloat = 15) -> some View {
         modifier(GlassSurfaceModifier(cornerRadius: cornerRadius))
