@@ -114,7 +114,9 @@ private struct ShoppingListView: View {
     }
 
     private func removeCheckedEntries() throws {
-        let snapshots = try ShoppingListStore(context: context).removeChecked()
+        let snapshots = try withAnimation(.easeInOut(duration: 0.3)) {
+            try ShoppingListStore(context: context).removeChecked()
+        }
         if !snapshots.isEmpty {
             undoSnapshots = snapshots
         }
@@ -124,8 +126,10 @@ private struct ShoppingListView: View {
         guard !undoSnapshots.isEmpty else { return }
 
         do {
-            try ShoppingListStore(context: context).restore(undoSnapshots)
-            undoSnapshots.removeAll()
+            try withAnimation(.easeInOut(duration: 0.3)) {
+                try ShoppingListStore(context: context).restore(undoSnapshots)
+                undoSnapshots.removeAll()
+            }
         } catch {
             listError = error.localizedDescription
         }
@@ -161,6 +165,7 @@ private struct ShoppingListView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(entry.name), \(entry.formattedQuantity)")
                             .accessibilityValue(entry.isChecked ? "Checked" : "Not checked")
+                            .transition(.opacity)
                         }
                     }
                 }
