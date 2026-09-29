@@ -115,19 +115,25 @@ class Models {
         context.insert(litresUnit)
         context.insert(settings)
         
-        let drugCategory = Category(name: "drugs", order: 0)
-        let fruitCategory = Category(name: "fruit", order: 1)
-        let vegetableCategory = Category(name: "vegetables", order: 2)
-        let spicesCategory = Category(name: "spices", order: 3)
-        let dairyCategory = Category(name: "dairy", order: 4)
-        let precookedCategory = Category(name: "precooked", order: 5)
+        let fruitCategory = Category(name: "fruit", order: 0)
+        let vegetableCategory = Category(name: "vegetables", order: 1)
+        let spicesCategory = Category(name: "spices", order: 2)
+        let dairyCategory = Category(name: "dairy", order: 3)
+        let bakeryCategory = Category(name: "bakery", order: 4)
+        let seafoodCategory = Category(name: "seafood", order: 5)
+        let precookedCategory = Category(name: "precooked", order: 6)
+        let householdCategory = Category(name: "household", order: 7)
+        let drugCategory = Category(name: "drugs", order: 8)
 
-        context.insert(drugCategory)
         context.insert(fruitCategory)
         context.insert(vegetableCategory)
         context.insert(spicesCategory)
         context.insert(dairyCategory)
+        context.insert(bakeryCategory)
+        context.insert(seafoodCategory)
         context.insert(precookedCategory)
+        context.insert(householdCategory)
+        context.insert(drugCategory)
         
         try? context.save()
         
@@ -138,10 +144,24 @@ class Models {
         let potatoes = Item(name: "potatoes", category: vegetableCategory, kind: .ingredient)
         let chickenThighs = Item(name: "chicken thighs", category: precookedCategory, kind: .ingredient, dietary: [.meat])
         let rosemary = Item(name: "rosemary", category: spicesCategory, kind: .ingredient)
+        let flour = Item(name: "flour", category: bakeryCategory, kind: .ingredient, dietary: [.gluten])
+        let salmon = Item(name: "salmon fillets", category: seafoodCategory, kind: .ingredient, dietary: [.fish])
         let paracetamol = Item(name: "paracetamol", category: drugCategory, kind: .misc)
+        let dishwasherTablets = Item(name: "dishwasher tablets", category: householdCategory, kind: .misc)
         let pastaPot = Item(name: "pasta pot", category: precookedCategory, kind: .readymeal, readymealData: ReadymealData(
             mealType: MealType.dinner.rawValue, course: CourseType.main.rawValue, serves: 1, time: 5
         ))
+        let fruitPot = Item(
+            name: "fruit pot",
+            category: precookedCategory,
+            kind: .readymeal,
+            readymealData: ReadymealData(
+                mealType: MealType.breakfast.rawValue,
+                course: CourseType.main.rawValue,
+                serves: 1,
+                time: 0
+            )
+        )
         
         context.insert(carrots)
         context.insert(onions)
@@ -150,16 +170,22 @@ class Models {
         context.insert(potatoes)
         context.insert(chickenThighs)
         context.insert(rosemary)
+        context.insert(flour)
+        context.insert(salmon)
         context.insert(paracetamol)
+        context.insert(dishwasherTablets)
         context.insert(pastaPot)
+        context.insert(fruitPot)
         
         try? context.save()
         
-        let soup = Recipie(
-            name: "soup",
-            mealType: .dinner,
-            course: .main,
-            summary: "A tasty soup",
+        let carrotSoup = Recipie(
+            name: "carrot soup",
+            mealType: .lunch,
+            course: .starter,
+            summary: "A warming carrot and rosemary soup",
+            serves: 4,
+            time: 35,
             ingredients: [
                 RecipieIngredient(
                     item: carrots,
@@ -172,22 +198,20 @@ class Models {
                     quantity: 80
                 ),
                 RecipieIngredient(
-                    item: apples,
-                    unit: loavesUnit,
-                    quantity: 2
-                ),
-                RecipieIngredient(
-                    item: milk,
-                    unit: litresUnit,
-                    quantity: 1
+                    item: rosemary,
+                    unit: gramsUnit,
+                    quantity: 5
                 )
-            ]
+            ],
+            steps: ["Chop the vegetables.", "Simmer until tender, then blend."]
         )
         let roastChicken = Recipie(
             name: "roast chicken",
             mealType: .dinner,
             course: .main,
-            summary: "A tasty roast chicken",
+            summary: "Rosemary roast chicken",
+            serves: 4,
+            time: 60,
             ingredients: [
                 RecipieIngredient(
                     item: chickenThighs,
@@ -199,13 +223,16 @@ class Models {
                     unit: gramsUnit,
                     quantity: 5
                 ),
-            ]
+            ],
+            steps: ["Season the chicken with rosemary.", "Roast until cooked through."]
         )
         let mashedPotatoes = Recipie(
             name: "mashed potatoes",
             mealType: .dinner,
             course: .side,
-            summary: "A tasty side of mashed potatoes",
+            summary: "Creamy mashed potatoes",
+            serves: 4,
+            time: 25,
             ingredients: [
                 RecipieIngredient(
                     item: potatoes,
@@ -217,21 +244,132 @@ class Models {
                     unit: litresUnit,
                     quantity: 0.1
                 )
-            ]
+            ],
+            steps: ["Boil the potatoes.", "Mash with the milk."]
+        )
+        let salmonSalad = Recipie(
+            name: "salmon salad",
+            mealType: .lunch,
+            course: .main,
+            summary: "A light salmon and apple salad",
+            serves: 2,
+            time: 20,
+            ingredients: [
+                RecipieIngredient(item: salmon, unit: countUnit, quantity: 2),
+                RecipieIngredient(item: apples, unit: countUnit, quantity: 1),
+            ],
+            steps: ["Cook the salmon.", "Flake over the sliced apple salad."]
+        )
+        let breakfastLoaf = Recipie(
+            name: "breakfast loaf",
+            mealType: .breakfast,
+            course: .main,
+            summary: "A simple apple breakfast loaf",
+            serves: 6,
+            time: 45,
+            ingredients: [
+                RecipieIngredient(item: apples, unit: countUnit, quantity: 2),
+                RecipieIngredient(item: flour, unit: gramsUnit, quantity: 250),
+                RecipieIngredient(item: milk, unit: litresUnit, quantity: 0.2),
+            ],
+            steps: ["Mix the ingredients.", "Bake until golden."]
+        )
+        let appleCrumble = Recipie(
+            name: "apple crumble",
+            mealType: .dinner,
+            course: .dessert,
+            summary: "Baked apples with a crisp topping",
+            serves: 4,
+            time: 40,
+            ingredients: [
+                RecipieIngredient(item: apples, unit: countUnit, quantity: 4),
+                RecipieIngredient(item: flour, unit: gramsUnit, quantity: 150),
+            ],
+            steps: ["Top the sliced apples with crumble.", "Bake until crisp."]
         )
         
-        context.insert(soup)
+        context.insert(carrotSoup)
         context.insert(roastChicken)
         context.insert(mashedPotatoes)
+        context.insert(salmonSalad)
+        context.insert(breakfastLoaf)
+        context.insert(appleCrumble)
         
         let roastChickenMeal = Meal(
             name: "Roast Chicken Dinner",
             mealType: .dinner,
-            recipies: [roastChicken, mashedPotatoes]
+            recipies: [roastChicken, mashedPotatoes, appleCrumble]
+        )
+        let salmonLunch = Meal(
+            name: "Salmon Lunch",
+            mealType: .lunch,
+            recipies: [salmonSalad]
+        )
+        let breakfast = Meal(
+            name: "Breakfast",
+            mealType: .breakfast,
+            recipies: [breakfastLoaf],
+            readymeals: [fruitPot]
+        )
+        let quickDinner = Meal(
+            name: "Quick Dinner",
+            mealType: .dinner,
+            readymeals: [pastaPot]
         )
         
         context.insert(roastChickenMeal)
+        context.insert(salmonLunch)
+        context.insert(breakfast)
+        context.insert(quickDinner)
+
+        let plannedBreakfast = PlannedMeal(
+            mealType: .breakfast,
+            sortOrder: 0,
+            sourceMealID: breakfast.id,
+            servings: 2,
+            recipies: breakfast.recipies,
+            readymeals: breakfast.readymeals
+        )
+        let plannedLunch = PlannedMeal(
+            mealType: .lunch,
+            sortOrder: 0,
+            sourceMealID: salmonLunch.id,
+            servings: 2,
+            recipies: salmonLunch.recipies
+        )
+        let saturdayDinner = PlannedMeal(
+            mealType: .dinner,
+            day: .saturday,
+            sourceMealID: roastChickenMeal.id,
+            servings: 4,
+            recipies: roastChickenMeal.recipies
+        )
+        let sundayDinner = PlannedMeal(
+            mealType: .dinner,
+            day: .sunday,
+            sourceMealID: quickDinner.id,
+            servings: 2,
+            readymeals: quickDinner.readymeals
+        )
+
+        context.insert(plannedBreakfast)
+        context.insert(plannedLunch)
+        context.insert(saturdayDinner)
+        context.insert(sundayDinner)
+        context.insert(PlannedMiscEntry(
+            item: dishwasherTablets,
+            quantity: 1,
+            unit: countUnit,
+            sortOrder: 0
+        ))
+        context.insert(PlannedMiscEntry(
+            note: PlannedMiscNote(text: "birthday candles", category: householdCategory),
+            quantity: 12,
+            unit: countUnit,
+            sortOrder: 1
+        ))
         
         try? context.save()
+        try? ShoppingListStore(context: context).regenerate()
     }
 }

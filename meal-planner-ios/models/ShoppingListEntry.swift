@@ -260,6 +260,12 @@ final class ShoppingListStore {
         try context.save()
     }
 
+    func uncheckAll() throws {
+        let checked = try context.fetch(FetchDescriptor<ShoppingListEntry>()).filter(\.isChecked)
+        checked.forEach { $0.isChecked = false }
+        try context.save()
+    }
+
     func removeChecked() throws -> [ShoppingListEntrySnapshot] {
         let checked = try context.fetch(FetchDescriptor<ShoppingListEntry>()).filter(\.isChecked)
         let snapshots = checked.map(ShoppingListEntrySnapshot.init)

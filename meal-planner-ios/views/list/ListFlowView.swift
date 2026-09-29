@@ -28,8 +28,11 @@ private struct ShoppingListView: View {
     @State private var showingRegenerateConfirmation = false
     @State private var showingAddEntry = false
     @State private var completionTask: Task<Void, Never>?
+    @State private var completionInterval: ClosedRange<Date>?
     @State private var undoSnapshots: [ShoppingListEntrySnapshot] = []
     @State private var listError: String?
+
+    private static let completionDelay: TimeInterval = 3
 
     private var sections: [ShoppingListSection] {
         let grouped = Dictionary(grouping: entries) { $0.category?.id }
@@ -52,7 +55,7 @@ private struct ShoppingListView: View {
     }
 
     private func regenerate() {
-        completionTask?.cancel()
+        cancelCompletionTimer()
         do {
             try ShoppingListStore(context: context).regenerate()
             undoSnapshots.removeAll()
@@ -68,7 +71,7 @@ private struct ShoppingListView: View {
             if checking {
                 restartCompletionTimer()
             } else if !entries.contains(where: { $0.id != entry.id && $0.isChecked }) {
-                completionTask?.cancel()
+                cancelCompletionTimer()
             }
         } catch {
             listError = error.localizedDescription
@@ -76,11 +79,16 @@ private struct ShoppingListView: View {
     }
 
     private func restartCompletionTimer() {
-        completionTask?.cancel()
+        cancelCompletionTimer()
+        let start = Date()
+        let interval = start...start.addingTimeInterval(Self.completionDelay)
+        completionInterval = interval
         completionTask = Task { @MainActor in
             do {
-                try await Task.sleep(for: .seconds(3))
+                try await Task.sleep(for: .seconds(max(0, interval.upperBound.timeIntervalSinceNow)))
                 guard !Task.isCancelled else { return }
+                completionTask = nil
+                completionInterval = nil
                 try removeCheckedEntries()
             } catch is CancellationError {
                 return
@@ -90,8 +98,25 @@ private struct ShoppingListView: View {
         }
     }
 
+    private func cancelCompletionTimer() {
+        completionTask?.cancel()
+        completionTask = nil
+        completionInterval = nil
+    }
+
+    private func cancelPendingCompletion() {
+        cancelCompletionTimer()
+        do {
+            try ShoppingListStore(context: context).uncheckAll()
+        } catch {
+            listError = error.localizedDescription
+        }
+    }
+
     private func removeCheckedEntries() throws {
-        let snapshots = try ShoppingListStore(context: context).removeChecked()
+        let snapshots = try withAnimation(.easeInOut(duration: 0.3)) {
+            try ShoppingListStore(context: context).removeChecked()
+        }
         if !snapshots.isEmpty {
             undoSnapshots = snapshots
         }
@@ -101,8 +126,10 @@ private struct ShoppingListView: View {
         guard !undoSnapshots.isEmpty else { return }
 
         do {
-            try ShoppingListStore(context: context).restore(undoSnapshots)
-            undoSnapshots.removeAll()
+            try withAnimation(.easeInOut(duration: 0.3)) {
+                try ShoppingListStore(context: context).restore(undoSnapshots)
+                undoSnapshots.removeAll()
+            }
         } catch {
             listError = error.localizedDescription
         }
@@ -138,6 +165,7 @@ private struct ShoppingListView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(entry.name), \(entry.formattedQuantity)")
                             .accessibilityValue(entry.isChecked ? "Checked" : "Not checked")
+                            .transition(.opacity)
                         }
                     }
                 }
@@ -146,7 +174,13 @@ private struct ShoppingListView: View {
         .navigationTitle("Shopping List")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                if !undoSnapshots.isEmpty {
+                if let completionInterval {
+                    ShoppingListCompletionButton(
+                        interval: completionInterval,
+                        action: cancelPendingCompletion
+                    )
+                    .id(completionInterval.lowerBound)
+                } else if !undoSnapshots.isEmpty {
                     Button("Undo", systemImage: "arrow.uturn.backward", action: undoCompletion)
                 }
                 Button("Add", systemImage: "plus") { showingAddEntry = true }
@@ -172,7 +206,7 @@ private struct ShoppingListView: View {
         .onAppear {
             if entries.contains(where: \.isChecked) { restartCompletionTimer() }
         }
-        .onDisappear { completionTask?.cancel() }
+        .onDisappear { cancelCompletionTimer() }
         .alert("Shopping List", isPresented: Binding(
             get: { listError != nil },
             set: { if !$0 { listError = nil } }
@@ -181,6 +215,44 @@ private struct ShoppingListView: View {
         } message: {
             Text(listError ?? "")
         }
+    }
+}
+
+private struct ShoppingListCompletionButton: View {
+    let interval: ClosedRange<Date>
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .stroke(.secondary.opacity(0.25), lineWidth: 2.5)
+
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                    Circle()
+                        .trim(from: 0, to: remainingProgress(at: context.date))
+                        .stroke(
+                            Color.accentColor,
+                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                }
+
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+            }
+            .frame(width: 24, height: 24)
+        }
+        .accessibilityLabel("Cancel pending removal")
+        .accessibilityHint("Keeps checked items in the shopping list.")
+    }
+
+    private func remainingProgress(at date: Date) -> Double {
+        let duration = interval.upperBound.timeIntervalSince(interval.lowerBound)
+        guard duration > 0 else { return 0 }
+
+        let remaining = interval.upperBound.timeIntervalSince(date)
+        return min(max(remaining / duration, 0), 1)
     }
 }
 
