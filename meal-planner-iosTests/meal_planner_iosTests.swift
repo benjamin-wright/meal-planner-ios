@@ -476,6 +476,20 @@ struct meal_planner_iosTests {
     }
 
     @MainActor
+    @Test func checkedShoppingEntriesCanBeUncheckedTogether() throws {
+        let context = try makeShoppingContext()
+        context.insert(ShoppingListEntry(name: "Apples", quantity: 3, isChecked: true))
+        context.insert(ShoppingListEntry(name: "Bread", quantity: 1, isChecked: true))
+        context.insert(ShoppingListEntry(name: "Milk", quantity: 2))
+        try context.save()
+
+        try ShoppingListStore(context: context).uncheckAll()
+
+        let entries = try context.fetch(FetchDescriptor<ShoppingListEntry>())
+        #expect(entries.allSatisfy { !$0.isChecked })
+    }
+
+    @MainActor
     @Test func movingDinnerShiftsInterveningDays() throws {
         let context = try makePlannerContext()
         let saturday = PlannedMeal(mealType: .dinner, day: .saturday)
