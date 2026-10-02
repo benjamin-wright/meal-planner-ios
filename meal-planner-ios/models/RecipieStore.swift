@@ -12,6 +12,8 @@ final class RecipieStore {
         case notFound
         case invalidDraft([RecipieDraft.ValidationError])
         case missingIngredientReference
+        case unresolvedImport
+        case conflictingImportedItems
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +23,10 @@ final class RecipieStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .missingIngredientReference:
                 return "An ingredient item or unit no longer exists."
+            case .unresolvedImport:
+                return "Review each imported ingredient's item, unit and quantity before saving."
+            case .conflictingImportedItems:
+                return "New ingredients with the same name must use the same category and dietary details."
             }
         }
     }
@@ -39,6 +45,10 @@ final class RecipieStore {
     }
 
     func save(_ draft: RecipieDraft, id: UUID?) throws {
+        if draft.importedIngredients != nil {
+            try saveImported(draft, id: id)
+            return
+        }
         let existingNames = try context.fetch(FetchDescriptor<Recipie>())
             .filter { $0.id != id }
             .map(\.name)
@@ -75,6 +85,7 @@ final class RecipieStore {
                 ingredient.item = item
                 ingredient.unit = unit
                 ingredient.quantity = ingredientDraft.quantity
+                ingredient.sourceText = ingredientDraft.sourceText
                 return ingredient
             }
 
@@ -82,7 +93,8 @@ final class RecipieStore {
                 id: ingredientDraft.id,
                 item: item,
                 unit: unit,
-                quantity: ingredientDraft.quantity
+                quantity: ingredientDraft.quantity,
+                sourceText: ingredientDraft.sourceText
             )
             context.insert(ingredient)
             return ingredient
@@ -103,6 +115,59 @@ final class RecipieStore {
             .forEach(context.delete)
 
         try context.save()
+    }
+
+    private func saveImported(_ draft: RecipieDraft, id: UUID?) throws {
+        // Isolate the import so a failed save cannot leak new catalogue items through autosave,
+        // or roll back unrelated changes in the editor's shared context.
+        let importContext = ModelContext(context.container)
+        importContext.autosaveEnabled = false
+        do {
+            let items = try importContext.fetch(FetchDescriptor<Item>())
+            let units = try importContext.fetch(FetchDescriptor<Unit>())
+            let categories = try importContext.fetch(FetchDescriptor<Category>())
+            var resolved = draft
+            resolved.importedIngredients = nil
+            resolved.ingredients = []
+            var stagedItems: [String: Item] = [:]
+            for ingredient in draft.importedIngredients ?? [] {
+                guard ingredient.isResolved(items: items, units: units, categories: categories),
+                      let unitID = ingredient.unitID, let quantity = ingredient.quantity(units: units) else {
+                    throw Error.unresolvedImport
+                }
+                let itemID: UUID
+                if let newItem = ingredient.newItem {
+                    let name = newItem.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let key = RecipieImportMapper.key(name)
+                    if let staged = stagedItems[key] {
+                        guard staged.category.id == newItem.categoryID, staged.dietary == newItem.dietary else {
+                            throw Error.conflictingImportedItems
+                        }
+                        itemID = staged.id
+                    } else {
+                        guard let category = categories.first(where: { $0.id == newItem.categoryID }) else {
+                            throw Error.unresolvedImport
+                        }
+                        let item = Item(id: newItem.id, name: name, category: category, kind: .ingredient, dietary: newItem.dietary)
+                        importContext.insert(item)
+                        stagedItems[key] = item
+                        itemID = item.id
+                    }
+                } else if let existingID = ingredient.itemID {
+                    itemID = existingID
+                } else {
+                    throw Error.unresolvedImport
+                }
+                resolved.ingredients.append(RecipieIngredientDraft(
+                    id: ingredient.id, itemID: itemID, unitID: unitID, quantity: quantity,
+                    sourceText: ingredient.sourceText
+                ))
+            }
+            try RecipieStore(context: importContext).save(resolved, id: id)
+        } catch {
+            importContext.rollback()
+            throw error
+        }
     }
 
     func delete(id: UUID) throws {

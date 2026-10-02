@@ -25,6 +25,11 @@ struct RecipieIngredientEdit: View {
 
     var body: some View {
         GlassForm {
+            if let sourceText = value.sourceText, !sourceText.isEmpty {
+                Section("Original ingredient") {
+                    Text(sourceText)
+                }
+            }
             Section {
                 Button {
                     router.showItemPicker(selectedID: value.itemID) { id in
