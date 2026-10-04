@@ -200,8 +200,10 @@ private struct ShoppingListView: View {
             Text("This replaces the whole list, including items added directly.")
         }
         .sheet(isPresented: $showingAddEntry) {
-            ShoppingListEntryEdit()
-                .presentationBackground(.thinMaterial)
+            FlowContainer {
+                ShoppingListEntryEdit { showingAddEntry = false }
+            }
+            .presentationBackground(.thinMaterial)
         }
         .onAppear {
             if entries.contains(where: \.isChecked) { restartCompletionTimer() }

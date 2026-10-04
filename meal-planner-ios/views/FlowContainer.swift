@@ -24,6 +24,7 @@ struct FlowContainer<Content: View>: View {
                         .background(TransparentContainerConfigurator())
                 }
         }
+         .background(TabTransitionConfigurator())
         .environment(router)
     }
 }
