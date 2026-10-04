@@ -56,8 +56,8 @@ struct FlowDestination: View {
             ItemEdit()
         case .editItem(let id):
             ItemEdit(id: id)
-        case .unitPicker:
-            UnitPicker(units: units, selectedID: $router.selectedUnitID)
+        case .unitPicker(let typeFilter):
+            UnitPicker(units: units, selectedID: $router.selectedUnitID, typeFilter: typeFilter)
         case .newUnit(let type):
             UnitEdit(type: type)
         case .editUnit(let id, let type):

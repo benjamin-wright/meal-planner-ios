@@ -9,8 +9,10 @@ struct ShoppingListEntryEdit: View {
         var id: Self { self }
     }
 
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
+
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
     @Query(sort: \Item.name) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
     @Query(sort: \Unit.name) private var units: [Unit]
@@ -64,75 +66,75 @@ struct ShoppingListEntryEdit: View {
                     quantity: quantity
                 )
             }
-            dismiss()
+            onClose()
         } catch {
             saveError = error.localizedDescription
         }
     }
 
     var body: some View {
-        NavigationStack {
-            GlassForm {
-                Picker("Type", selection: $kind) {
-                    ForEach(EntryKind.allCases) { kind in
-                        Text(kind.rawValue).tag(kind)
-                    }
+        GlassForm {
+            Picker("Type", selection: $kind) {
+                ForEach(EntryKind.allCases) { kind in
+                    Text(kind.rawValue).tag(kind)
                 }
-                .pickerStyle(.segmented)
+            }
+            .pickerStyle(.segmented)
 
-                Section(kind.rawValue) {
-                    switch kind {
-                    case .item:
-                        Picker("Item", selection: $selectedItemID) {
-                            ForEach(items) { item in
-                                Text(item.name).tag(item.id)
-                            }
-                        }
-                    case .note:
-                        TextInput(text: $name, label: "Name", placeholder: "e.g. birthday candles")
-                        Picker("Category", selection: $selectedCategoryID) {
-                            ForEach(categories) { category in
-                                Text(category.name).tag(category.id)
-                            }
-                        }
+            Section(kind.rawValue) {
+                switch kind {
+                case .item:
+                    Button {
+                        router.showItemPicker(selectedID: selectedItemID) { selectedItemID = $0 }
+                    } label: {
+                        Text("Item").badge(items.first(where: { $0.id == selectedItemID })?.name ?? "Choose item")
+                    }
+                case .note:
+                    TextInput(text: $name, label: "Name", placeholder: "e.g. birthday candles")
+                    Button {
+                        router.showCategoryPicker(selectedID: selectedCategoryID) { selectedCategoryID = $0 }
+                    } label: {
+                        Text("Category").badge(categories.first(where: { $0.id == selectedCategoryID })?.name ?? "Choose category")
                     }
                 }
+            }
 
-                Section("Quantity") {
-                    Picker("Unit", selection: $selectedUnitID) {
-                        ForEach(units) { unit in
-                            Text(unit.name).tag(unit.id)
-                        }
-                    }
-                    if let selectedUnit {
-                        UnitInput(label: "Quantity", unit: .constant(selectedUnit), value: $quantity)
-                    }
+            Section("Quantity") {
+                Button {
+                    router.showUnitPicker(selectedID: selectedUnitID) { selectedUnitID = $0 }
+                } label: {
+                    Text("Unit").badge(selectedUnit?.name ?? "Choose unit")
+                }
+                if let selectedUnit {
+                    UnitInput(label: "Quantity", unit: .constant(selectedUnit), value: $quantity)
                 }
             }
-            .navigationTitle("Add to List")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add", action: save).disabled(!canSave)
-                }
+        }
+        .navigationTitle("Add to List")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel", action: onClose)
             }
-            .onAppear(perform: prepareDefaults)
-            .alert("Shopping List", isPresented: Binding(
-                get: { saveError != nil },
-                set: { if !$0 { saveError = nil } }
-            )) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(saveError ?? "")
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Add", action: save).disabled(!canSave)
             }
+        }
+        .onAppear(perform: prepareDefaults)
+        .alert("Shopping List", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
         }
     }
 }
 
 #Preview {
-    ShoppingListEntryEdit()
-        .modelContainer(Models.testing.modelContainer)
+    FlowContainer {
+        ShoppingListEntryEdit(onClose: {})
+    }
+    .modelContainer(Models.testing.modelContainer)
 }

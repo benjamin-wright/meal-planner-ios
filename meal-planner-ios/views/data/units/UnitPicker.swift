@@ -14,6 +14,7 @@ struct UnitPicker: View {
 
     let units: [Unit]
     @Binding var selectedID: UUID
+    var typeFilter: UnitType? = nil
 
     @State private var type = -1
     @State private var search = ""
@@ -22,23 +23,27 @@ struct UnitPicker: View {
         units.filter {
             (search.isEmpty || $0.name.contains(search))
             &&
-            (type == -1 || $0.type == type)
+            (typeFilter == nil || $0.unitType == typeFilter)
+            &&
+            (typeFilter != nil || type == -1 || $0.type == type)
         }
     }
 
     var body: some View {
         VStack {
-            Picker("Type", selection: $type) {
-                Text("All").tag(-1)
-                Text("Count").tag(UnitType.count.rawValue)
-                Text("Weight").tag(UnitType.weight.rawValue)
-                Text("Volume").tag(UnitType.volume.rawValue)
+            if typeFilter == nil {
+                Picker("Type", selection: $type) {
+                    Text("All").tag(-1)
+                    Text("Count").tag(UnitType.count.rawValue)
+                    Text("Weight").tag(UnitType.weight.rawValue)
+                    Text("Volume").tag(UnitType.volume.rawValue)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: .infinity)
+                .glassControl()
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
             }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: .infinity)
-            .glassControl()
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
             GlassList {
                 ForEach(filteredUnits) { unit in
                     Button {
@@ -65,7 +70,7 @@ struct UnitPicker: View {
             }
             .toolbar {
                 Button("Add") {
-                    router.path.append(.newUnit(.weight))
+                    router.path.append(.newUnit(typeFilter ?? UnitType(rawValue: type) ?? .weight))
                 }
             }
         }

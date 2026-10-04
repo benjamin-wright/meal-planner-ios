@@ -10,6 +10,7 @@ import SwiftData
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
     @Query private var units: [Unit]
     @Query private var settings: [AppSettings]
     
@@ -18,15 +19,22 @@ struct SettingsView: View {
     var body: some View {
         GlassList {
             Section("Preferred Units") {
-                @Bindable var setting = settings[0]
-                Picker("Weight", selection: $setting.preferredWeight) {
-                    ForEach(units.filter { $0.unitType == .weight }) { unit in
-                        Text(unit.name).tag(unit)
+                if let setting = settings.first {
+                    Button {
+                        router.showUnitPicker(selectedID: setting.preferredWeight.id, typeFilter: .weight) { id in
+                            guard let unit = units.first(where: { $0.id == id && $0.unitType == .weight }) else { return }
+                            setting.preferredWeight = unit
+                        }
+                    } label: {
+                        Text("Weight").badge(setting.preferredWeight.name)
                     }
-                }
-                Picker("Volume", selection: $setting.preferredVolume) {
-                    ForEach(units.filter { $0.unitType == .volume }) { unit in
-                        Text(unit.name).tag(unit)
+                    Button {
+                        router.showUnitPicker(selectedID: setting.preferredVolume.id, typeFilter: .volume) { id in
+                            guard let unit = units.first(where: { $0.id == id && $0.unitType == .volume }) else { return }
+                            setting.preferredVolume = unit
+                        }
+                    } label: {
+                        Text("Volume").badge(setting.preferredVolume.name)
                     }
                 }
             }
@@ -51,5 +59,8 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView().modelContainer(Models.testing.modelContainer)
+    FlowContainer {
+        SettingsView()
+    }
+    .modelContainer(Models.testing.modelContainer)
 }
