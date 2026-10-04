@@ -38,6 +38,7 @@ final class FlowRouter {
         case newRecipie(MealType, CourseType)
         case editRecipie(UUID)
         case recipieIngredient
+        case importedRecipieIngredient
         case mealPicker
         case newMeal(MealType)
         case newMealDraft(MealDraft)
@@ -52,6 +53,7 @@ final class FlowRouter {
     var selectedMealID = UUID()
     private(set) var recipieIngredient: RecipieIngredientDraft?
     private(set) var isEditingRecipieIngredient = false
+    private(set) var importedRecipieIngredient: ImportedRecipieIngredient?
 
     private var onCategorySelected: ((UUID) -> Void)?
     private var onItemSelected: ((UUID) -> Void)?
@@ -59,6 +61,7 @@ final class FlowRouter {
     private var onDishSelected: ((DishID) -> Void)?
     private var onMealSelected: ((UUID) -> Void)?
     private var onRecipieIngredientSaved: ((RecipieIngredientDraft) -> Void)?
+    private var onImportedRecipieIngredientSaved: ((ImportedRecipieIngredient) -> Void)?
 
     func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
         selectedCategoryID = selectedID
@@ -139,5 +142,18 @@ final class FlowRouter {
 
     func saveRecipieIngredient(_ ingredient: RecipieIngredientDraft) {
         onRecipieIngredientSaved?(ingredient)
+    }
+
+    func showImportedRecipieIngredient(
+        _ ingredient: ImportedRecipieIngredient,
+        onSave: @escaping (ImportedRecipieIngredient) -> Void
+    ) {
+        importedRecipieIngredient = ingredient
+        onImportedRecipieIngredientSaved = onSave
+        path.append(.importedRecipieIngredient)
+    }
+
+    func saveImportedRecipieIngredient(_ ingredient: ImportedRecipieIngredient) {
+        onImportedRecipieIngredientSaved?(ingredient)
     }
 }
