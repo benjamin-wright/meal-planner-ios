@@ -29,6 +29,7 @@ struct RecipieDraft {
     var serves: Int
     var time: Int
     var ingredients: [RecipieIngredientDraft]
+    var importedIngredients: [ImportedRecipieIngredient]? = nil
     var steps: [String]
 
     init(_ mealType: MealType = .dinner, _ course: CourseType = .main) {

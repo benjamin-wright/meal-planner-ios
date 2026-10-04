@@ -7,11 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import FoundationModels
+import VisionKit
 
 struct RecipieEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(FlowRouter.self) private var router
+    @Environment(\.scenePhase) private var scenePhase
 
     private let id: UUID?
     private var isEditing: Bool { id != nil }
@@ -22,7 +25,13 @@ struct RecipieEdit: View {
     @Query private var existing: [Recipie]
     @Query private var units: [Unit]
     @Query private var items: [Item]
+    @Query(sort: \Category.order) private var categories: [Category]
     @State private var editMode: EditMode = .inactive
+    @State private var importSource: RecipieImportSource?
+    @State private var pendingImport: ExtractedRecipie?
+    @State private var showReplaceConfirmation = false
+    @State private var importReviewMessage: String?
+    @State private var importAvailable = false
 
     init(id: UUID? = nil, mealType: MealType, courseType: CourseType) {
         self.id = id
@@ -34,7 +43,9 @@ struct RecipieEdit: View {
     }
 
     private var isInvalid: Bool {
-        !validationErrors.isEmpty
+        !validationErrors.isEmpty || draft.importedIngredients?.contains {
+            !$0.isResolved(items: items, units: units, categories: categories)
+        } == true
     }
 
     private func loadDraft() {
@@ -57,6 +68,24 @@ struct RecipieEdit: View {
     
     private func addStep() {
         draft.steps.append("")
+    }
+
+    private func finishImport() {
+        guard pendingImport != nil else { return }
+        if !draft.name.isEmpty || !draft.summary.isEmpty || !draft.ingredients.isEmpty ||
+            !draft.steps.isEmpty || draft.importedIngredients != nil {
+            showReplaceConfirmation = true
+        } else {
+            applyImport()
+        }
+    }
+
+    private func applyImport() {
+        guard let extracted = pendingImport else { return }
+        RecipieImportMapper.apply(extracted, to: &draft, items: items, units: units)
+        importReviewMessage = RecipieImportMapper.reviewMessage(for: extracted)
+        pendingImport = nil
+        editMode = .inactive
     }
     
     var detailsSection: some View {
@@ -81,7 +110,12 @@ struct RecipieEdit: View {
                 } label: {
                     let item = items.first(where: { $0.id == ingredient.itemID })
                     let unit = units.first(where: { $0.id == ingredient.unitID })
-                    Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
+                        if let sourceText = ingredient.sourceText, !sourceText.isEmpty {
+                            Text(sourceText).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
             .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
@@ -114,8 +148,18 @@ struct RecipieEdit: View {
                                     .foregroundStyle(.red)
                             }
                         }
+                        if let importReviewMessage {
+                            Section("Import review") {
+                                Text(importReviewMessage).font(.callout)
+                            }
+                        }
                         detailsSection
-                        ingredientsSection
+                        if let imported = Binding($draft.importedIngredients) {
+                            ImportedRecipieIngredientsSection(ingredients: imported, items: items,
+                                                             units: units, categories: categories)
+                        } else {
+                            ingredientsSection
+                        }
                         Section("Steps") {
                             ForEach($draft.steps.enumerated(), id: \.offset) { index, step in
                                 TextInput(text: step, label: "\(index)", placeholder: "Step \(index)")
@@ -131,10 +175,42 @@ struct RecipieEdit: View {
                 }
             }
         }
-        .toolbar { EditButton() }
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if importAvailable {
+                    Menu {
+                        if VNDocumentCameraViewController.isSupported {
+                            Button("Scan Recipe", systemImage: "camera") { importSource = .camera }
+                        }
+                        Button("Choose Photos", systemImage: "photo.on.rectangle") { importSource = .photos }
+                    } label: {
+                        Label("Import Recipe", systemImage: "camera")
+                    }
+                    .disabled(isLoading || editMode.isEditing)
+                    .accessibilityIdentifier("importRecipe")
+                }
+                EditButton()
+            }
+        }
         .environment(\.editMode, $editMode)
         .navigationTitle("Recipe")
         .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .onAppear { importAvailable = SystemLanguageModel.default.availability == .available }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { importAvailable = SystemLanguageModel.default.availability == .available }
+        }
+        .onChange(of: SystemLanguageModel.default.availability) { _, availability in
+            importAvailable = availability == .available
+        }
+        .sheet(item: $importSource, onDismiss: finishImport) { source in
+            RecipieImportView(initialSource: source) { extracted in pendingImport = extracted }
+        }
+        .confirmationDialog("Replace Recipe Fields?", isPresented: $showReplaceConfirmation, titleVisibility: .visible) {
+            Button("Use Extracted Recipe", role: .destructive) { applyImport() }
+            Button("Keep Current Recipe", role: .cancel) { pendingImport = nil }
+        } message: {
+            Text("Extracted fields will replace your current values, including ingredients and steps when found. Nothing is saved until you tap Save or Add.")
+        }
         .alert("Recipe", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
