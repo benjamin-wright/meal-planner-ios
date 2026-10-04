@@ -6,6 +6,32 @@ import UIKit
 @testable import meal_planner_ios
 
 struct RecipieImportTests {
+    @MainActor
+    @Test func importedIngredientReviewPreservesSelectionAndStagedItem() {
+        let router = FlowRouter()
+        var ingredient = ImportedRecipieIngredient(sourceText: "2 onions", name: "onions", quantityText: "2")
+        ingredient.newItem = NewRecipieItemDraft(name: "onions")
+        var saved: ImportedRecipieIngredient?
+
+        router.showImportedRecipieIngredient(ingredient) { saved = $0 }
+        #expect(router.path == [.importedRecipieIngredient])
+        #expect(router.importedRecipieIngredient?.id == ingredient.id)
+
+        router.showCategoryPicker(selectedID: UUID()) { ingredient.newItem?.categoryID = $0 }
+        let categoryID = UUID()
+        router.selectCategory(categoryID)
+        #expect(ingredient.newItem?.categoryID == categoryID)
+        #expect(router.path == [.importedRecipieIngredient, .categoryPicker])
+
+        router.showUnitPicker(selectedID: UUID()) { ingredient.unitID = $0 }
+        let unitID = UUID()
+        router.selectUnit(unitID)
+        router.saveImportedRecipieIngredient(ingredient)
+        #expect(saved?.newItem?.categoryID == categoryID)
+        #expect(saved?.unitID == unitID)
+        #expect(saved?.sourceText == "2 onions")
+    }
+
     @Test func quantitiesAcceptFractionsButRejectGuesses() {
         #expect(RecipieImportMapper.parseQuantity("1½") == 1.5)
         #expect(RecipieImportMapper.parseQuantity("1 1/2") == 1.5)
