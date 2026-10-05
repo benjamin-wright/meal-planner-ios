@@ -12,6 +12,7 @@ struct ExtractedRecipie: Equatable {
     var serves: Int?
     @Guide(description: "Explicit cooking time in minutes, or nil. Do not substitute preparation time.")
     var cookingMinutes: Int?
+    @Guide(description: "One entry per ingredient. Join ingredient lines wrapped across several OCR lines (e.g. 2 fine egg / noodle nests is one ingredient). Skip allergen codes, page references and other labels that are not ingredients, such as A1,A3.")
     var ingredients: [ExtractedRecipieIngredient]
     @Guide(description: "One complete instruction per entry, not one per OCR line. Join wrapped lines belonging to the same action; keep numbered or distinct actions separate and in source order. Preserve wording, temperatures, times and preparation details. Do not add instructions.")
     var steps: [String]
@@ -168,19 +169,25 @@ enum RecipieImportMapper {
             sourceText: extracted.sourceText, name: extracted.name,
             quantityText: quantityText, itemID: item?.id
         )
-        guard let sourceUnit else {
-            if parseQuantity(quantityText) != nil {
-                let namedCountUnits = units.filter {
-                    $0.unitType == .count && $0.magnitudes.isEmpty && key($0.name) == "count"
-                }
-                let countUnits = namedCountUnits.isEmpty
-                    ? units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
-                    : namedCountUnits
-                if countUnits.count == 1 { result.unitID = countUnits[0].id }
+        func applyCountUnit() {
+            guard parseQuantity(quantityText) != nil else { return }
+            let plain = units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
+            let named = plain.filter { ["count", "each", "item", "items", "whole", "piece", "pieces"].contains(key($0.name)) }
+            if let unit = (named.isEmpty ? plain : named).first,
+               (named.isEmpty ? plain : named).count == 1 || key(unit.name) == "count" {
+                result.unitID = unit.id
             }
+        }
+        guard let sourceUnit else {
+            applyCountUnit()
             return result
         }
         let candidates = unitCandidates(for: sourceUnit, in: units)
+        if candidates.isEmpty {
+            // The "unit" is really part of the ingredient name (e.g. "spring onions"), so treat as a count.
+            let unitKey = key(sourceUnit), nameKey = key(extracted.name)
+            if nameKey.contains(unitKey) || unitKey.contains(nameKey) { applyCountUnit() }
+        }
         if candidates.count == 1 {
             result.unitID = candidates[0].0.id
             result.magnitudeID = candidates[0].1?.id
@@ -205,6 +212,17 @@ enum RecipieImportMapper {
         return candidates
     }
 
+    /// Rejects non-ingredient noise such as reference codes ("A1,A3"): no quantity and no word of 3+ letters.
+    static func isPlausibleIngredient(_ ingredient: ExtractedRecipieIngredient) -> Bool {
+        if ingredient.quantity?.isEmpty == false { return true }
+        var run = 0
+        for character in ingredient.name {
+            run = character.isLetter ? run + 1 : 0
+            if run >= 3 { return true }
+        }
+        return false
+    }
+
     static func apply(_ extracted: ExtractedRecipie, to draft: inout RecipieDraft, items: [Item], units: [Unit]) {
         if let name = extracted.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
             draft.name = name
@@ -215,7 +233,7 @@ enum RecipieImportMapper {
         if let serves = extracted.serves, serves > 0 { draft.serves = serves }
         if let time = extracted.cookingMinutes, time >= 0 { draft.time = time }
         if !extracted.ingredients.isEmpty {
-            draft.importedIngredients = extracted.ingredients.map { ingredient($0, items: items, units: units) }
+            draft.importedIngredients = extracted.ingredients.filter(isPlausibleIngredient).map { ingredient($0, items: items, units: units) }
             draft.ingredients = []
         }
         let steps = extracted.steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
