@@ -126,6 +126,64 @@ struct RecipieImportTests {
     }
 
     @MainActor
+    @Test func importedCountsUseCatalogueCountUnitWhenNoUnitWasExtracted() {
+        let category = Category(name: "produce", order: 0)
+        let apple = Item(name: "apple", category: category, kind: .ingredient)
+        let count = Unit(name: "count", type: .count, magnitudes: [])
+        let loaves = Unit(name: "loaves", type: .count, magnitudes: [])
+        let mapped = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            items: [apple], units: [loaves, count]
+        )
+        #expect(mapped.itemID == apple.id)
+        #expect(mapped.unitID == count.id)
+        #expect(mapped.quantity(units: [count]) == 2)
+
+        let unspecified = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: "apples to taste", name: "apples", quantity: nil, unit: nil),
+            items: [apple], units: [count]
+        )
+        #expect(unspecified.unitID == nil)
+        let blankUnit = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: " "),
+            items: [apple], units: [count]
+        )
+        #expect(blankUnit.unitID == count.id)
+        let noCount = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            items: [apple], units: []
+        )
+        #expect(noCount.unitID == nil)
+        let ambiguousCount = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            items: [apple], units: [count, Unit(name: "COUNT", type: .count, magnitudes: [])]
+        )
+        #expect(ambiguousCount.unitID == nil)
+    }
+
+    @MainActor
+    @Test func catalogueMatchingPrefersUniqueClosestNameAndLeavesAmbiguityForReview() {
+        let category = Category(name: "produce", order: 0)
+        let apple = Item(name: "apple", category: category, kind: .ingredient)
+        let apples = Item(name: "apples", category: category, kind: .ingredient)
+        let apply = Item(name: "apply", category: category, kind: .ingredient)
+        let milk = Item(name: "milk", category: category, kind: .ingredient)
+        let prepared = Item(name: "apple sauce", category: category, kind: .ingredient)
+        func match(_ name: String, items: [Item]) -> UUID? {
+            RecipieImportMapper.ingredient(
+                ExtractedRecipieIngredient(sourceText: name, name: name, quantity: "2", unit: nil),
+                items: items, units: []
+            ).itemID
+        }
+        #expect(match("apples", items: [apple]) == apple.id)
+        #expect(match("apples", items: [apple, apples]) == apples.id)
+        #expect(match("applf", items: [apple]) == apple.id)
+        #expect(match("applo", items: [apple, apply]) == nil)
+        #expect(match("mil", items: [milk]) == nil)
+        #expect(match("apple", items: [prepared]) == nil)
+    }
+
+    @MainActor
     @Test func applyingImportKeepsMissingFieldsAndReplacesPresentLists() {
         var draft = RecipieDraft(.lunch, .starter)
         draft.name = "Original recipe"

@@ -99,13 +99,14 @@ enum RecipieImportMapper {
 
     private static func matchingItem(for name: String, in items: [Item]) -> Item? {
         let nameKey = key(name)
-        guard !nameKey.isEmpty else { return nil }
+        guard !nameKey.isEmpty, nameKey.count <= 80 else { return nil }
         let nameCharacters = Array(nameKey)
         var best: Item?
         var bestScore = Int.max
         var tied = false
         for item in items where item.itemKind == .ingredient {
             let itemKey = key(item.name)
+            guard itemKey.count <= 80 else { continue }
             let score: Int
             if itemKey == nameKey {
                 score = 0
@@ -141,7 +142,8 @@ enum RecipieImportMapper {
     static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit]) -> ImportedRecipieIngredient {
         let item = matchingItem(for: extracted.name, in: items)
         var quantityText = extracted.quantity ?? ""
-        var sourceUnit = extracted.unit
+        var sourceUnit = extracted.unit?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sourceUnit?.isEmpty == true { sourceUnit = nil }
         let text = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
         let suffix = String(text.reversed().prefix { $0.isLetter }.reversed())
         if !suffix.isEmpty {
