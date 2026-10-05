@@ -43,6 +43,51 @@ struct RecipieImportTests {
     }
 
     @MainActor
+    @Test func attachedUnitIsSeparatedFromImportedQuantity() {
+        let grams = meal_planner_ios.Unit(name: "grams", type: .weight, magnitudes: [
+            Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)
+        ])
+        let source = "80g flour"
+
+        let mapped = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "g"),
+            items: [], units: [grams]
+        )
+        #expect(mapped.quantityText == "80")
+        #expect(mapped.unitID == grams.id)
+        #expect(mapped.quantity(units: [grams]) == 80)
+        #expect(mapped.sourceText == source)
+
+        let namedUnit = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "grams"),
+            items: [], units: [grams]
+        )
+        #expect(namedUnit.quantityText == "80")
+        #expect(namedUnit.unitID == grams.id)
+
+        let omittedUnit = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
+            items: [], units: [grams]
+        )
+        #expect(omittedUnit.quantityText == "80")
+        #expect(omittedUnit.unitID == grams.id)
+
+        let ambiguous = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
+            items: [], units: [grams, meal_planner_ios.Unit(name: "other grams", type: .weight, magnitudes: grams.magnitudes)]
+        )
+        #expect(ambiguous.quantityText == "80g")
+        #expect(ambiguous.unitID == nil)
+
+        let mismatch = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "kg"),
+            items: [], units: [grams]
+        )
+        #expect(mismatch.quantityText == "80g")
+        #expect(mismatch.quantity(units: [grams]) == nil)
+    }
+
+    @MainActor
     @Test func mappingUsesCatalogueMagnitudesAndPreservesUnmatchedLines() {
         let category = Category(name: "dairy", order: 0)
         let milk = Item(name: "Milk", category: category, kind: .ingredient)

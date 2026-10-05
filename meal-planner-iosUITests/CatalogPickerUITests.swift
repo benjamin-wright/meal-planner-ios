@@ -127,4 +127,29 @@ final class CatalogPickerUITests: XCTestCase {
         row("litres", in: app).tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
+
+    @MainActor
+    func testRecipeStepsAllowMultilineReview() {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Data"].tap()
+        app.buttons["Recipies"].tap()
+        app.collectionViews.buttons["Add"].tap()
+        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+
+        let addStep = app.buttons["addRecipeStep"]
+        for _ in 0..<6 {
+            if addStep.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(addStep.isHittable, app.debugDescription)
+        addStep.tap()
+
+        let step = app.descendants(matching: .any)["recipeStep0"]
+        XCTAssertTrue(step.waitForExistence(timeout: 5))
+        step.tap()
+        step.typeText("Chop onions.\nAdd oil.")
+        XCTAssertTrue((step.value as? String)?.contains("\n") == true)
+        XCTAssertGreaterThan(step.frame.height, 44)
+    }
 }
