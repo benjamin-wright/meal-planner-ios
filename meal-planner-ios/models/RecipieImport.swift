@@ -97,10 +97,53 @@ enum RecipieImportMapper {
         return result.isFinite && result > 0 ? result : nil
     }
 
+    private static func matchingItem(for name: String, in items: [Item]) -> Item? {
+        let nameKey = key(name)
+        guard !nameKey.isEmpty, nameKey.count <= 80 else { return nil }
+        let nameCharacters = Array(nameKey)
+        var best: Item?
+        var bestScore = Int.max
+        var tied = false
+        for item in items where item.itemKind == .ingredient {
+            let itemKey = key(item.name)
+            guard itemKey.count <= 80 else { continue }
+            let score: Int
+            if itemKey == nameKey {
+                score = 0
+            } else if nameCharacters.count >= 5, itemKey.count >= 5,
+                      abs(nameCharacters.count - itemKey.count) <= (nameCharacters.count >= 9 ? 2 : 1) {
+                let other = Array(itemKey)
+                var previous = Array(0...other.count)
+                for (index, character) in nameCharacters.enumerated() {
+                    var current = [index + 1]
+                    for (column, otherCharacter) in other.enumerated() {
+                        current.append(min(previous[column + 1] + 1, current[column] + 1,
+                                           previous[column] + (character == otherCharacter ? 0 : 1)))
+                    }
+                    previous = current
+                }
+                score = previous[other.count]
+            } else {
+                continue
+            }
+            let maximumDistance = nameCharacters.count >= 9 ? 2 : (nameCharacters.count >= 5 ? 1 : 0)
+            guard score <= maximumDistance else { continue }
+            if score < bestScore {
+                best = item
+                bestScore = score
+                tied = false
+            } else if score == bestScore {
+                tied = true
+            }
+        }
+        return tied ? nil : best
+    }
+
     static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit]) -> ImportedRecipieIngredient {
-        let matches = items.filter { $0.itemKind == .ingredient && key($0.name) == key(extracted.name) }
+        let item = matchingItem(for: extracted.name, in: items)
         var quantityText = extracted.quantity ?? ""
-        var sourceUnit = extracted.unit
+        var sourceUnit = extracted.unit?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sourceUnit?.isEmpty == true { sourceUnit = nil }
         let text = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
         let suffix = String(text.reversed().prefix { $0.isLetter }.reversed())
         if !suffix.isEmpty {
@@ -123,9 +166,20 @@ enum RecipieImportMapper {
         }
         var result = ImportedRecipieIngredient(
             sourceText: extracted.sourceText, name: extracted.name,
-            quantityText: quantityText, itemID: matches.count == 1 ? matches[0].id : nil
+            quantityText: quantityText, itemID: item?.id
         )
-        guard let sourceUnit else { return result }
+        guard let sourceUnit else {
+            if parseQuantity(quantityText) != nil {
+                let namedCountUnits = units.filter {
+                    $0.unitType == .count && $0.magnitudes.isEmpty && key($0.name) == "count"
+                }
+                let countUnits = namedCountUnits.isEmpty
+                    ? units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
+                    : namedCountUnits
+                if countUnits.count == 1 { result.unitID = countUnits[0].id }
+            }
+            return result
+        }
         let candidates = unitCandidates(for: sourceUnit, in: units)
         if candidates.count == 1 {
             result.unitID = candidates[0].0.id
