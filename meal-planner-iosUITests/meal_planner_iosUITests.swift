@@ -32,6 +32,31 @@ final class meal_planner_iosUITests: XCTestCase {
     }
 
     @MainActor
+    func testClearPlanRequiresConfirmationAndLeavesShoppingList() {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Planner"].tap()
+
+        let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        XCTAssertTrue(app.buttons["Clear Plan"].count >= 2)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(clear.isEnabled)
+
+        clear.tap()
+        app.buttons["Clear Plan"].lastMatch.tap()
+        XCTAssertFalse(clear.isEnabled)
+        XCTAssertTrue(app.buttons["Add dinner for Saturday"].exists)
+        app.segmentedControls.buttons["Misc"].tap()
+        XCTAssertFalse(app.buttons["birthday candles"].exists)
+
+        app.tabBars.buttons["List"].tap()
+        XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["birthday candles"].exists)
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
