@@ -40,9 +40,9 @@ final class meal_planner_iosUITests: XCTestCase {
         let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
         XCTAssertTrue(clear.waitForExistence(timeout: 5))
         clear.tap()
-        XCTAssertTrue(app.buttons["Clear Plan"].count >= 2)
         app.buttons["Cancel"].tap()
         XCTAssertTrue(clear.isEnabled)
+        XCTAssertFalse(app.buttons["Add dinner for Saturday"].exists)
 
         clear.tap()
         app.buttons["Clear Plan"].lastMatch.tap()
@@ -53,7 +53,12 @@ final class meal_planner_iosUITests: XCTestCase {
 
         app.tabBars.buttons["List"].tap()
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["birthday candles"].exists)
+        let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "birthday candles")).firstMatch
+        for _ in 0..<6 {
+            if entry.exists { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
     }
 
     @MainActor
