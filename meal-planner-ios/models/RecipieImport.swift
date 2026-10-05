@@ -52,7 +52,7 @@ struct ImportedRecipieIngredient: Identifiable, Hashable {
         return result.isFinite && result > 0 ? result : nil
     }
 
-    func isResolved(items: [Item], units: [Unit], categories: [Category]) -> Bool {
+    func isResolved(items: [Item], units: [Unit]) -> Bool {
         items.contains { $0.id == itemID && $0.itemKind == .ingredient }
             && quantity(units: units) != nil
     }

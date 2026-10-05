@@ -7,27 +7,27 @@ import UIKit
 
 struct RecipieImportTests {
     @MainActor
-    @Test func importedIngredientReviewPreservesSelectionAndStagedItem() {
+    @Test func importedIngredientReviewPreservesPickerSelection() {
         let router = FlowRouter()
         var ingredient = ImportedRecipieIngredient(sourceText: "2 onions", name: "onions", quantityText: "2")
-        ingredient.newItem = NewRecipieItemDraft(name: "onions")
         var saved: ImportedRecipieIngredient?
 
         router.showImportedRecipieIngredient(ingredient) { saved = $0 }
         #expect(router.path == [.importedRecipieIngredient])
         #expect(router.importedRecipieIngredient?.id == ingredient.id)
 
-        router.showCategoryPicker(selectedID: UUID()) { ingredient.newItem?.categoryID = $0 }
-        let categoryID = UUID()
-        router.selectCategory(categoryID)
-        #expect(ingredient.newItem?.categoryID == categoryID)
-        #expect(router.path == [.importedRecipieIngredient, .categoryPicker])
+        router.showItemPicker(selectedID: UUID()) { ingredient.itemID = $0 }
+        router.path.append(.newItem)
+        let itemID = UUID()
+        router.selectItem(itemID)
+        #expect(ingredient.itemID == itemID)
+        #expect(router.path == [.importedRecipieIngredient, .itemPicker, .newItem])
 
         router.showUnitPicker(selectedID: UUID()) { ingredient.unitID = $0 }
         let unitID = UUID()
         router.selectUnit(unitID)
         router.saveImportedRecipieIngredient(ingredient)
-        #expect(saved?.newItem?.categoryID == categoryID)
+        #expect(saved?.itemID == itemID)
         #expect(saved?.unitID == unitID)
         #expect(saved?.sourceText == "2 onions")
     }
@@ -100,7 +100,7 @@ struct RecipieImportTests {
         #expect(mapped.unitID == litres.id)
         #expect(mapped.quantity(units: [litres]) == 0.5)
         #expect(mapped.sourceText == "500 ml milk, warmed")
-        #expect(mapped.isResolved(items: [milk], units: [litres], categories: [category]))
+        #expect(mapped.isResolved(items: [milk], units: [litres]))
 
         let unknown = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantity: nil, unit: nil),
@@ -145,20 +145,26 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func importedItemsAreStagedAndSavedWithTheirSourceText() throws {
+    @Test func importedRecipeUsesItemSavedByPickerAndPreservesSourceText() throws {
         let context = try makeContext()
         let category = Category(name: "dairy", order: 0)
         let unit = volumeUnit()
         context.insert(category)
         context.insert(unit)
         try context.save()
+        let itemStore = ItemStore(context: context)
+        var itemDraft = try itemStore.newDraft()
+        itemDraft.name = "milk"
+        itemDraft.dietary.dairy = true
+        try itemStore.save(itemDraft, id: nil)
+        let item = try #require(context.fetch(FetchDescriptor<Item>()).first)
         var draft = RecipieDraft()
         draft.name = "Milk soup"
         var ingredient = ImportedRecipieIngredient(sourceText: "½ litre milk, warmed", name: "milk", quantityText: "½")
         ingredient.unitID = unit.id
-        ingredient.newItem = NewRecipieItemDraft(name: "milk", categoryID: category.id, dietary: [.dairy])
+        ingredient.itemID = item.id
         draft.importedIngredients = [ingredient]
-        #expect(try context.fetch(FetchDescriptor<Item>()).isEmpty)
+        #expect(try ModelContext(context.container).fetch(FetchDescriptor<Item>()).count == 1)
         try RecipieStore(context: context).save(draft, id: nil)
 
         let verification = ModelContext(context.container)
@@ -172,7 +178,7 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func failedImportDoesNotSaveStagedItemsOrChangeExistingRecipe() throws {
+    @Test func failedImportKeepsNewItemButDoesNotChangeExistingRecipe() throws {
         let context = try makeContext()
         let category = Category(name: "dairy", order: 0)
         let unit = volumeUnit()
@@ -181,16 +187,21 @@ struct RecipieImportTests {
         context.insert(unit)
         context.insert(recipe)
         try context.save()
+        let itemStore = ItemStore(context: context)
+        var itemDraft = try itemStore.newDraft()
+        itemDraft.name = "milk"
+        try itemStore.save(itemDraft, id: nil)
+        let item = try #require(context.fetch(FetchDescriptor<Item>()).first)
         var draft = RecipieDraft(recipie: recipe)
         draft.name = "Changed recipe"
         var valid = ImportedRecipieIngredient(sourceText: "1 litre milk", name: "milk", quantityText: "1")
-        valid.newItem = NewRecipieItemDraft(name: "milk", categoryID: category.id)
+        valid.itemID = item.id
         valid.unitID = unit.id
         let unresolved = ImportedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantityText: "")
         draft.importedIngredients = [valid, unresolved]
         #expect(throws: RecipieStore.Error.self) { try RecipieStore(context: context).save(draft, id: recipe.id) }
         let verification = ModelContext(context.container)
-        #expect(try verification.fetch(FetchDescriptor<Item>()).isEmpty)
+        #expect(try verification.fetch(FetchDescriptor<Item>()).map(\.id) == [item.id])
         let persisted = try #require(verification.fetch(Recipie.descriptor(id: recipe.id)).first)
         #expect(persisted.name == "Original recipe")
         #expect(persisted.steps == ["Keep this step"])

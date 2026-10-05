@@ -25,7 +25,6 @@ struct RecipieEdit: View {
     @Query private var existing: [Recipie]
     @Query private var units: [Unit]
     @Query private var items: [Item]
-    @Query(sort: \Category.order) private var categories: [Category]
     @State private var editMode: EditMode = .inactive
     @State private var importSource: RecipieImportSource?
     @State private var pendingImport: ExtractedRecipie?
@@ -44,7 +43,7 @@ struct RecipieEdit: View {
 
     private var isInvalid: Bool {
         !validationErrors.isEmpty || draft.importedIngredients?.contains {
-            !$0.isResolved(items: items, units: units, categories: categories)
+            !$0.isResolved(items: items, units: units)
         } == true
     }
 
@@ -155,8 +154,7 @@ struct RecipieEdit: View {
                         }
                         detailsSection
                         if let imported = Binding($draft.importedIngredients) {
-                            ImportedRecipieIngredientsSection(ingredients: imported, items: items,
-                                                             units: units, categories: categories)
+                            ImportedRecipieIngredientsSection(ingredients: imported, items: items, units: units)
                         } else {
                             ingredientsSection
                         }

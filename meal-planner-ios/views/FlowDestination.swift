@@ -93,7 +93,7 @@ struct FlowDestination: View {
         case .importedRecipieIngredient:
             if let ingredient = router.importedRecipieIngredient {
                 ImportedRecipieIngredientEdit(
-                    ingredient: ingredient, items: items, units: units, categories: categories,
+                    ingredient: ingredient, items: items, units: units,
                     onSave: router.saveImportedRecipieIngredient
                 )
             } else {

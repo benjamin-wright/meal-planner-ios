@@ -5,7 +5,6 @@ struct ImportedRecipieIngredientsSection: View {
     @Binding var ingredients: [ImportedRecipieIngredient]
     let items: [Item]
     let units: [Unit]
-    let categories: [Category]
 
     private func review(_ ingredient: ImportedRecipieIngredient) {
         router.showImportedRecipieIngredient(ingredient) { updated in
@@ -26,7 +25,7 @@ struct ImportedRecipieIngredientsSection: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(ingredient.sourceText)
                             .foregroundStyle(.primary)
-                        if ingredient.isResolved(items: items, units: units, categories: categories) {
+                        if ingredient.isResolved(items: items, units: units) {
                             let name = items.first { $0.id == ingredient.itemID }?.name ?? ingredient.name
                             let unit = units.first { $0.id == ingredient.unitID }
                             let quantity = ingredient.quantity(units: units) ?? 0
@@ -57,15 +56,13 @@ struct ImportedRecipieIngredientEdit: View {
     @State private var ingredient: ImportedRecipieIngredient
     private let items: [Item]
     private let units: [Unit]
-    private let categories: [Category]
     private let onSave: (ImportedRecipieIngredient) -> Void
 
-    init(ingredient: ImportedRecipieIngredient, items: [Item], units: [Unit], categories: [Category],
+    init(ingredient: ImportedRecipieIngredient, items: [Item], units: [Unit],
          onSave: @escaping (ImportedRecipieIngredient) -> Void) {
         _ingredient = State(initialValue: ingredient)
         self.items = items.filter { $0.itemKind == .ingredient }
         self.units = units
-        self.categories = categories
         self.onSave = onSave
     }
 
@@ -91,7 +88,7 @@ struct ImportedRecipieIngredientEdit: View {
                 onSave(ingredient)
                 dismiss()
             }
-            .disabled(!ingredient.isResolved(items: items, units: units, categories: categories))
+            .disabled(!ingredient.isResolved(items: items, units: units))
         }
         .navigationTitle("Review Ingredient")
         .navigationBarTitleDisplayMode(.inline)
