@@ -27,7 +27,7 @@ struct ImportedRecipieIngredientsSection: View {
                         Text(ingredient.sourceText)
                             .foregroundStyle(.primary)
                         if ingredient.isResolved(items: items, units: units, categories: categories) {
-                            let name = ingredient.newItem?.name ?? items.first { $0.id == ingredient.itemID }?.name ?? ingredient.name
+                            let name = items.first { $0.id == ingredient.itemID }?.name ?? ingredient.name
                             let unit = units.first { $0.id == ingredient.unitID }
                             let quantity = ingredient.quantity(units: units) ?? 0
                             Text("\(name): \(unit?.toString(forValue: quantity) ?? "")")
@@ -46,7 +46,7 @@ struct ImportedRecipieIngredientsSection: View {
         } header: {
             Text("Ingredients")
         } footer: {
-            Text("Tap an ingredient to review it. New items are saved with the recipe. Resolve highlighted ingredients before saving.")
+            Text("Tap an ingredient to review it. Add new items from the item picker, then select them. Resolve highlighted ingredients before saving.")
         }
     }
 }
@@ -75,27 +75,18 @@ struct ImportedRecipieIngredientEdit: View {
                 TextField("Ingredient line and preparation notes", text: $ingredient.sourceText, axis: .vertical)
             }
             Section("Item") {
-                if let newItem = Binding($ingredient.newItem) {
-                    NewImportedItemFields(item: newItem, categories: categories)
-                    Button("Use Existing Item") { ingredient.newItem = nil }
-                } else {
-                    Button {
-                        router.showItemPicker(selectedID: ingredient.itemID ?? UUID()) { id in
-                            ingredient.itemID = id
-                        }
-                    } label: {
-                        Text("Item").badge(items.first { $0.id == ingredient.itemID }?.name ?? "Choose an item")
+                Button {
+                    router.showItemPicker(selectedID: ingredient.itemID ?? UUID()) { id in
+                        ingredient.itemID = id
                     }
-                    Button("Stage New Item") {
-                        ingredient.itemID = nil
-                        ingredient.newItem = NewRecipieItemDraft(name: ingredient.name)
-                    }
+                } label: {
+                    Text("Item").badge(items.first { $0.id == ingredient.itemID }?.name ?? "Choose an item")
                 }
             }
             ImportedQuantityFields(ingredient: $ingredient, units: units)
             Button("Done") {
                 if ingredient.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ingredient.sourceText = ingredient.newItem?.name ?? items.first { $0.id == ingredient.itemID }?.name ?? ""
+                    ingredient.sourceText = items.first { $0.id == ingredient.itemID }?.name ?? ""
                 }
                 onSave(ingredient)
                 dismiss()
@@ -104,31 +95,6 @@ struct ImportedRecipieIngredientEdit: View {
         }
         .navigationTitle("Review Ingredient")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct NewImportedItemFields: View {
-    @Environment(FlowRouter.self) private var router
-    @Binding var item: NewRecipieItemDraft
-    let categories: [Category]
-
-    var body: some View {
-        TextField("Item name", text: $item.name)
-        Button {
-            router.showCategoryPicker(selectedID: item.categoryID ?? UUID()) { id in
-                item.categoryID = id
-            }
-        } label: {
-            Text("Category").badge(categories.first { $0.id == item.categoryID }?.name ?? "Choose a category")
-        }
-        ForEach(Dietary.allCases) { dietary in
-            Toggle(dietary.label, isOn: Binding(
-                get: { item.dietary.contains(dietary) },
-                set: { if $0 { item.dietary.insert(dietary) } else { item.dietary.remove(dietary) } }
-            ))
-        }
-        Text("Check the category and dietary details before tapping Done.")
-            .font(.caption).foregroundStyle(.secondary)
     }
 }
 
