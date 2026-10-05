@@ -354,6 +354,32 @@ struct RecipieImportTests {
         #expect(!result.steps.isEmpty)
     }
 
+    @Test(.enabled(if: SystemLanguageModel.default.availability == .available,
+                   "Requires Apple Intelligence on the simulator host"))
+    func foundationModelsGroupsWrappedInstructionsIntoSteps() async throws {
+        let result = try await FoundationRecipieExtractor().extract(from: """
+            Carrot soup
+            Ingredients:
+            200 g carrots
+            500 ml milk
+            Method:
+            1. Chop the carrots
+            into small pieces so they
+            cook evenly.
+            2. Simmer the carrots in the milk
+            for 20 minutes, stirring
+            occasionally.
+            """
+        )
+        #expect(result.steps.count == 2)
+        if result.steps.count == 2 {
+            #expect(result.steps[0].localizedCaseInsensitiveContains("small pieces"))
+            #expect(result.steps[0].localizedCaseInsensitiveContains("evenly"))
+            #expect(result.steps[1].contains("20 minutes"))
+            #expect(result.steps[1].localizedCaseInsensitiveContains("occasionally"))
+        }
+    }
+
     private func volumeUnit() -> meal_planner_ios.Unit {
         Unit(name: "litres", type: .volume, magnitudes: [
             Magnitude(abbreviation: "ml", singular: "millilitre", plural: "millilitres", multiplier: 0.001),
