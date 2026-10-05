@@ -9,6 +9,13 @@ import XCTest
 
 final class meal_planner_iosUITests: XCTestCase {
 
+    @MainActor
+    private func resetSampleData(in app: XCUIApplication) {
+        app.tabBars.buttons["Settings"].tap()
+        app.buttons["Reset"].tap()
+        app.buttons["Yes, delete it all!"].tap()
+    }
+
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
@@ -35,6 +42,8 @@ final class meal_planner_iosUITests: XCTestCase {
     func testClearPlanRequiresConfirmationAndLeavesShoppingList() {
         let app = XCUIApplication()
         app.launch()
+        resetSampleData(in: app)
+        defer { resetSampleData(in: app) }
         app.tabBars.buttons["Planner"].tap()
 
         let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
