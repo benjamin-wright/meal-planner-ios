@@ -1,17 +1,27 @@
 import SwiftUI
 
 struct ImportedRecipieIngredientsSection: View {
+    @Environment(FlowRouter.self) private var router
     @Binding var ingredients: [ImportedRecipieIngredient]
     let items: [Item]
     let units: [Unit]
     let categories: [Category]
-    @State private var editing: ImportedRecipieIngredient?
+
+    private func review(_ ingredient: ImportedRecipieIngredient) {
+        router.showImportedRecipieIngredient(ingredient) { updated in
+            if let index = ingredients.firstIndex(where: { $0.id == updated.id }) {
+                ingredients[index] = updated
+            } else {
+                ingredients.append(updated)
+            }
+        }
+    }
 
     var body: some View {
         Section {
             ForEach(ingredients) { ingredient in
                 Button {
-                    editing = ingredient
+                    review(ingredient)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(ingredient.sourceText)
@@ -31,27 +41,19 @@ struct ImportedRecipieIngredientsSection: View {
             }
             .onDelete { ingredients.remove(atOffsets: $0) }
             Button("Add Ingredient", systemImage: "plus") {
-                editing = ImportedRecipieIngredient(sourceText: "", name: "", quantityText: "")
+                review(ImportedRecipieIngredient(sourceText: "", name: "", quantityText: ""))
             }
         } header: {
             Text("Ingredients")
         } footer: {
             Text("Tap an ingredient to review it. New items are saved with the recipe. Resolve highlighted ingredients before saving.")
         }
-        .sheet(item: $editing) { ingredient in
-            ImportedRecipieIngredientEdit(ingredient: ingredient, items: items, units: units, categories: categories) { updated in
-                if let index = ingredients.firstIndex(where: { $0.id == updated.id }) {
-                    ingredients[index] = updated
-                } else {
-                    ingredients.append(updated)
-                }
-            }
-        }
     }
 }
 
-private struct ImportedRecipieIngredientEdit: View {
+struct ImportedRecipieIngredientEdit: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(FlowRouter.self) private var router
     @State private var ingredient: ImportedRecipieIngredient
     private let items: [Item]
     private let units: [Unit]
@@ -68,56 +70,56 @@ private struct ImportedRecipieIngredientEdit: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Original ingredient") {
-                    TextField("Ingredient line and preparation notes", text: $ingredient.sourceText, axis: .vertical)
-                }
-                Section("Item") {
-                    if let newItem = Binding($ingredient.newItem) {
-                        NewImportedItemFields(item: newItem, categories: categories)
-                        Button("Use Existing Item") { ingredient.newItem = nil }
-                    } else {
-                        Picker("Item", selection: $ingredient.itemID) {
-                            Text("Choose an item").tag(nil as UUID?)
-                            ForEach(items) { item in Text(item.name).tag(Optional(item.id)) }
+        GlassForm {
+            Section("Original ingredient") {
+                TextField("Ingredient line and preparation notes", text: $ingredient.sourceText, axis: .vertical)
+            }
+            Section("Item") {
+                if let newItem = Binding($ingredient.newItem) {
+                    NewImportedItemFields(item: newItem, categories: categories)
+                    Button("Use Existing Item") { ingredient.newItem = nil }
+                } else {
+                    Button {
+                        router.showItemPicker(selectedID: ingredient.itemID ?? UUID()) { id in
+                            ingredient.itemID = id
                         }
-                        Button("Create New Item") {
-                            ingredient.itemID = nil
-                            ingredient.newItem = NewRecipieItemDraft(name: ingredient.name)
-                        }
+                    } label: {
+                        Text("Item").badge(items.first { $0.id == ingredient.itemID }?.name ?? "Choose an item")
+                    }
+                    Button("Stage New Item") {
+                        ingredient.itemID = nil
+                        ingredient.newItem = NewRecipieItemDraft(name: ingredient.name)
                     }
                 }
-                ImportedQuantityFields(ingredient: $ingredient, units: units)
             }
-            .navigationTitle("Review Ingredient")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        if ingredient.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            ingredient.sourceText = ingredient.newItem?.name ?? items.first { $0.id == ingredient.itemID }?.name ?? ""
-                        }
-                        onSave(ingredient)
-                        dismiss()
-                    }
-                    .disabled(!ingredient.isResolved(items: items, units: units, categories: categories))
+            ImportedQuantityFields(ingredient: $ingredient, units: units)
+            Button("Done") {
+                if ingredient.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ingredient.sourceText = ingredient.newItem?.name ?? items.first { $0.id == ingredient.itemID }?.name ?? ""
                 }
+                onSave(ingredient)
+                dismiss()
             }
+            .disabled(!ingredient.isResolved(items: items, units: units, categories: categories))
         }
+        .navigationTitle("Review Ingredient")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 private struct NewImportedItemFields: View {
+    @Environment(FlowRouter.self) private var router
     @Binding var item: NewRecipieItemDraft
     let categories: [Category]
 
     var body: some View {
         TextField("Item name", text: $item.name)
-        Picker("Category", selection: $item.categoryID) {
-            Text("Choose a category").tag(nil as UUID?)
-            ForEach(categories) { category in Text(category.name).tag(Optional(category.id)) }
+        Button {
+            router.showCategoryPicker(selectedID: item.categoryID ?? UUID()) { id in
+                item.categoryID = id
+            }
+        } label: {
+            Text("Category").badge(categories.first { $0.id == item.categoryID }?.name ?? "Choose a category")
         }
         ForEach(Dietary.allCases) { dietary in
             Toggle(dietary.label, isOn: Binding(
@@ -131,6 +133,7 @@ private struct NewImportedItemFields: View {
 }
 
 private struct ImportedQuantityFields: View {
+    @Environment(FlowRouter.self) private var router
     @Binding var ingredient: ImportedRecipieIngredient
     let units: [Unit]
 
@@ -138,11 +141,14 @@ private struct ImportedQuantityFields: View {
         Section {
             TextField("Quantity, e.g. 1 1/2", text: $ingredient.quantityText)
                 .keyboardType(.numbersAndPunctuation)
-            Picker("Unit", selection: $ingredient.unitID) {
-                Text("Choose a unit").tag(nil as UUID?)
-                ForEach(units) { unit in Text(unit.name).tag(Optional(unit.id)) }
+            Button {
+                router.showUnitPicker(selectedID: ingredient.unitID ?? UUID()) { id in
+                    ingredient.unitID = id
+                    ingredient.magnitudeID = nil
+                }
+            } label: {
+                Text("Unit").badge(units.first { $0.id == ingredient.unitID }?.name ?? "Choose a unit")
             }
-            .onChange(of: ingredient.unitID) { _, _ in ingredient.magnitudeID = nil }
             if let unit = units.first(where: { $0.id == ingredient.unitID }), !unit.magnitudes.isEmpty {
                 Picker("Measure", selection: $ingredient.magnitudeID) {
                     Text(unit.name).tag(nil as UUID?)

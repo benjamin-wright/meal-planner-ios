@@ -6,6 +6,32 @@ import UIKit
 @testable import meal_planner_ios
 
 struct RecipieImportTests {
+    @MainActor
+    @Test func importedIngredientReviewPreservesSelectionAndStagedItem() {
+        let router = FlowRouter()
+        var ingredient = ImportedRecipieIngredient(sourceText: "2 onions", name: "onions", quantityText: "2")
+        ingredient.newItem = NewRecipieItemDraft(name: "onions")
+        var saved: ImportedRecipieIngredient?
+
+        router.showImportedRecipieIngredient(ingredient) { saved = $0 }
+        #expect(router.path == [.importedRecipieIngredient])
+        #expect(router.importedRecipieIngredient?.id == ingredient.id)
+
+        router.showCategoryPicker(selectedID: UUID()) { ingredient.newItem?.categoryID = $0 }
+        let categoryID = UUID()
+        router.selectCategory(categoryID)
+        #expect(ingredient.newItem?.categoryID == categoryID)
+        #expect(router.path == [.importedRecipieIngredient, .categoryPicker])
+
+        router.showUnitPicker(selectedID: UUID()) { ingredient.unitID = $0 }
+        let unitID = UUID()
+        router.selectUnit(unitID)
+        router.saveImportedRecipieIngredient(ingredient)
+        #expect(saved?.newItem?.categoryID == categoryID)
+        #expect(saved?.unitID == unitID)
+        #expect(saved?.sourceText == "2 onions")
+    }
+
     @Test func quantitiesAcceptFractionsButRejectGuesses() {
         #expect(RecipieImportMapper.parseQuantity("1½") == 1.5)
         #expect(RecipieImportMapper.parseQuantity("1 1/2") == 1.5)
@@ -14,6 +40,51 @@ struct RecipieImportTests {
         for value in ["to taste", "1–2", "1-2", "1/0", "0", "-1", "nan", "inf", "1 2", "1/2/3"] {
             #expect(RecipieImportMapper.parseQuantity(value) == nil)
         }
+    }
+
+    @MainActor
+    @Test func attachedUnitIsSeparatedFromImportedQuantity() {
+        let grams = meal_planner_ios.Unit(name: "grams", type: .weight, magnitudes: [
+            Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)
+        ])
+        let source = "80g flour"
+
+        let mapped = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "g"),
+            items: [], units: [grams]
+        )
+        #expect(mapped.quantityText == "80")
+        #expect(mapped.unitID == grams.id)
+        #expect(mapped.quantity(units: [grams]) == 80)
+        #expect(mapped.sourceText == source)
+
+        let namedUnit = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "grams"),
+            items: [], units: [grams]
+        )
+        #expect(namedUnit.quantityText == "80")
+        #expect(namedUnit.unitID == grams.id)
+
+        let omittedUnit = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
+            items: [], units: [grams]
+        )
+        #expect(omittedUnit.quantityText == "80")
+        #expect(omittedUnit.unitID == grams.id)
+
+        let ambiguous = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
+            items: [], units: [grams, meal_planner_ios.Unit(name: "other grams", type: .weight, magnitudes: grams.magnitudes)]
+        )
+        #expect(ambiguous.quantityText == "80g")
+        #expect(ambiguous.unitID == nil)
+
+        let mismatch = RecipieImportMapper.ingredient(
+            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "kg"),
+            items: [], units: [grams]
+        )
+        #expect(mismatch.quantityText == "80g")
+        #expect(mismatch.quantity(units: [grams]) == nil)
     }
 
     @MainActor

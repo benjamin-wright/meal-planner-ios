@@ -23,7 +23,7 @@ struct ExtractedRecipieIngredient: Equatable {
     var sourceText: String
     @Guide(description: "Ingredient name without its quantity, unit or preparation instructions.")
     var name: String
-    @Guide(description: "Quantity as written, including fractions. Nil for unspecified amounts such as to taste. Do not calculate or guess.")
+    @Guide(description: "Numeric quantity only, including fractions; for 80g return 80. Put g in unit. Nil for unspecified amounts such as to taste. Do not calculate or guess.")
     var quantity: String?
     @Guide(description: "Unit as written. Use count for explicit whole-item counts such as 2 onions. Nil if unknown.")
     var unit: String?
@@ -115,11 +115,42 @@ enum RecipieImportMapper {
 
     static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit]) -> ImportedRecipieIngredient {
         let matches = items.filter { $0.itemKind == .ingredient && key($0.name) == key(extracted.name) }
+        var quantityText = extracted.quantity ?? ""
+        var sourceUnit = extracted.unit
+        let text = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suffix = String(text.reversed().prefix { $0.isLetter }.reversed())
+        if !suffix.isEmpty {
+            let number = String(text.dropLast(suffix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            if parseQuantity(number) != nil {
+                let suffixMatches = unitCandidates(for: suffix, in: units)
+                if let declaredUnit = sourceUnit {
+                    let declaredMatches = unitCandidates(for: declaredUnit, in: units)
+                    if key(suffix) == key(declaredUnit) ||
+                        (suffixMatches.count == 1 && declaredMatches.count == 1 &&
+                         suffixMatches[0].0.id == declaredMatches[0].0.id &&
+                         suffixMatches[0].1?.id == declaredMatches[0].1?.id) {
+                        quantityText = number
+                    }
+                } else if suffixMatches.count == 1 {
+                    quantityText = number
+                    sourceUnit = suffix
+                }
+            }
+        }
         var result = ImportedRecipieIngredient(
             sourceText: extracted.sourceText, name: extracted.name,
-            quantityText: extracted.quantity ?? "", itemID: matches.count == 1 ? matches[0].id : nil
+            quantityText: quantityText, itemID: matches.count == 1 ? matches[0].id : nil
         )
-        guard let sourceUnit = extracted.unit else { return result }
+        guard let sourceUnit else { return result }
+        let candidates = unitCandidates(for: sourceUnit, in: units)
+        if candidates.count == 1 {
+            result.unitID = candidates[0].0.id
+            result.magnitudeID = candidates[0].1?.id
+        }
+        return result
+    }
+
+    private static func unitCandidates(for sourceUnit: String, in units: [Unit]) -> [(Unit, Magnitude?)] {
         let unitKey = key(sourceUnit)
         var candidates: [(Unit, Magnitude?)] = []
         for unit in units {
@@ -133,11 +164,7 @@ enum RecipieImportMapper {
                 candidates.append((unit, nil))
             }
         }
-        if candidates.count == 1 {
-            result.unitID = candidates[0].0.id
-            result.magnitudeID = candidates[0].1?.id
-        }
-        return result
+        return candidates
     }
 
     static func apply(_ extracted: ExtractedRecipie, to draft: inout RecipieDraft, items: [Item], units: [Unit]) {

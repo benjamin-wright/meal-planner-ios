@@ -90,6 +90,15 @@ struct FlowDestination: View {
             } else {
                 ContentUnavailableView("Ingredient Not Found", systemImage: "exclamationmark.triangle")
             }
+        case .importedRecipieIngredient:
+            if let ingredient = router.importedRecipieIngredient {
+                ImportedRecipieIngredientEdit(
+                    ingredient: ingredient, items: items, units: units, categories: categories,
+                    onSave: router.saveImportedRecipieIngredient
+                )
+            } else {
+                ContentUnavailableView("Ingredient Not Found", systemImage: "exclamationmark.triangle")
+            }
         case .mealPicker:
             MealPicker(meals: meals, selectedID: $router.selectedMealID)
         case .newMeal(let mealType):
