@@ -13,7 +13,7 @@ struct ExtractedRecipie: Equatable {
     @Guide(description: "Explicit cooking time in minutes, or nil. Do not substitute preparation time.")
     var cookingMinutes: Int?
     var ingredients: [ExtractedRecipieIngredient]
-    @Guide(description: "Complete instructions in source order, preserving temperatures, times and preparation details. Do not add instructions.")
+    @Guide(description: "One complete instruction per entry, not one per OCR line. Join wrapped lines belonging to the same action; keep numbered or distinct actions separate and in source order. Preserve wording, temperatures, times and preparation details. Do not add instructions.")
     var steps: [String]
 }
 

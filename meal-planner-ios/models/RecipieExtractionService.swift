@@ -49,6 +49,9 @@ struct FoundationRecipieExtractor: RecipieExtracting {
             Missing or ambiguous scalar values must be nil. Never invent ingredients, amounts, summaries or steps.
             Pages belong to the same recipe. Repeated photographs of the same line are not extra ingredients.
             Keep distinct uses of an ingredient in different recipe sections separate. Ignore advertisements and unrelated text.
+            For steps, treat OCR line breaks as formatting, not step boundaries. Group continuation lines into the same
+            instruction when they describe one step, even across pages. Respect explicit step numbers and keep
+            independent instructions separate; do not split a single instruction or omit any cooking details.
             """
         )
         do {
