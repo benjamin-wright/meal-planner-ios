@@ -20,7 +20,20 @@ enum PlannerSection: CaseIterable, LabeledEnum {
 }
 
 struct PlannerView: View {
+    @Environment(\.modelContext) private var context
+    @Query private var plannedMeals: [PlannedMeal]
+    @Query private var miscEntries: [PlannedMiscEntry]
     @State private var section: PlannerSection = .dinner
+    @State private var confirmingClear = false
+    @State private var clearError: String?
+
+    private func clearPlan() {
+        do {
+            try PlannerStore(context: context).clear()
+        } catch {
+            clearError = error.localizedDescription
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,6 +54,28 @@ struct PlannerView: View {
             }
         }
         .navigationTitle("Planner")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Clear Plan", role: .destructive) {
+                    confirmingClear = true
+                }
+                .disabled(plannedMeals.isEmpty && miscEntries.isEmpty)
+            }
+        }
+        .confirmationDialog("Clear plan?", isPresented: $confirmingClear) {
+            Button("Clear Plan", role: .destructive, action: clearPlan)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes all planned meals and miscellaneous entries. Saved meals, recipes, and the shopping list will remain.")
+        }
+        .alert("Could not clear plan", isPresented: Binding(
+            get: { clearError != nil },
+            set: { if !$0 { clearError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(clearError ?? "")
+        }
     }
 }
 
