@@ -162,10 +162,13 @@ struct RecipieEdit: View {
                         }
                         Section("Steps") {
                             ForEach($draft.steps.enumerated(), id: \.offset) { index, step in
-                                TextInput(text: step, label: "\(index)", placeholder: "Step \(index)")
+                                TextField("Step \(index + 1)", text: step, axis: .vertical)
+                                    .lineLimit(3...8)
+                                    .accessibilityIdentifier("recipeStep\(index)")
                             }
                             .onDelete { offsets in draft.steps.remove(atOffsets: offsets) }
                             AddButton(addStep)
+                                .accessibilityIdentifier("addRecipeStep")
                         }
                     }
                     Button(action: save) {
