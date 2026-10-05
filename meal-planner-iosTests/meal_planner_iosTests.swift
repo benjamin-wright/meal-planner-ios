@@ -339,6 +339,38 @@ struct meal_planner_iosTests {
     }
 
     @MainActor
+    @Test func clearingPlanPreservesCatalogueAndShoppingList() throws {
+        let context = try makeShoppingContext()
+        let category = Category(name: "Food", order: 0)
+        let unit = Unit(name: "count", type: .count, magnitudes: [])
+        let item = Item(name: "Apples", category: category, kind: .ingredient)
+        let recipe = Recipie(name: "Apple salad", mealType: .lunch, course: .main)
+        let template = Meal(name: "Lunch", mealType: .lunch, recipies: [recipe])
+        context.insert(category)
+        context.insert(unit)
+        context.insert(item)
+        context.insert(recipe)
+        context.insert(template)
+        context.insert(PlannedMeal(mealType: .lunch, sourceMealID: template.id, recipies: [recipe]))
+        context.insert(PlannedMeal(mealType: .dinner, day: .monday, readymeals: [item]))
+        context.insert(PlannedMiscEntry(item: item, unit: unit))
+        context.insert(PlannedMiscEntry(note: PlannedMiscNote(text: "Candles", category: category), unit: unit))
+        context.insert(ShoppingListEntry(name: "Apples", quantity: 2, item: item, category: category, unit: unit))
+        try context.save()
+
+        let store = PlannerStore(context: context)
+        try store.clear()
+        try store.clear()
+
+        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<PlannedMiscEntry>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<Meal>()).map(\.id) == [template.id])
+        #expect(try context.fetch(FetchDescriptor<Recipie>()).map(\.id) == [recipe.id])
+        #expect(try context.fetch(FetchDescriptor<Item>()).map(\.id) == [item.id])
+        #expect(try context.fetch(FetchDescriptor<ShoppingListEntry>()).count == 1)
+    }
+
+    @MainActor
     @Test func shoppingListScalesConvertsAndKeepsDissimilarCountUnitsSeparate() throws {
         let context = try makeShoppingContext()
         let produce = Category(name: "Produce", order: 0)

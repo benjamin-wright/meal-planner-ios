@@ -9,6 +9,13 @@ import XCTest
 
 final class meal_planner_iosUITests: XCTestCase {
 
+    @MainActor
+    private func resetSampleData(in app: XCUIApplication) {
+        app.tabBars.buttons["Settings"].tap()
+        app.buttons["Reset"].tap()
+        app.buttons["Yes, delete it all!"].tap()
+    }
+
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
@@ -29,6 +36,38 @@ final class meal_planner_iosUITests: XCTestCase {
         app.launch()
 
         // Use XCTAssert and related functions to verify your tests produce the correct results.
+    }
+
+    @MainActor
+    func testClearPlanRequiresConfirmationAndLeavesShoppingList() {
+        let app = XCUIApplication()
+        app.launch()
+        resetSampleData(in: app)
+        defer { resetSampleData(in: app) }
+        app.tabBars.buttons["Planner"].tap()
+
+        let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(clear.isEnabled)
+        XCTAssertFalse(app.buttons["Add dinner for Saturday"].exists)
+
+        clear.tap()
+        app.buttons["Clear Plan"].lastMatch.tap()
+        XCTAssertFalse(clear.isEnabled)
+        XCTAssertTrue(app.buttons["Add dinner for Saturday"].exists)
+        app.segmentedControls.buttons["Misc"].tap()
+        XCTAssertFalse(app.buttons["birthday candles"].exists)
+
+        app.tabBars.buttons["List"].tap()
+        XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
+        let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "birthday candles")).firstMatch
+        for _ in 0..<6 {
+            if entry.exists { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
     }
 
     @MainActor
