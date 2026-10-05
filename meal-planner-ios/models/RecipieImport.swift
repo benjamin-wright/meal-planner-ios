@@ -29,21 +29,12 @@ struct ExtractedRecipieIngredient: Equatable {
     var unit: String?
 }
 
-struct NewRecipieItemDraft: Hashable {
-    var id = UUID()
-    var name: String
-    var categoryID: UUID?
-    var dietary: Set<Dietary> = []
-}
-
-/// Import-only state. Nothing here is inserted into SwiftData until the recipe is saved.
 struct ImportedRecipieIngredient: Identifiable, Hashable {
     var id = UUID()
     var sourceText: String
     var name: String
     var quantityText: String
     var itemID: UUID?
-    var newItem: NewRecipieItemDraft?
     var unitID: UUID?
     var magnitudeID: UUID?
 
@@ -61,16 +52,9 @@ struct ImportedRecipieIngredient: Identifiable, Hashable {
         return result.isFinite && result > 0 ? result : nil
     }
 
-    func isResolved(items: [Item], units: [Unit], categories: [Category]) -> Bool {
-        let hasItem: Bool
-        if let newItem {
-            hasItem = newItem.name.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
-                && categories.contains { $0.id == newItem.categoryID }
-                && !items.contains { RecipieImportMapper.key($0.name) == RecipieImportMapper.key(newItem.name) }
-        } else {
-            hasItem = items.contains { $0.id == itemID && $0.itemKind == .ingredient }
-        }
-        return hasItem && quantity(units: units) != nil
+    func isResolved(items: [Item], units: [Unit]) -> Bool {
+        items.contains { $0.id == itemID && $0.itemKind == .ingredient }
+            && quantity(units: units) != nil
     }
 }
 
