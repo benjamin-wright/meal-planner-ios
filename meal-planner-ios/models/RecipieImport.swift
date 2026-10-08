@@ -26,7 +26,7 @@ struct ExtractedRecipieIngredient: Equatable {
     var name: String
     @Guide(description: "Numeric quantity only, including fractions; for 80g return 80. Put g in unit. Nil for unspecified amounts such as to taste. Do not calculate or guess.")
     var quantity: String?
-    @Guide(description: "Unit as written. Use count for explicit whole-item counts such as 2 onions. Nil if unknown.")
+    @Guide(description: "Unit as written; for 80g return g. Use count for explicit whole-item counts such as 2 onions. Nil if unknown.")
     var unit: String?
 }
 

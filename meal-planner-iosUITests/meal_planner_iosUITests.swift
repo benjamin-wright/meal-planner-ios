@@ -54,7 +54,8 @@ final class meal_planner_iosUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Add dinner for Saturday"].exists)
 
         clear.tap()
-        app.buttons["Clear Plan"].lastMatch.tap()
+        let clearButtons = app.buttons.matching(identifier: "Clear Plan")
+        clearButtons.element(boundBy: clearButtons.count - 1).tap()
         XCTAssertFalse(clear.isEnabled)
         XCTAssertTrue(app.buttons["Add dinner for Saturday"].exists)
         app.segmentedControls.buttons["Misc"].tap()

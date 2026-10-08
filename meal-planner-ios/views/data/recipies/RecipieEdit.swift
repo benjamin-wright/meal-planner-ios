@@ -133,7 +133,20 @@ struct RecipieEdit: View {
         }
     }
 
-    var body: some View {
+    private var stepsSection: some View {
+        Section("Steps") {
+            ForEach($draft.steps.enumerated(), id: \.offset) { index, step in
+                TextField("Step \(index + 1)", text: step, axis: .vertical)
+                    .lineLimit(3...8)
+                    .accessibilityIdentifier("recipeStep\(index)")
+            }
+            .onDelete { offsets in draft.steps.remove(atOffsets: offsets) }
+            AddButton(addStep)
+                .accessibilityIdentifier("addRecipeStep")
+        }
+    }
+
+    private var editorContent: some View {
         Group {
             if isLoading {
                 ProgressView()
@@ -158,16 +171,7 @@ struct RecipieEdit: View {
                         } else {
                             ingredientsSection
                         }
-                        Section("Steps") {
-                            ForEach($draft.steps.enumerated(), id: \.offset) { index, step in
-                                TextField("Step \(index + 1)", text: step, axis: .vertical)
-                                    .lineLimit(3...8)
-                                    .accessibilityIdentifier("recipeStep\(index)")
-                            }
-                            .onDelete { offsets in draft.steps.remove(atOffsets: offsets) }
-                            AddButton(addStep)
-                                .accessibilityIdentifier("addRecipeStep")
-                        }
+                        stepsSection
                     }
                     Button(action: save) {
                         Text(isEditing ? "Save" : "Add")
@@ -176,6 +180,10 @@ struct RecipieEdit: View {
                 }
             }
         }
+    }
+
+    var body: some View {
+        editorContent
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if importAvailable {

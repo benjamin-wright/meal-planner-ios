@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import ImageIO
 import SwiftData
 import Testing
 import UIKit
@@ -263,6 +264,43 @@ struct RecipieImportTests {
         let persisted = try #require(verification.fetch(Recipie.descriptor(id: recipe.id)).first)
         #expect(persisted.name == "Original recipe")
         #expect(persisted.steps == ["Keep this step"])
+    }
+
+    @MainActor
+    @Test func imagePreparationAppliesOrientationWithCustomPixelLimit() throws {
+        let size = CGSize(width: 800, height: 400)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        let cgImage = try #require(image.cgImage)
+        let data = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil))
+        // A camera image whose EXIF orientation rotates its pixels by 90 degrees.
+        CGImageDestinationAddImage(destination, cgImage, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+
+        func decoded(_ data: Data) throws -> CGImage {
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            return try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        }
+        let normal = try decoded(RecipieImportImage.prepare(data as Data))
+        #expect(normal.width == 400)
+        #expect(normal.height == 800)
+        let smaller = try decoded(RecipieImportImage.prepare(
+            data as Data, maximumPixelSize: 200, compressionQuality: 0.5
+        ))
+        #expect(smaller.width == 100)
+        #expect(smaller.height == 200)
+
+        #expect(throws: RecipieImportError.self) {
+            try RecipieImportImage.prepare(data as Data, maximumPixelSize: 0)
+        }
+        #expect(throws: RecipieImportError.self) {
+            try RecipieImportImage.prepare(data as Data, compressionQuality: .nan)
+        }
     }
 
     @MainActor

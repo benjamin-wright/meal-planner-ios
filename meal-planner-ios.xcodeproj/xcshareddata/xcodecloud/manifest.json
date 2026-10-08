@@ -1,0 +1,9 @@
+{
+  "id" : "42ab878d-d834-4b7c-b72e-9ebaec3f8d00",
+  "targets" : [
+    {
+      "id" : "8062E38A-A235-47C5-9B7D-71E2068C9FC0",
+      "name" : "meal-planner-ios"
+    }
+  ]
+}
