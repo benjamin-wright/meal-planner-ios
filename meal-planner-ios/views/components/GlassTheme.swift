@@ -6,7 +6,8 @@
 import SwiftUI
 import UIKit
 
-/// The shared "wallpaper" background image.
+/// The shared "wallpaper" background image with an adaptive grey veil that
+/// keeps text readable while preserving the glass texture.
 ///
 /// `GlazedImage` uses `.aspectRatio(contentMode: .fill)`, which reports an
 /// ideal size *larger* than the space offered. Rendering it directly inside a
@@ -15,10 +16,16 @@ import UIKit
 /// size, with the image drawn as a clipped overlay. This keeps the background
 /// purely decorative and out of the layout calculation.
 struct AppGlassBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         Color.clear
             .overlay {
                 GlazedImage(named: "Background")
+            }
+            .overlay {
+                Color(uiColor: .secondarySystemBackground)
+                    .opacity(reduceTransparency ? 1 : 0.5)
             }
             .clipped()
             .ignoresSafeArea()

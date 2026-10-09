@@ -34,7 +34,14 @@ struct MealPlannerView: View {
     }
 }
 
-#Preview {
+#Preview("Light") {
     MealPlannerView()
         .modelContainer(Models.testing.modelContainer)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    MealPlannerView()
+        .modelContainer(Models.testing.modelContainer)
+        .preferredColorScheme(.dark)
 }
