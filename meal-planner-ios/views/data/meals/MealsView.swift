@@ -13,11 +13,15 @@ struct MealsView: View {
 
     @Query private var meals: [Meal]
     @State private var mealType: MealType = .dinner
+    @State private var search = ""
     @State private var deletionError: String?
 
     private var filteredMeals: [Meal] {
-        meals.filter { $0.mealType == mealType }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        meals.filter {
+            $0.mealType == mealType &&
+            (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search))
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func delete(at offsets: IndexSet) {
@@ -51,6 +55,7 @@ struct MealsView: View {
                 }
             }
             .toolbar { EditButton() }
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
         }
         .navigationTitle("Meals")
         .alert("Meal", isPresented: Binding(

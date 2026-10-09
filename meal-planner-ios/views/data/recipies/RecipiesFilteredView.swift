@@ -16,6 +16,7 @@ struct RecipiesFilteredView: View {
     @Query private var recipies: [Recipie]
     let mealType: MealType
     let course: CourseType
+    @State private var search = ""
     @State private var deletionError: String?
     
     init(mealType: MealType, course: CourseType) {
@@ -27,10 +28,16 @@ struct RecipiesFilteredView: View {
         })
     }
 
+    private var filteredRecipies: [Recipie] {
+        recipies.filter {
+            search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
+        }
+    }
+
     private func delete(at offsets: IndexSet) {
         do {
             let store = RecipieStore(context: context)
-            for id in offsets.map({ recipies[$0].id }) {
+            for id in offsets.map({ filteredRecipies[$0].id }) {
                 try store.delete(id: id)
             }
         } catch {
@@ -60,7 +67,7 @@ struct RecipiesFilteredView: View {
 
     var body: some View {
         return GlassList {
-            ForEach(recipies) { recipie in
+            ForEach(filteredRecipies) { recipie in
                 NavigationLink(value: FlowRouter.Route.editRecipie(recipie.id)) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(recipie.name).badge(badge(recipie))
@@ -76,6 +83,7 @@ struct RecipiesFilteredView: View {
         .toolbar {
             EditButton()
         }
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
         .alert("Recipe", isPresented: Binding(
             get: { deletionError != nil },
             set: { if !$0 { deletionError = nil } }
