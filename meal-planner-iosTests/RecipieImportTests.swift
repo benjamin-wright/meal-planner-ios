@@ -44,48 +44,31 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func attachedUnitIsSeparatedFromImportedQuantity() {
-        let grams = meal_planner_ios.Unit(name: "grams", type: .weight, magnitudes: [
+    @Test func numericAmountsPreserveFractionsAndRequireExplicitUnits() {
+        let grams = Unit(name: "grams", type: .weight, magnitudes: [
             Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)
         ])
-        let source = "80g flour"
-
+        let count = Unit(name: "count", type: .count, magnitudes: [])
         let mapped = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "g"),
+            ExtractedRecipieIngredient(sourceText: "1½ g flour", name: "flour", quantity: 1.5, unit: "g"),
             items: [], units: [grams]
         )
-        #expect(mapped.quantityText == "80")
-        #expect(mapped.unitID == grams.id)
-        #expect(mapped.quantity(units: [grams]) == 80)
-        #expect(mapped.sourceText == source)
-
-        let namedUnit = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "grams"),
-            items: [], units: [grams]
-        )
-        #expect(namedUnit.quantityText == "80")
-        #expect(namedUnit.unitID == grams.id)
-
-        let omittedUnit = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
-            items: [], units: [grams]
-        )
-        #expect(omittedUnit.quantityText == "80")
-        #expect(omittedUnit.unitID == grams.id)
-
+        #expect(mapped.quantityText == "1.5")
+        #expect(mapped.quantity(units: [grams]) == 1.5)
+        #expect(mapped.sourceText == "1½ g flour")
         let ambiguous = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: nil),
-            items: [], units: [grams, meal_planner_ios.Unit(name: "other grams", type: .weight, magnitudes: grams.magnitudes)]
+            ExtractedRecipieIngredient(sourceText: "2 flour", name: "flour", quantity: 2, unit: ""),
+            items: [], units: [count]
         )
-        #expect(ambiguous.quantityText == "80g")
         #expect(ambiguous.unitID == nil)
-
-        let mismatch = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: source, name: "flour", quantity: "80g", unit: "kg"),
-            items: [], units: [grams]
-        )
-        #expect(mismatch.quantityText == "80g")
-        #expect(mismatch.quantity(units: [grams]) == nil)
+        for amount in [Double.nan, Double.infinity, -1, 0] {
+            let invalid = RecipieImportMapper.ingredient(
+                ExtractedRecipieIngredient(sourceText: "flour", name: "flour", quantity: amount, unit: "g"),
+                items: [], units: [grams]
+            )
+            #expect(invalid.quantityText.isEmpty)
+            #expect(invalid.quantity(units: [grams]) == nil)
+        }
     }
 
     @MainActor
@@ -94,7 +77,7 @@ struct RecipieImportTests {
         let milk = Item(name: "Milk", category: category, kind: .ingredient)
         let litres = volumeUnit()
         let mapped = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "500 ml milk, warmed", name: " milk ", quantity: "500", unit: "ml"),
+            ExtractedRecipieIngredient(sourceText: "500 ml milk, warmed", name: " milk ", quantity: 500, unit: "ml"),
             items: [milk], units: [litres]
         )
         #expect(mapped.itemID == milk.id)
@@ -104,7 +87,7 @@ struct RecipieImportTests {
         #expect(mapped.isResolved(items: [milk], units: [litres]))
 
         let unknown = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantity: nil, unit: nil),
+            ExtractedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantity: nil, unit: ""),
             items: [milk], units: [litres]
         )
         #expect(unknown.itemID == nil)
@@ -119,7 +102,7 @@ struct RecipieImportTests {
         let milk = Item(name: "milk", category: category, kind: .ingredient)
         let duplicate = Item(name: "MILK", category: category, kind: .ingredient)
         let mapped = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "1 litre milk", name: "milk", quantity: "1", unit: "litre"),
+            ExtractedRecipieIngredient(sourceText: "1 litre milk", name: "milk", quantity: 1, unit: "litre"),
             items: [milk, duplicate], units: [volumeUnit(), volumeUnit()]
         )
         #expect(mapped.itemID == nil)
@@ -127,13 +110,13 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func importedCountsUseCatalogueCountUnitWhenNoUnitWasExtracted() {
+    @Test func importedCountsUseExplicitCatalogueCountUnit() {
         let category = Category(name: "produce", order: 0)
         let apple = Item(name: "apple", category: category, kind: .ingredient)
         let count = Unit(name: "count", type: .count, magnitudes: [])
         let loaves = Unit(name: "loaves", type: .count, magnitudes: [])
         let mapped = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
             items: [apple], units: [loaves, count]
         )
         #expect(mapped.itemID == apple.id)
@@ -141,22 +124,22 @@ struct RecipieImportTests {
         #expect(mapped.quantity(units: [count]) == 2)
 
         let unspecified = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "apples to taste", name: "apples", quantity: nil, unit: nil),
+            ExtractedRecipieIngredient(sourceText: "apples to taste", name: "apples", quantity: nil, unit: ""),
             items: [apple], units: [count]
         )
         #expect(unspecified.unitID == nil)
         let blankUnit = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: " "),
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: " "),
             items: [apple], units: [count]
         )
-        #expect(blankUnit.unitID == count.id)
+        #expect(blankUnit.unitID == nil)
         let noCount = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
             items: [apple], units: []
         )
         #expect(noCount.unitID == nil)
         let ambiguousCount = RecipieImportMapper.ingredient(
-            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: "2", unit: nil),
+            ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
             items: [apple], units: [count, Unit(name: "COUNT", type: .count, magnitudes: [])]
         )
         #expect(ambiguousCount.unitID == nil)
@@ -172,7 +155,7 @@ struct RecipieImportTests {
         let prepared = Item(name: "apple sauce", category: category, kind: .ingredient)
         func match(_ name: String, items: [Item]) -> UUID? {
             RecipieImportMapper.ingredient(
-                ExtractedRecipieIngredient(sourceText: name, name: name, quantity: "2", unit: nil),
+                ExtractedRecipieIngredient(sourceText: name, name: name, quantity: 2, unit: ""),
                 items: items, units: []
             ).itemID
         }
@@ -389,6 +372,8 @@ struct RecipieImportTests {
         #expect(result.isRecipe)
         #expect(result.serves == 2)
         #expect(result.ingredients.count == 2)
+        #expect(result.ingredients.first(where: { $0.name.localizedCaseInsensitiveContains("carrot") })?.quantity == 200)
+        #expect(result.ingredients.first(where: { $0.name.localizedCaseInsensitiveContains("milk") })?.unit == "ml")
         #expect(!result.steps.isEmpty)
     }
 

@@ -16,15 +16,7 @@ struct meal_planner_iosApp: App {
 
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-recipe-experiment") {
-                RecipieExperimentView()
-            } else {
-                MealPlannerView()
-            }
-            #else
             MealPlannerView()
-            #endif
         }
         .modelContainer(Models.shared.modelContainer)
     }

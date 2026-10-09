@@ -1,8 +1,19 @@
 import Foundation
 import FoundationModels
 
+/// Complete import result, assembled only after all focused requests succeed.
+struct ExtractedRecipie: Equatable, Encodable {
+    var isRecipe: Bool
+    var name: String?
+    var summary: String?
+    var serves: Int?
+    var cookingMinutes: Int?
+    var ingredients: [ExtractedRecipieIngredient]
+    var steps: [String]
+}
+
 @Generable
-struct ExtractedRecipie: Equatable {
+struct ExtractedRecipieMetadata: Equatable {
     @Guide(description: "True only if the source contains a recipe, not just unrelated text.")
     var isRecipe: Bool
     var name: String?
@@ -12,22 +23,30 @@ struct ExtractedRecipie: Equatable {
     var serves: Int?
     @Guide(description: "Explicit cooking time in minutes, or nil. Do not substitute preparation time.")
     var cookingMinutes: Int?
-    @Guide(description: "One entry per ingredient. Join ingredient lines wrapped across several OCR lines (e.g. 2 fine egg / noodle nests is one ingredient). Skip allergen codes, page references and other labels that are not ingredients, such as A1,A3.")
-    var ingredients: [ExtractedRecipieIngredient]
-    @Guide(description: "One complete instruction per entry, not one per OCR line. Join wrapped lines belonging to the same action; keep numbered or distinct actions separate and in source order. Preserve wording, temperatures, times and preparation details. Do not add instructions.")
-    var steps: [String]
 }
 
 @Generable
-struct ExtractedRecipieIngredient: Equatable {
-    @Guide(description: "Complete original ingredient line, including quantity, unit and preparation notes.")
+struct ExtractedRecipieIngredients {
+    @Guide(description: "One entry per ingredient. Join ingredient lines wrapped across several OCR lines (e.g. 2 fine egg / noodle nests is one ingredient). Skip allergen codes, page references and other labels that are not ingredients, such as A1,A3. Remove unnecessary adjectives or preparations on common ingredients, e.g. 'Australian' or 'chopped'")
+    var ingredients: [ExtractedRecipieIngredient]
+}
+
+@Generable
+struct ExtractedRecipieIngredient: Equatable, Encodable {
+    @Guide(description: "Complete original ingredient line, preserving spelling, amount and unit.")
     var sourceText: String
-    @Guide(description: "Ingredient name without its quantity, unit or preparation instructions.")
+    @Guide(description: "Ingredient name without quantity, unit or preparation instructions.")
     var name: String
-    @Guide(description: "Numeric quantity only, including fractions; for 80g return 80. Put g in unit. Nil for unspecified amounts such as to taste. Do not calculate or guess.")
-    var quantity: String?
-    @Guide(description: "Unit as written; for 80g return g. Use count for explicit whole-item counts such as 2 onions. Nil if unknown.")
-    var unit: String?
+    @Guide(description: "Numeric amount: 80g is 80; 15ml is 15; 1 1/2 cups is 1.5. For 1 sachet (15g), use 15. Nil if unspecified or ambiguous. Do not scale servings.")
+    var quantity: Double?
+    @Guide(description: "Required unit belonging to quantity: g for 80g; ml for 15ml; cups for 1 1/2 cups. Use count for 2 onions. Use an empty string only if quantity is unspecified or the unit is ambiguous, e.g. salt or vegetable oil.")
+    var unit: String
+}
+
+@Generable
+struct ExtractedRecipieSteps {
+    @Guide(description: "One complete instruction per entry, not one per OCR line. Join wrapped lines belonging to the same action; keep numbered or distinct actions separate and in source order. Preserve wording, temperatures, times and preparation details. Do not add instructions.")
+    var steps: [String]
 }
 
 struct ImportedRecipieIngredient: Identifiable, Hashable {
@@ -142,52 +161,19 @@ enum RecipieImportMapper {
 
     static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit]) -> ImportedRecipieIngredient {
         let item = matchingItem(for: extracted.name, in: items)
-        var quantityText = extracted.quantity ?? ""
-        var sourceUnit = extracted.unit?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if sourceUnit?.isEmpty == true { sourceUnit = nil }
-        let text = quantityText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let suffix = String(text.reversed().prefix { $0.isLetter }.reversed())
-        if !suffix.isEmpty {
-            let number = String(text.dropLast(suffix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            if parseQuantity(number) != nil {
-                let suffixMatches = unitCandidates(for: suffix, in: units)
-                if let declaredUnit = sourceUnit {
-                    let declaredMatches = unitCandidates(for: declaredUnit, in: units)
-                    if key(suffix) == key(declaredUnit) ||
-                        (suffixMatches.count == 1 && declaredMatches.count == 1 &&
-                         suffixMatches[0].0.id == declaredMatches[0].0.id &&
-                         suffixMatches[0].1?.id == declaredMatches[0].1?.id) {
-                        quantityText = number
-                    }
-                } else if suffixMatches.count == 1 {
-                    quantityText = number
-                    sourceUnit = suffix
-                }
-            }
-        }
+        let quantityText = extracted.quantity.flatMap { amount in
+            guard amount.isFinite, amount > 0 else { return nil as String? }
+            return amount.formatted(.number.locale(Locale(identifier: "en_US_POSIX"))
+                .grouping(.never).precision(.significantDigits(1...17)))
+        } ?? ""
+        let sourceUnit = extracted.unit.trimmingCharacters(in: .whitespacesAndNewlines)
         var result = ImportedRecipieIngredient(
             sourceText: extracted.sourceText, name: extracted.name,
             quantityText: quantityText, itemID: item?.id
         )
-        func applyCountUnit() {
-            guard parseQuantity(quantityText) != nil else { return }
-            let plain = units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
-            let named = plain.filter { ["count", "each", "item", "items", "whole", "piece", "pieces"].contains(key($0.name)) }
-            if let unit = (named.isEmpty ? plain : named).first,
-               (named.isEmpty ? plain : named).count == 1 || key(unit.name) == "count" {
-                result.unitID = unit.id
-            }
-        }
-        guard let sourceUnit else {
-            applyCountUnit()
-            return result
-        }
+        // Empty or ambiguous units require review; explicit counts use "count".
+        guard !sourceUnit.isEmpty else { return result }
         let candidates = unitCandidates(for: sourceUnit, in: units)
-        if candidates.isEmpty {
-            // The "unit" is really part of the ingredient name (e.g. "spring onions"), so treat as a count.
-            let unitKey = key(sourceUnit), nameKey = key(extracted.name)
-            if nameKey.contains(unitKey) || unitKey.contains(nameKey) { applyCountUnit() }
-        }
         if candidates.count == 1 {
             result.unitID = candidates[0].0.id
             result.magnitudeID = candidates[0].1?.id
@@ -197,6 +183,11 @@ enum RecipieImportMapper {
 
     private static func unitCandidates(for sourceUnit: String, in units: [Unit]) -> [(Unit, Magnitude?)] {
         let unitKey = key(sourceUnit)
+        if ["count", "each"].contains(unitKey) {
+            let plain = units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
+            let named = plain.filter { ["count", "each"].contains(key($0.name)) }
+            return (named.isEmpty ? plain : named).map { ($0, nil) }
+        }
         var candidates: [(Unit, Magnitude?)] = []
         for unit in units {
             let magnitudes = unit.magnitudes.filter {
@@ -204,8 +195,7 @@ enum RecipieImportMapper {
             }
             if !magnitudes.isEmpty {
                 candidates.append(contentsOf: magnitudes.map { (unit, $0) })
-            } else if key(unit.name) == unitKey ||
-                        (unit.unitType == .count && unit.magnitudes.isEmpty && ["count", "each"].contains(unitKey)) {
+            } else if key(unit.name) == unitKey {
                 candidates.append((unit, nil))
             }
         }
@@ -214,7 +204,7 @@ enum RecipieImportMapper {
 
     /// Rejects non-ingredient noise such as reference codes ("A1,A3"): no quantity and no word of 3+ letters.
     static func isPlausibleIngredient(_ ingredient: ExtractedRecipieIngredient) -> Bool {
-        if ingredient.quantity?.isEmpty == false { return true }
+        if let amount = ingredient.quantity, amount.isFinite, amount > 0 { return true }
         var run = 0
         for character in ingredient.name {
             run = character.isLetter ? run + 1 : 0

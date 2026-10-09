@@ -1,75 +1,59 @@
 # Meal Planner
 
-## Recipe experiment in the simulator app
+## Recipe import playground
 
-Select the **Recipe Experiment** scheme and an iOS simulator, then press **⌘R**.
-The scheme supplies `-recipe-experiment` to open a Debug-only experiment screen
-in the normal app process. Select **Run comparison** to run combined extraction,
-ingredients-only extraction and steps-only extraction sequentially in fresh sessions.
-The screen displays progress, timings, errors and a readable report.
+Open `playgrounds/RecipieImportPlayground.swift`, select the **meal-planner-ios** scheme
+and an iOS simulator, then enable **Editor > Canvas > Automatically Refresh Canvas**
+and resume the canvas. This setting is per source file; with it disabled a playground
+can run while displaying no recorded results. Apple Intelligence must be enabled and ready.
 
-Expand **Input and parameters** to edit the bundled OCR text, temperature and each
-variant's instructions. **Reload bundled OCR** restores `playgrounds/RecipieImportOCR.txt`;
-rebuild after changing that file on disk. Edits on this screen do not start model requests.
-Cancel waits for the current task to unwind before enabling another run.
+The single playground reads the two adjacent HEIC images in order, prepares them, runs OCR,
+and extracts recipe metadata, ingredients and steps in three sequential fresh model sessions.
+Edit only `imagePaths` here to try other photos (up to six). Paths resolve relative to
+this source file and are available to simulator playgrounds. The canvas exposes original
+and prepared images, OCR text, the complete extracted recipe and elapsed time.
 
-Use the normal **meal-planner-ios** scheme to return to the usual app. The experiment
-screen and comparison runner are excluded from Release builds.
+Tune the same configuration the app consumes:
 
-## Recipe import playgrounds
+- `models/RecipieExtractionService.swift`: image preparation defaults, Vision OCR options,
+  focused model instructions, prompts and generation options.
+- `models/RecipieImport.swift`: the metadata, ingredients and steps `@Generable` schemas
+  and their `@Guide` descriptions. Ingredient quantities are `Double?`; units are required
+  strings, with an empty string for unknown units. Unknown quantities and units need review.
 
-Open `playgrounds/RecipieImportPlayground.swift` in Xcode 26 or later. Select the
-`meal-planner-ios` scheme and an iOS simulator, then choose **Editor > Canvas**
-and **Resume**. Select either named playground in the canvas.
+The app and playground share image preparation, page ordering and OCR assembly, and the
+complete extraction method. The focused extraction methods are also callable individually.
+The playground displays original generation errors and uses the feedback workaround below.
+It does not save recipes or modify the catalogue. The former comparison playground,
+OCR snapshot and simulator experiment screen/scheme have been removed.
 
-- **Recipe extraction from text:** edit `playgrounds/RecipieImportOCR.txt` and tune
-  `instructions`, `promptPrefix`, or `GenerationOptions`. Each run uses a fresh
-  model session and displays the structured recipe and elapsed time. Extraction
-  requires Apple Intelligence to be enabled and ready on a supported simulator host;
-  the playground prints model availability if it cannot run. Generation failures
-  display the original model error, including underlying system errors, rather than
-  the app's generic import error.
-- **Recipe image preparation and OCR:** the two HEIC photos beside the playground
-  are the default test bed: ingredients first, then instructions for
-  **10-Min Sticky Ginger Beef Noodles**. Paths resolve relative to the Swift source
-  file, so moving the checkout doesn't require changing them. Replace `imagePaths`
-  to use other photos in reading order (up to six), or clear it for the generated image.
-  The simulator must be able to read those files; device playgrounds cannot read
-  files on your Mac. Edit image size, JPEG quality, and OCR options. Expand the
-  original/prepared image variables in the canvas and inspect the printed OCR text.
-  Set `extractRecipe` to `true` for an end-to-end run, or copy the OCR output into
-  `playgrounds/RecipieImportOCR.txt` for faster prompt experiments. That file contains
-  a baseline snapshot from the two photos using the default preparation/OCR settings;
-  refresh it after changing those settings to keep prompt experiments in sync.
+### Xcode 27 / iOS 27 model-feedback crash
 
-The playgrounds are Debug-only and use the app's existing services and extraction
-schema. Experimental overrides live in the playground; normal imports retain their
-current defaults. Runs do not save recipes or modify the catalogue. The generated
-image is a smoke-test fixture; use real recipe photos to assess extraction quality.
+The assertion at `FoundationModels/LanguageModelFeedback.swift:528` occurs in
+Apple's automatic playground feedback formatting. The installed iOS 27.0
+(24A434) framework serializes neutral feedback, replaces the exact JSON fragment
+`"sentiment" : "neutral",` with a placeholder, then asserts that the placeholder
+exists. The crash means that replacement did not find its expected fragment;
+the crash report alone does not establish why that particular feedback JSON differs.
+A one-word prompt reproduces the assertion, so the recipe prompt, OCR and
+`@Generable` schema are not required to trigger it. Apple
+[supports Foundation Models in iOS simulator playgrounds](https://developer.apple.com/forums/thread/791768)
+and [documents their automatic feedback integration](https://developer.apple.com/forums/thread/791250).
 
-## Combined vs separated extraction experiment
+`RecipiePlaygroundSupport.withoutAutomaticModelFeedback` temporarily removes
+`XCODE_RUNNING_FOR_PLAYGROUNDS` while awaiting model work, then restores its
+original value even if the request throws. The framework checks for the key's
+presence; setting it to `0` does not disable the feedback path. Restoring it before
+printing or dumping the result preserves ordinary canvas output.
 
-Open `playgrounds/RecipieExtractionComparison.swift` and run its named playground
-to compare the existing full recipe extraction with ingredient-only and step-only
-schemas. All three calls receive the same complete `RecipieImportOCR.txt`, use
-temperature 0, and run sequentially in fresh sessions. Only the focused prompts
-and output schemas change; OCR and the app's import implementation are not changed.
-The experiment compares ingredient/step extraction, not metadata extraction.
-The ingredient-only schema uses a numeric `Double?` quantity to keep unit letters
-out of amounts; the combined production schema still uses `String?` quantities.
-Its unit is a required string, with an empty string for an unknown unit. Optional
-units were being omitted even when an explicit amount was extracted. The simulator
-UI test checks `80g`, `15ml soy sauce` and `1 ginger paste sachet (15g)` against their
-separate numeric amounts and units, and passes with this experimental schema.
-This compares both prompt focus and quantity representation, not prompt focus alone.
-
-The first run's raw report is saved in
-`playgrounds/RecipieExtractionComparisonResults.json`. On 8 October 2026, all three
-requests failed with `ModelManagerError` code 1026 despite model availability being
-reported as available. No output was returned, so this run establishes neither an
-accuracy improvement nor a performance advantage. The recorded times are times
-to failure, not successful extraction timings. Each rerun prints a readable report
-in the canvas for inspection and saving.
+This is an undocumented workaround, applied only to Debug simulator playground
+calls. It skips automatic model-feedback capture for those requests; ordinary
+model generation and production imports use their existing code. Run model
+playgrounds one at a time because the environment is shared by the process.
+Remove the wrapper calls when Apple fixes the framework's feedback formatting.
+Switching to Legacy Previews Execution is unsuitable: Apple's
+[Xcode 26 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes)
+list missing playground canvas results in that mode (150811580).
 
 ## To Do
 

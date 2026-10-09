@@ -13,7 +13,7 @@ struct RecipieImportPage: Identifiable {
 @MainActor
 @Observable
 final class RecipieImportModel {
-    static let maximumPages = 6
+    static let maximumPages = RecipieImportPipeline.maximumPages
     var pages: [RecipieImportPage] = []
     private(set) var progress: LocalizedStringResource?
     var error: String?
@@ -95,21 +95,13 @@ final class RecipieImportModel {
         operation = Task {
             defer { finish(id) }
             do {
-                var texts: [String] = []
-                for (index, page) in sourcePages.enumerated() {
-                    try Task.checkCancellation()
-                    guard operationID == id else { return }
-                    progress = "Reading photo \(index + 1) of \(sourcePages.count)…"
-                    let text = try await recognizer.text(from: page.data)
-                    guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        throw RecipieImportError.noText(index + 1)
-                    }
-                    texts.append("Page \(index + 1)\n\(text)")
+                let text = try await RecipieImportPipeline.recognize(pages: sourcePages.map(\.data), recognizer: recognizer) { page in
+                    if operationID == id { progress = "Reading photo \(page) of \(sourcePages.count)…" }
                 }
                 try Task.checkCancellation()
                 guard operationID == id else { return }
                 progress = "Extracting recipe…"
-                let extracted = try await extractor.extract(from: texts.joined(separator: "\n\n"))
+                let extracted = try await extractor.extract(from: text)
                 try Task.checkCancellation()
                 guard operationID == id else { return }
                 result = extracted
