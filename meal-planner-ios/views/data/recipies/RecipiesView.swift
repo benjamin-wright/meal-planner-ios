@@ -16,11 +16,7 @@ struct RecipiesView: View {
         VStack {
             VStack(spacing: 8) {
                 EnumPicker(label: "Meal", selection: $mealType)
-                    .pickerStyle(.segmented)
-                    .glassControl(in: Capsule())
                 EnumPicker(label: "Course", selection: $course)
-                    .pickerStyle(.segmented)
-                    .glassControl(in: Capsule())
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)

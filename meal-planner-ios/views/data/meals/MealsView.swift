@@ -35,8 +35,6 @@ struct MealsView: View {
     var body: some View {
         VStack {
             EnumPicker(label: "Meal", selection: $mealType)
-                .pickerStyle(.segmented)
-                .glassControl()
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
             GlassList {

@@ -123,9 +123,31 @@ final class CatalogPickerUITests: XCTestCase {
         app.navigationBars["Unit"].buttons["Add"].tap()
         XCTAssertTrue(app.textFields["unit name"].waitForExistence(timeout: 5))
         XCTAssertTrue(row("Type", in: app).label.contains("Volume"))
+        XCTAssertFalse(app.segmentedControls.firstMatch.exists)
         app.navigationBars["Unit"].buttons.element(boundBy: 0).tap()
         row("litres", in: app).tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testRecipeEnumPickersRemainSegmentedAndSelectable() {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Data"].tap()
+        app.buttons["Recipies"].tap()
+
+        let lunch = app.segmentedControls.buttons["Lunch"]
+        XCTAssertTrue(lunch.waitForExistence(timeout: 5))
+        lunch.tap()
+        XCTAssertTrue(lunch.isSelected)
+        app.segmentedControls.buttons["Dinner"].tap()
+
+        app.collectionViews.buttons["Add"].tap()
+        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        let breakfast = app.segmentedControls.buttons["Breakfast"]
+        XCTAssertTrue(breakfast.waitForExistence(timeout: 5))
+        breakfast.tap()
+        XCTAssertTrue(breakfast.isSelected)
     }
 
     @MainActor

@@ -70,11 +70,11 @@ struct ItemEdit: View {
                             Text(validationError.localizedDescription)
                                 .foregroundStyle(.red)
                         }
-                        EnumPicker(selection: draft.kind).pickerStyle(.segmented)
+                        EnumPicker(selection: draft.kind)
                         if draft.wrappedValue.kind == .readymeal {
-                            EnumPicker(label: "Meal", selection: draft.readymealData.mealTypeEnum).pickerStyle(.segmented)
+                            EnumPicker(label: "Meal", selection: draft.readymealData.mealTypeEnum)
                             if draft.wrappedValue.readymealData.mealTypeEnum == .dinner {
-                                EnumPicker(label: "Course", selection: draft.readymealData.courseEnum).pickerStyle(.segmented)
+                                EnumPicker(label: "Course", selection: draft.readymealData.courseEnum)
                             }
                             IntegerInput(number: draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
                             IntegerInput(number: draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
