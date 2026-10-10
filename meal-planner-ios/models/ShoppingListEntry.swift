@@ -67,6 +67,7 @@ final class ShoppingListStore {
         case missingSettings
         case missingCountUnit
         case invalidRecipe(String)
+        case invalidRecipeIngredient(String)
         case invalidMealIngredient(String)
         case invalidMealIngredientItem(String)
         case missingMealComponentReference
@@ -86,6 +87,8 @@ final class ShoppingListStore {
                 return "Add a count unit before generating ready meals."
             case .invalidRecipe(let name):
                 return "\(name) must serve at least one person before the list can be generated."
+            case .invalidRecipeIngredient(let name):
+                return "\(name) contains an ingredient quantity that must be finite and greater than zero."
             case .invalidMealIngredient(let name):
                 return "The portion of \(name) must be a valid quantity greater than zero."
             case .invalidMealIngredientItem(let name):
@@ -119,15 +122,18 @@ final class ShoppingListStore {
     private struct PendingEntry {
         var name: String
         var quantity: Double
-        var item: Item?
-        var category: Category
-        var unit: Unit
+        var itemID: UUID?
+        var categoryID: UUID
+        var categoryOrder: Int
+        var unitID: UUID
     }
 
     private let context: ModelContext
+    private let saveRegeneratedList: (ModelContext) throws -> Void
 
-    init(context: ModelContext) {
+    init(context: ModelContext, saveRegeneratedList: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.context = context
+        self.saveRegeneratedList = saveRegeneratedList
     }
 
     func regenerate() throws {
@@ -136,8 +142,7 @@ final class ShoppingListStore {
         }
 
         let units = try context.fetch(FetchDescriptor<Unit>())
-        let countUnit = units.first { $0.unitType == .count && $0.magnitudes.isEmpty }
-            ?? units.first { $0.unitType == .count }
+        let countUnit = Unit.defaultForNewObject(in: units.filter { $0.unitType == .count })
         let meals = try context.fetch(FetchDescriptor<PlannedMeal>())
         let miscEntries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
         let itemsByID = Dictionary(
@@ -151,7 +156,7 @@ final class ShoppingListStore {
         var standalone: [PendingEntry] = []
 
         func add(item: Item, unit sourceUnit: Unit, quantity: Double) throws {
-            guard quantity > 0, quantity.isFinite else { return }
+            guard quantity > 0, quantity.isFinite else { throw Error.invalidQuantity }
 
             let outputUnit: Unit
             let outputQuantity: Double
@@ -189,9 +194,10 @@ final class ShoppingListStore {
                 aggregated[key] = PendingEntry(
                     name: item.name,
                     quantity: outputQuantity,
-                    item: item,
-                    category: item.category,
-                    unit: outputUnit
+                    itemID: item.id,
+                    categoryID: item.category.id,
+                    categoryOrder: item.category.order,
+                    unitID: outputUnit.id
                 )
             }
         }
@@ -204,6 +210,9 @@ final class ShoppingListStore {
                     guard recipie.serves > 0 else { throw Error.invalidRecipe(recipie.name) }
                     let scale = Double(meal.servings) / Double(recipie.serves)
                     for ingredient in recipie.ingredients {
+                        guard ingredient.quantity > 0, ingredient.quantity.isFinite else {
+                            throw Error.invalidRecipeIngredient(recipie.name)
+                        }
                         try add(item: ingredient.item, unit: ingredient.unit, quantity: ingredient.quantity * scale)
                     }
                 case .readymeal(let id):
@@ -248,30 +257,54 @@ final class ShoppingListStore {
                 standalone.append(PendingEntry(
                     name: entry.displayName,
                     quantity: entry.quantity,
-                    item: nil,
-                    category: category,
-                    unit: unit
+                    itemID: nil,
+                    categoryID: category.id,
+                    categoryOrder: category.order,
+                    unitID: unit.id
                 ))
             }
         }
 
         let pending = (Array(aggregated.values) + standalone).sorted {
-            if $0.category.order != $1.category.order { return $0.category.order < $1.category.order }
+            if $0.categoryOrder != $1.categoryOrder { return $0.categoryOrder < $1.categoryOrder }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
 
-        try context.fetch(FetchDescriptor<ShoppingListEntry>()).forEach(context.delete)
-        for (sortOrder, value) in pending.enumerated() {
-            context.insert(ShoppingListEntry(
-                name: value.name,
-                quantity: value.quantity,
-                sortOrder: sortOrder,
-                item: value.item,
-                category: value.category,
-                unit: value.unit
-            ))
+        try replace(with: pending)
+    }
+
+    private func replace(with pending: [PendingEntry]) throws {
+        // Snapshot shared inputs first, then mutate only this context so a failed
+        // replacement can be rolled back without discarding pending editor changes.
+        let replacementContext = ModelContext(context.container)
+        replacementContext.autosaveEnabled = false
+        do {
+            // Related replacements can register immediately, so capture the old rows first.
+            let existingEntries = try replacementContext.fetch(FetchDescriptor<ShoppingListEntry>())
+            let itemsByID = Dictionary(uniqueKeysWithValues:
+                try replacementContext.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) })
+            let categoriesByID = Dictionary(uniqueKeysWithValues:
+                try replacementContext.fetch(FetchDescriptor<Category>()).map { ($0.id, $0) })
+            let unitsByID = Dictionary(uniqueKeysWithValues:
+                try replacementContext.fetch(FetchDescriptor<Unit>()).map { ($0.id, $0) })
+            let replacements = try pending.enumerated().map { sortOrder, value in
+                let item = value.itemID.flatMap { itemsByID[$0] }
+                guard value.itemID == nil || item != nil else { throw Error.missingItem }
+                guard let category = categoriesByID[value.categoryID] else { throw Error.missingCategory }
+                guard let unit = unitsByID[value.unitID] else { throw Error.missingUnit }
+                return ShoppingListEntry(
+                    name: value.name, quantity: value.quantity, sortOrder: sortOrder,
+                    item: item, category: category, unit: unit
+                )
+            }
+
+            existingEntries.forEach(replacementContext.delete)
+            replacements.forEach(replacementContext.insert)
+            try saveRegeneratedList(replacementContext)
+        } catch {
+            replacementContext.rollback()
+            throw error
         }
-        try context.save()
     }
 
     func addItem(itemID: UUID, unitID: UUID, quantity: Double) throws {

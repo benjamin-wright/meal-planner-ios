@@ -68,12 +68,13 @@ struct MealDraft: Hashable {
     }
 
     func validate(existingNames: [String] = []) -> [ValidationError] {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var errors: [ValidationError] = []
 
         if name.count < 3 {
             errors.append(.nameTooShort)
         }
-        if existingNames.contains(name) {
+        if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
             errors.append(.duplicateName)
         }
         if components.isEmpty {
@@ -122,7 +123,7 @@ final class Meal {
     }
 
     var isValid: Bool {
-        name.count >= 3 && !components.isEmpty && components.allSatisfy {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 && !components.isEmpty && components.allSatisfy {
             $0.source != nil && MealComponentDraft(component: $0).hasValidPortion
         }
     }

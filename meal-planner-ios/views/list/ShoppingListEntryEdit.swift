@@ -24,6 +24,7 @@ struct ShoppingListEntryEdit: View {
     @State private var name = ""
     @State private var quantity = 1.0
     @State private var saveError: String?
+    @State private var isLoading = false
 
     private var selectedUnit: Unit? {
         units.first { $0.id == selectedUnitID }
@@ -48,7 +49,7 @@ struct ShoppingListEntryEdit: View {
             selectedCategoryID = categories.first?.id ?? UUID()
         }
         if !units.contains(where: { $0.id == selectedUnitID }) {
-            selectedUnitID = units.first(where: { $0.unitType == .count })?.id ?? units.first?.id ?? UUID()
+            selectedUnitID = Unit.defaultForNewObject(in: units)?.id ?? UUID()
         }
     }
 
@@ -120,7 +121,7 @@ struct ShoppingListEntryEdit: View {
                 Button("Add", action: save).disabled(!canSave)
             }
         }
-        .onAppear(perform: prepareDefaults)
+        .onFirstAppear(perform: prepareDefaults, loading: $isLoading)
         .alert("Shopping List", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

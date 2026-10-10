@@ -16,6 +16,11 @@ struct FlowDestination: View {
     @Query private var recipies: [Recipie]
     @Query private var meals: [Meal]
 
+    private var isUnitCreationRestricted: Bool {
+        guard case .unitPicker(let typeFilter) = router.path.dropLast().last else { return false }
+        return typeFilter != nil
+    }
+
     var body: some View {
         @Bindable var router = router
 
@@ -55,13 +60,13 @@ struct FlowDestination: View {
         case .newItem:
             ItemEdit()
         case .newItemOfKind(let kind):
-            ItemEdit(kind: kind)
+            ItemEdit(kind: kind, allowsKindChange: false)
         case .editItem(let id):
             ItemEdit(id: id)
         case .unitPicker(let typeFilter):
             UnitPicker(units: units, selectedID: $router.selectedUnitID, typeFilter: typeFilter)
         case .newUnit(let type):
-            UnitEdit(type: type)
+            UnitEdit(type: type, allowsTypeChange: !isUnitCreationRestricted)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
         case .dishPicker(let course):

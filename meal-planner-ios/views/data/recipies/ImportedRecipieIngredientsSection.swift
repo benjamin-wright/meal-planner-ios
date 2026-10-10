@@ -40,12 +40,15 @@ struct ImportedRecipieIngredientsSection: View {
             }
             .onDelete { ingredients.remove(atOffsets: $0) }
             Button("Add Ingredient", systemImage: "plus") {
-                review(ImportedRecipieIngredient(sourceText: "", name: "", quantityText: ""))
+                review(ImportedRecipieIngredient(
+                    sourceText: "", name: "", quantityText: "",
+                    unitID: Unit.defaultForNewObject(in: units)?.id
+                ))
             }
         } header: {
             Text("Ingredients")
         } footer: {
-            Text("Tap an ingredient to review it. Add new items from the item picker, then select them. Resolve highlighted ingredients before saving.")
+            Text("Tap an ingredient to review it. New items added from the item picker are selected automatically. Resolve highlighted ingredients before saving.")
         }
     }
 }

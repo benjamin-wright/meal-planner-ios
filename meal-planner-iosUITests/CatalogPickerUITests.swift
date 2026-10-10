@@ -11,6 +11,21 @@ final class CatalogPickerUITests: XCTestCase {
     }
 
     @MainActor
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 {
+            if element.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        if !element.isHittable {
+            for _ in 0..<6 {
+                if element.isHittable { break }
+                app.collectionViews.firstMatch.swipeDown()
+            }
+        }
+        XCTAssertTrue(element.isHittable, app.debugDescription)
+    }
+
+    @MainActor
     private func assertShoppingEntry(_ name: String, in app: XCUIApplication) {
         let entry = row(name, in: app)
         for _ in 0..<6 {
@@ -28,13 +43,48 @@ final class CatalogPickerUITests: XCTestCase {
         field.tap()
         field.typeText(name + "\n")
         app.collectionViews.buttons["Add"].tap()
-        let search = app.searchFields.firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        search.tap()
-        search.typeText(name)
-        let category = row(name, in: app)
-        XCTAssertTrue(category.waitForExistence(timeout: 5))
-        category.tap()
+        XCTAssertTrue(app.navigationBars["Category"].waitForNonExistence(timeout: 5), app.debugDescription)
+    }
+
+    @MainActor
+    private func assertSelection(_ label: String, is name: String, in app: XCUIApplication) {
+        let selected = row(label, in: app).staticTexts[name]
+        XCTAssertTrue(selected.waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    @MainActor
+    private func createUnit(_ name: String, type: String, in app: XCUIApplication) {
+        app.navigationBars["Unit"].buttons["Add"].tap()
+        let field = app.textFields["unit name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(row("Type", in: app).label.contains(type))
+        field.tap()
+        field.typeText(name + "\n")
+
+        if type == "Count" {
+            XCTAssertFalse(app.textFields["base"].exists)
+        } else {
+            app.buttons["addUnitMagnitude"].tap()
+            for (placeholder, value) in [
+                ("abbreviation", "pu"),
+                ("singular", "picker unit"),
+                ("plural", "picker units"),
+            ] {
+                let magnitude = app.textFields[placeholder]
+                XCTAssertTrue(magnitude.waitForExistence(timeout: 5))
+                magnitude.tap()
+                magnitude.typeText(value + "\n")
+            }
+        }
+
+        let add = app.buttons["saveUnit"]
+        for _ in 0..<6 {
+            if add.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(add.isEnabled, app.debugDescription)
+        add.tap()
+        XCTAssertTrue(app.navigationBars["Unit"].waitForNonExistence(timeout: 5), app.debugDescription)
     }
 
     @MainActor
@@ -57,15 +107,11 @@ final class CatalogPickerUITests: XCTestCase {
         createCategory(categoryName, in: app)
 
         XCTAssertEqual(field.value as? String, itemName)
+        assertSelection("Category", is: categoryName, in: app)
         app.collectionViews.buttons["Add"].tap()
-        let search = app.searchFields.firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5), app.debugDescription)
-        search.tap()
-        search.typeText(itemName)
-        let item = row(itemName, in: app)
-        XCTAssertTrue(item.waitForExistence(timeout: 5), app.debugDescription)
-        item.tap()
         XCTAssertTrue(app.navigationBars["Add to List"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.navigationBars["Item"].exists)
+        assertSelection("Item", is: itemName, in: app)
         app.navigationBars["Add to List"].buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Add to List"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
@@ -73,30 +119,32 @@ final class CatalogPickerUITests: XCTestCase {
     }
 
     @MainActor
-    func testShoppingListNoteSurvivesCategoryCreationAndUnitSelection() {
+    func testShoppingListNoteAutomaticallySelectsCreatedCategoryAndCountUnit() {
         let app = XCUIApplication()
         app.launch()
         app.tabBars.buttons["List"].tap()
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         app.segmentedControls.buttons["Quick Note"].tap()
         let noteName = "picker note \(UUID().uuidString.lowercased())"
+        let categoryName = "note category \(UUID().uuidString.lowercased())"
+        let unitName = "note count \(UUID().uuidString.lowercased())"
         let field = app.textFields["e.g. birthday candles"]
         field.tap()
         field.typeText(noteName + "\n")
         row("Category", in: app).tap()
-        createCategory("note category \(UUID().uuidString.lowercased())", in: app)
+        createCategory(categoryName, in: app)
+        XCTAssertTrue(app.navigationBars["Add to List"].waitForExistence(timeout: 5), app.debugDescription)
+        assertSelection("Category", is: categoryName, in: app)
         XCTAssertEqual(field.value as? String, noteName)
 
         row("Unit", in: app).tap()
         XCTAssertTrue(app.navigationBars["Unit"].waitForExistence(timeout: 5), app.debugDescription)
         app.segmentedControls.buttons["Count"].tap()
-        app.navigationBars["Unit"].buttons["Add"].tap()
-        XCTAssertTrue(app.textFields["unit name"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.textFields["base"].exists)
-        app.navigationBars["Unit"].buttons.element(boundBy: 0).tap()
-        row("count", in: app).tap()
+        createUnit(unitName, type: "Count", in: app)
 
+        XCTAssertTrue(app.navigationBars["Add to List"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertEqual(field.value as? String, noteName)
+        assertSelection("Unit", is: unitName, in: app)
         app.navigationBars["Add to List"].buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Add to List"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
@@ -113,20 +161,20 @@ final class CatalogPickerUITests: XCTestCase {
         XCTAssertFalse(row("litres", in: app).exists)
         XCTAssertFalse(row("count", in: app).exists)
         XCTAssertFalse(app.segmentedControls.buttons["All"].exists)
-        row("grams", in: app).tap()
+        let weightName = "picker weight \(UUID().uuidString.lowercased())"
+        createUnit(weightName, type: "Weight", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        assertSelection("Weight", is: weightName, in: app)
 
         row("Volume", in: app).tap()
         XCTAssertTrue(row("litres", in: app).waitForExistence(timeout: 5))
         XCTAssertFalse(row("grams", in: app).exists)
         XCTAssertFalse(row("count", in: app).exists)
-        app.navigationBars["Unit"].buttons["Add"].tap()
-        XCTAssertTrue(app.textFields["unit name"].waitForExistence(timeout: 5))
-        XCTAssertTrue(row("Type", in: app).label.contains("Volume"))
-        XCTAssertFalse(app.segmentedControls.firstMatch.exists)
-        app.navigationBars["Unit"].buttons.element(boundBy: 0).tap()
-        row("litres", in: app).tap()
+        XCTAssertFalse(app.segmentedControls.buttons["All"].exists)
+        let volumeName = "picker volume \(UUID().uuidString.lowercased())"
+        createUnit(volumeName, type: "Volume", in: app)
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        assertSelection("Volume", is: volumeName, in: app)
     }
 
     @MainActor
@@ -152,7 +200,10 @@ final class CatalogPickerUITests: XCTestCase {
         app.launch()
         app.tabBars.buttons["Data"].tap()
         app.buttons["Recipies"].tap()
-        app.collectionViews.buttons["Add"].tap()
+        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
+        let addRecipe = app.collectionViews.buttons["Add"]
+        scrollTo(addRecipe, in: app)
+        addRecipe.tap()
         XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
 
         let recipeName = "reordered steps \(UUID().uuidString.lowercased())"
@@ -161,28 +212,27 @@ final class CatalogPickerUITests: XCTestCase {
         name.typeText(recipeName + "\n")
 
         let addStep = app.buttons["addRecipeStep"]
-        for _ in 0..<6 {
-            if addStep.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
+        // Each inserted multiline row can push the Add button out of the visible form.
+        for _ in 0..<2 {
+            scrollTo(addStep, in: app)
+            addStep.tap()
         }
-        XCTAssertTrue(addStep.isHittable, app.debugDescription)
-        addStep.tap()
-        addStep.tap()
 
         let firstStep = app.descendants(matching: .any)["recipeStep0"]
         let secondStep = app.descendants(matching: .any)["recipeStep1"]
+        scrollTo(firstStep, in: app)
         XCTAssertTrue(firstStep.waitForExistence(timeout: 5))
         firstStep.tap()
         firstStep.typeText("Chop onions.")
+        app.buttons["hideKeyboard"].tap()
+        scrollTo(secondStep, in: app)
         secondStep.tap()
         secondStep.typeText("Add oil.")
+        app.buttons["hideKeyboard"].tap()
         let reorderButtons = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder"))
         XCTAssertEqual(reorderButtons.count, 0)
         app.navigationBars["Recipe"].buttons["Edit"].tap()
-        for _ in 0..<6 {
-            if secondStep.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
+        scrollTo(secondStep, in: app)
 
         XCTAssertEqual(reorderButtons.count, 2, app.debugDescription)
         XCTAssertFalse(app.buttons["saveRecipe"].isEnabled)

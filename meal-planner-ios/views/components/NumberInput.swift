@@ -23,7 +23,6 @@ struct NumberInput: View {
     @State var label: String?
     @State var placeholder: String
     @State var alignment: TextAlignment
-    @FocusState var focused: Bool
     
     init(number: Binding<Double>, label: String? = nil, placeholder: String, alignment: TextAlignment = .leading) {
         self._number = number
@@ -37,14 +36,6 @@ struct NumberInput: View {
             .multilineTextAlignment(alignment)
             .keyboardType(.decimalPad)
             .submitLabel(.done)
-            .focused($focused)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Button("Done") {
-                        focused = false
-                    }
-                }
-            }
     }
     
     var body: some View {

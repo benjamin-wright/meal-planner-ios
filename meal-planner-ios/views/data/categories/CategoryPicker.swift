@@ -50,7 +50,10 @@ struct CategoryPicker: View {
         }
         .toolbar {
             Button("Add") {
-                router.path.append(.newCategory)
+                router.showCreation(.newCategory) { id in
+                    router.selectCategory(id)
+                    router.path = Array(router.path.dropLast())
+                }
             }
         }
         .navigationTitle("Category")

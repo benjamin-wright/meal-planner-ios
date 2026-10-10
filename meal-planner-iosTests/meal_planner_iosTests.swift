@@ -604,6 +604,8 @@ struct meal_planner_iosTests {
             RecipieIngredient.self,
             Recipie.self,
             AppSettings.self,
+            PlannedMiscEntry.self,
+            ShoppingListEntry.self,
             configurations: configuration
         )
         return ModelContext(container)

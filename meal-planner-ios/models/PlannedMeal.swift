@@ -113,6 +113,7 @@ extension PlannedMeal {
 final class PlannedMealStore {
     enum Error: LocalizedError {
         case notFound
+        case invalidPlacement
         case invalidDraft([PlannedMealDraft.ValidationError])
         case invalidComponent(MealComponentPersistence.Error)
 
@@ -120,6 +121,8 @@ final class PlannedMealStore {
             switch self {
             case .notFound:
                 return "This planned meal no longer exists."
+            case .invalidPlacement:
+                return "Dinners need a day. Breakfasts and lunches must be planned without a day."
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .invalidComponent(let error):
@@ -149,6 +152,7 @@ final class PlannedMealStore {
         day: Day?,
         sourceMealID: UUID? = nil
     ) throws {
+        guard (mealType == .dinner) == (day != nil) else { throw Error.invalidPlacement }
         let validationErrors = draft.validate()
         guard validationErrors.isEmpty else { throw Error.invalidDraft(validationErrors) }
 

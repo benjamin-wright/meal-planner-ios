@@ -33,7 +33,7 @@ struct PlannedMiscEdit: View {
     private func load() {
         guard let id else {
             selectedCategoryID = categories.first?.id ?? UUID()
-            selectedUnitID = units.first(where: { $0.unitType == .count })?.id ?? units.first?.id ?? UUID()
+            selectedUnitID = Unit.defaultForNewObject(in: units)?.id ?? UUID()
             return
         }
         guard let entry = entries.first(where: { $0.id == id }) else {

@@ -37,11 +37,12 @@ struct CategoryDraft {
     }
 
     func validate(existingNames: [String] = []) -> [ValidationError] {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var errors: [ValidationError] = []
         if name.count < 3 {
             errors.append(.nameTooShort)
         }
-        if existingNames.contains(name) {
+        if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
             errors.append(.duplicateName)
         }
         return errors

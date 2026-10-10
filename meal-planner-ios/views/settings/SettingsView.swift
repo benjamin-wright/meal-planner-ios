@@ -15,7 +15,6 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Environment(FlowRouter.self) private var router
     @Environment(\.scenePhase) private var scenePhase
-    @Query private var units: [Unit]
     @Query private var settings: [AppSettings]
     
     @State private var resetting = false
@@ -27,7 +26,8 @@ struct SettingsView: View {
                 if let setting = settings.first {
                     Button {
                         router.showUnitPicker(selectedID: setting.preferredWeight.id, typeFilter: .weight) { id in
-                            guard let unit = units.first(where: { $0.id == id && $0.unitType == .weight }) else { return }
+                            guard let unit = try? context.fetch(Unit.descriptor(id: id)).first,
+                                  unit.unitType == .weight else { return }
                             setting.preferredWeight = unit
                         }
                     } label: {
@@ -35,7 +35,8 @@ struct SettingsView: View {
                     }
                     Button {
                         router.showUnitPicker(selectedID: setting.preferredVolume.id, typeFilter: .volume) { id in
-                            guard let unit = units.first(where: { $0.id == id && $0.unitType == .volume }) else { return }
+                            guard let unit = try? context.fetch(Unit.descriptor(id: id)).first,
+                                  unit.unitType == .volume else { return }
                             setting.preferredVolume = unit
                         }
                     } label: {

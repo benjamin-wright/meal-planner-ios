@@ -28,6 +28,12 @@ in recipes.
 This alpha schema uses a fresh named `MealPlanner` store and starts with sample
 data. There is no migration from the previous database.
 
+## Keyboard controls
+
+Tap **Hide Keyboard** above the keyboard to finish editing and reveal the rest
+of the screen. The control is shared by forms, recipe steps, catalogue searches
+and the Shopping List Add sheet.
+
 ## Recipe import playground
 
 Open `playgrounds/RecipieImportPlayground.swift`, select the **meal-planner-ios** scheme
@@ -83,14 +89,9 @@ Switching to Legacy Previews Execution is unsuitable: Apple's
 [Xcode 26 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes)
 list missing playground canvas results in that mode (150811580).
 
-## To Do
+## Creating catalogue entries
 
-### Features
-
-- Add recipies from camera / gallery
-
-### Fixes
-
-- trim leading and trailing whitespace in unit, item, recipe names, etc.
-- can we add a keyboard minimisation button, the keyboard often gets stuck open
-- when creating a new entity from a picker, that entity should be automatically selected when the the creation is done
+Entries created with **Add** inside a picker are selected automatically after
+saving, returning to the form that opened the picker. This also works for nested
+creation, such as a category created while adding an item. New ingredient dishes
+open their per-person quantity and unit editor before being added to the meal.

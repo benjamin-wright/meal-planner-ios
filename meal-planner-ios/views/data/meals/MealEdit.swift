@@ -52,7 +52,8 @@ struct MealEdit: View {
 
     private func save() {
         do {
-            try MealStore(context: context).save(draft, id: id)
+            let savedID = try MealStore(context: context).save(draft, id: id)
+            if !isEditing, router.completeCreation(id: savedID) { return }
             dismiss()
         } catch {
             saveError = error.localizedDescription

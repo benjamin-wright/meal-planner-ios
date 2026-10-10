@@ -41,10 +41,19 @@ final class RecipieStore {
         return RecipieDraft(recipie: recipie)
     }
 
-    func save(_ draft: RecipieDraft, id: UUID?) throws {
+    @discardableResult
+    func save(_ draft: RecipieDraft, id: UUID?) throws -> UUID {
         if draft.importedIngredients != nil {
-            try saveImported(draft, id: id)
-            return
+            return try saveImported(draft, id: id)
+        }
+        var draft = draft
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.summary = draft.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.steps = draft.steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        draft.ingredients = draft.ingredients.map { ingredient in
+            var ingredient = ingredient
+            ingredient.sourceText = ingredient.sourceText?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ingredient
         }
         let existingNames = try context.fetch(FetchDescriptor<Recipie>())
             .filter { $0.id != id }
@@ -110,9 +119,10 @@ final class RecipieStore {
             .forEach(context.delete)
 
         try context.save()
+        return recipie.id
     }
 
-    private func saveImported(_ draft: RecipieDraft, id: UUID?) throws {
+    private func saveImported(_ draft: RecipieDraft, id: UUID?) throws -> UUID {
         // Isolate the import so a failed save cannot roll back unrelated changes in the editor's shared context.
         let importContext = ModelContext(context.container)
         importContext.autosaveEnabled = false
@@ -133,7 +143,7 @@ final class RecipieStore {
                     sourceText: ingredient.sourceText
                 ))
             }
-            try RecipieStore(context: importContext).save(resolved, id: id)
+            return try RecipieStore(context: importContext).save(resolved, id: id)
         } catch {
             importContext.rollback()
             throw error

@@ -58,7 +58,8 @@ struct RecipieEdit: View {
 
     private func save() {
         do {
-            try RecipieStore(context: context).save(draft, id: id)
+            let savedID = try RecipieStore(context: context).save(draft, id: id)
+            if !isEditing, router.completeCreation(id: savedID) { return }
             dismiss()
         } catch {
             saveError = error.localizedDescription
@@ -116,7 +117,7 @@ struct RecipieEdit: View {
                 }
             }
             .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
-            if let item = items.first, let unit = units.first {
+            if let item = items.first, let unit = Unit.defaultForNewObject(in: units) {
                 Button {
                     router.showRecipieIngredient(
                         RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1),

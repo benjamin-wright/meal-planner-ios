@@ -11,8 +11,10 @@ import SwiftData
 struct UnitEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
+    private let allowsTypeChange: Bool
     private var isEditing: Bool { id != nil }
 
     @State private var draft: UnitDraft
@@ -20,8 +22,9 @@ struct UnitEdit: View {
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
     
-    init(id: UUID? = nil, type: UnitType) {
+    init(id: UUID? = nil, type: UnitType, allowsTypeChange: Bool = true) {
         self.id = id
+        self.allowsTypeChange = allowsTypeChange
         self._draft = State(initialValue: UnitDraft(type: type))
     }
 
@@ -41,7 +44,8 @@ struct UnitEdit: View {
 
     private func save() {
         do {
-            try UnitStore(context: context).save(draft, id: id)
+            let savedID = try UnitStore(context: context).save(draft, id: id)
+            if !isEditing, router.completeCreation(id: savedID) { return }
             dismiss()
         } catch {
             saveError = error.localizedDescription
@@ -73,6 +77,7 @@ struct UnitEdit: View {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
                 EnumPicker(label: "Type", selection: $draft.type, presentation: .automatic)
+                    .disabled(!allowsTypeChange)
                 if draft.type != .count {   
                     NumberInput(number: $draft.base, label: "Base", placeholder: "base")
                 }
@@ -116,6 +121,7 @@ struct UnitEdit: View {
                             Magnitude(singular: "", plural: "", multiplier: 1)
                         )
                     }
+                    .accessibilityIdentifier("addUnitMagnitude")
                 }
             }
             
@@ -124,6 +130,7 @@ struct UnitEdit: View {
             } label: {
                 Text(isEditing ? "Save" : "Add")
             }.disabled(editMode.isEditing || !validationErrors.isEmpty)
+            .accessibilityIdentifier("saveUnit")
                 }
             }
         }

@@ -11,6 +11,7 @@ final class CategoryStore {
     enum Error: LocalizedError {
         case notFound
         case invalidDraft([CategoryDraft.ValidationError])
+        case itemUsedInRecipe(category: String, item: String)
 
         var errorDescription: String? {
             switch self {
@@ -18,6 +19,8 @@ final class CategoryStore {
                 return "This category no longer exists."
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
+            case .itemUsedInRecipe(let category, let item):
+                return "\"\(category)\" contains \"\(item)\", which is used in a recipe. Remove it from its recipes before deleting this category."
             }
         }
     }
@@ -39,7 +42,10 @@ final class CategoryStore {
         return CategoryDraft(category: category)
     }
 
-    func save(_ draft: CategoryDraft, id: UUID?) throws {
+    @discardableResult
+    func save(_ draft: CategoryDraft, id: UUID?) throws -> UUID {
+        var draft = draft
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let existingNames = try context.fetch(FetchDescriptor<Category>())
             .filter { $0.id != id }
             .map(\.name)
@@ -61,11 +67,16 @@ final class CategoryStore {
         category.name = draft.name
         category.order = draft.order
         try context.save()
+        return category.id
     }
 
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let categories = try context.fetch(Category.orderedDescriptor)
+        let ingredients = try context.fetch(FetchDescriptor<RecipieIngredient>())
+        if let ingredient = ingredients.first(where: { selectedIDs.contains($0.item.category.id) }) {
+            throw Error.itemUsedInRecipe(category: ingredient.item.category.name, item: ingredient.item.name)
+        }
         categories.filter { selectedIDs.contains($0.id) }.forEach(context.delete)
 
         for (index, category) in categories.filter({ !selectedIDs.contains($0.id) }).enumerated() {

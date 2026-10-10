@@ -11,6 +11,7 @@ struct RecipieDraft {
     enum ValidationError: Hashable, LocalizedError {
         case nameTooShort
         case duplicateName
+        case invalidIngredientQuantity
 
         var errorDescription: String? {
             switch self {
@@ -18,6 +19,8 @@ struct RecipieDraft {
                 return "Recipe names must be at least 3 characters."
             case .duplicateName:
                 return "A recipe with this name already exists."
+            case .invalidIngredientQuantity:
+                return "Ingredient quantities must be finite and greater than zero."
             }
         }
     }
@@ -49,13 +52,17 @@ struct RecipieDraft {
     }
 
     func validate(existingNames: [String] = []) -> [ValidationError] {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var errors: [ValidationError] = []
 
         if name.count < 3 {
             errors.append(.nameTooShort)
         }
-        if existingNames.contains(name) {
+        if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
             errors.append(.duplicateName)
+        }
+        if ingredients.contains(where: { $0.quantity <= 0 || !$0.quantity.isFinite }) {
+            errors.append(.invalidIngredientQuantity)
         }
 
         return errors

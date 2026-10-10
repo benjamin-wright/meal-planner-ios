@@ -15,6 +15,7 @@ struct ItemEdit: View {
     
     private let id: UUID?
     private let initialKind: ItemKind
+    private let allowsKindChange: Bool
     private var isEditing: Bool { id != nil }
     
     @State private var draft: ItemDraft?
@@ -23,9 +24,10 @@ struct ItemEdit: View {
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
     
-    init(id: UUID? = nil, kind: ItemKind = .ingredient) {
+    init(id: UUID? = nil, kind: ItemKind = .ingredient, allowsKindChange: Bool = true) {
         self.id = id
         self.initialKind = kind
+        self.allowsKindChange = allowsKindChange
         self._draft = State(initialValue: nil)
     }
     
@@ -55,7 +57,8 @@ struct ItemEdit: View {
     private func save() {
         guard let draft else { return }
         do {
-            try ItemStore(context: context).save(draft, id: id)
+            let savedID = try ItemStore(context: context).save(draft, id: id)
+            if !isEditing, router.completeCreation(id: savedID) { return }
             dismiss()
         } catch {
             saveError = error.localizedDescription
@@ -79,6 +82,7 @@ struct ItemEdit: View {
                                 .foregroundStyle(.red)
                         }
                         EnumPicker(selection: draft.kind)
+                            .disabled(!allowsKindChange)
                         if draft.wrappedValue.kind == .readymeal {
                             IntegerInput(number: draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
                             IntegerInput(number: draft.readymealData.time, label: "Reheat Time", placeholder: "minutes to reheat", step: 5)

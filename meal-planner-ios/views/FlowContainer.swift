@@ -19,9 +19,11 @@ struct FlowContainer<Content: View>: View {
         NavigationStack(path: $router.path) {
             content()
                 .background(TransparentContainerConfigurator())
+                .toolbar { KeyboardDismissToolbar() }
                 .navigationDestination(for: FlowRouter.Route.self) { route in
                     FlowDestination(route: route)
                         .background(TransparentContainerConfigurator())
+                        .toolbar { KeyboardDismissToolbar() }
                 }
         }
          .background(TabTransitionConfigurator())

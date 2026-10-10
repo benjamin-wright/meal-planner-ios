@@ -72,7 +72,8 @@ final class MealComponentUITests: XCTestCase {
         let existing = field.value as? String ?? ""
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         field.typeText(quantity)
-        app.buttons["Done"].tap()
+        app.buttons["hideKeyboard"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
     }
 
     @MainActor

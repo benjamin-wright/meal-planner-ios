@@ -204,6 +204,9 @@ private struct ShoppingListView: View {
                 }
             }
         }
+        // Query updates can arrive after the store's withAnimation transaction.
+        // Animate the displayed membership so removal and Undo both transition.
+        .animation(.easeInOut(duration: 0.3), value: rows.map(\.id))
         .navigationTitle("Shopping List")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -236,7 +239,8 @@ private struct ShoppingListView: View {
             FlowContainer {
                 ShoppingListEntryEdit { showingAddEntry = false }
             }
-            .presentationBackground(.thinMaterial)
+            .background(.ultraThinMaterial)
+            .presentationBackground(.clear)
         }
         .onAppear {
             if rows.contains(where: \.isChecked) { restartCompletionTimer() }

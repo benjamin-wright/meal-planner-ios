@@ -17,7 +17,6 @@ struct PlannedMealEdit: View {
     @State private var isReorderingComponents = false
     @State private var componentScroller = MealComponentScrollController()
     @Query private var plannedMeals: [PlannedMeal]
-    @Query private var meals: [Meal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
     @Query private var units: [Unit]
@@ -56,9 +55,9 @@ struct PlannedMealEdit: View {
 
     private func chooseTemplate() {
         router.showPlannerMealPicker(mealType: mealType) { selectedID in
-            guard let template = meals.first(where: { $0.id == selectedID }) else { return }
+            guard let template = try? context.fetch(Meal.descriptor(id: selectedID)).first else { return }
+            // Templates supply dishes while the selected planner slot keeps its type and day.
             draft = PlannedMealDraft(meal: template)
-            mealType = template.mealType
             sourceMealID = template.id
         }
     }

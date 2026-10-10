@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct DishPicker: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @Environment(FlowRouter.self) private var router
 
     let recipies: [Recipie]
@@ -52,9 +52,9 @@ struct DishPicker: View {
     private func select(_ dish: DishID) {
         isSearchPresented = false
         if case .ingredient = dish {
-            guard let unit = units.first(where: { $0.unitType == .count && $0.magnitudes.isEmpty })
-                    ?? units.first(where: { $0.unitType == .count })
-                    ?? units.first else {
+            // Creation can finish before the picker's query has refreshed.
+            let units = (try? context.fetch(FetchDescriptor<Unit>(sortBy: [SortDescriptor(\.name)]))) ?? units
+            guard let unit = Unit.defaultForNewObject(in: units) else {
                 selectionError = "Add a unit in Data before adding an ingredient portion."
                 return
             }
@@ -66,7 +66,7 @@ struct DishPicker: View {
             )
         } else {
             router.selectDishComponent(MealComponentDraft(source: dish, course: course))
-            dismiss()
+            router.path = Array(router.path.dropLast())
         }
     }
 
@@ -74,7 +74,21 @@ struct DishPicker: View {
         self.catalogue = catalogue
         search = ""
         isSearchPresented = false
-        router.path.append(route)
+        router.showCreation(route) { id in
+            switch route {
+            case .newRecipie:
+                select(.recipe(id))
+            case .newItemOfKind:
+                guard let item = try? context.fetch(Item.descriptor(id: id)).first else { return }
+                switch item.itemKind {
+                case .ingredient: select(.ingredient(id))
+                case .readymeal: select(.readymeal(id))
+                case .misc: break
+                }
+            default:
+                break
+            }
+        }
     }
 
     var body: some View {

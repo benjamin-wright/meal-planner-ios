@@ -101,6 +101,7 @@ struct UnitDraft {
     }
 
     func validate() -> [ValidationError] {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         var errors: [ValidationError] = []
         if name.count < 3 {
             errors.append(.nameTooShort)
@@ -110,7 +111,11 @@ struct UnitDraft {
         }
         if magnitudes.isEmpty && type != .count {
             errors.append(.missingMagnitudes)
-        } else if !magnitudes.allSatisfy({ $0.multiplier > 0 && !$0.singular.isEmpty && !$0.plural.isEmpty }) {
+        } else if !magnitudes.allSatisfy({
+            $0.multiplier > 0
+                && !$0.singular.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !$0.plural.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) {
             errors.append(.invalidMagnitude)
         }
         return errors
@@ -173,6 +178,17 @@ final class Unit {
 }
 
 extension Unit {
+    /// Prefer the standard count unit over custom count units when starting a new entry.
+    static func defaultForNewObject(in units: [Unit]) -> Unit? {
+        let countUnits = units.filter { $0.unitType == .count }
+        return countUnits.first {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare("count") == .orderedSame
+        } ?? countUnits.first { $0.magnitudes.isEmpty }
+            ?? countUnits.first
+            ?? units.first
+    }
+
     static func descriptor(id: UUID) -> FetchDescriptor<Unit> {
         FetchDescriptor(predicate: #Predicate { $0.id == id })
     }

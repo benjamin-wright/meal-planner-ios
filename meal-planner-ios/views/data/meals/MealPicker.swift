@@ -60,7 +60,10 @@ struct MealPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
-                    router.path.append(.newMeal(mealType))
+                    router.showCreation(.newMeal(mealType)) { id in
+                        router.selectMeal(id)
+                        router.path = Array(router.path.dropLast())
+                    }
                 }
             }
         }

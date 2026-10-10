@@ -13,6 +13,7 @@ final class ItemStore {
         case invalidDraft([ItemDraft.ValidationError])
         case missingCategory
         case itemInUse
+        case usedInRecipe(String)
 
         var errorDescription: String? {
             switch self {
@@ -24,6 +25,8 @@ final class ItemStore {
                 return "The selected category no longer exists."
             case .itemInUse:
                 return "This item is used in a meal. Remove it from its meals before changing its kind."
+            case .usedInRecipe(let name):
+                return "\"\(name)\" is used in a recipe. Remove it from its recipes before deleting it."
             }
         }
     }
@@ -48,7 +51,10 @@ final class ItemStore {
         return ItemDraft(item: item)
     }
 
-    func save(_ draft: ItemDraft, id: UUID?) throws {
+    @discardableResult
+    func save(_ draft: ItemDraft, id: UUID?) throws -> UUID {
+        var draft = draft
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let existingNames = try context.fetch(FetchDescriptor<Item>())
             .filter { $0.id != id }
             .map(\.name)
@@ -79,12 +85,18 @@ final class ItemStore {
         item.dietary = draft.dietary.toSet()
         item.readymealData = draft.kind == .readymeal ? draft.readymealData : nil
         try context.save()
+        return item.id
     }
 
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let items = try context.fetch(FetchDescriptor<Item>())
-        items.filter { selectedIDs.contains($0.id) }.forEach(context.delete)
+        let itemsToDelete = items.filter { selectedIDs.contains($0.id) }
+        let referencedItemIDs = Set(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.item.id })
+        if let referencedItem = itemsToDelete.first(where: { referencedItemIDs.contains($0.id) }) {
+            throw Error.usedInRecipe(referencedItem.name)
+        }
+        itemsToDelete.forEach(context.delete)
         try context.save()
     }
 }

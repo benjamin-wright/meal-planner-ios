@@ -20,7 +20,7 @@ final class UnitStore {
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .inUse(let name):
-                return "\(name) is used by settings, a recipe, or a meal and cannot be deleted."
+                return "\(name) is used by settings, a recipe, a meal, a planner entry, or the shopping list and cannot be deleted."
             }
         }
     }
@@ -38,7 +38,17 @@ final class UnitStore {
         return UnitDraft(unit: unit)
     }
 
-    func save(_ draft: UnitDraft, id: UUID?) throws {
+    @discardableResult
+    func save(_ draft: UnitDraft, id: UUID?) throws -> UUID {
+        var draft = draft
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.magnitudes = draft.magnitudes.map { magnitude in
+            var magnitude = magnitude
+            magnitude.abbreviation = magnitude.abbreviation.trimmingCharacters(in: .whitespacesAndNewlines)
+            magnitude.singular = magnitude.singular.trimmingCharacters(in: .whitespacesAndNewlines)
+            magnitude.plural = magnitude.plural.trimmingCharacters(in: .whitespacesAndNewlines)
+            return magnitude
+        }
         let validationErrors = draft.validate()
         guard validationErrors.isEmpty else {
             throw Error.invalidDraft(validationErrors)
@@ -59,26 +69,35 @@ final class UnitStore {
         unit.base = draft.type == .count ? 1 : draft.base
         unit.magnitudes = draft.magnitudes
         try context.save()
+        return unit.id
     }
 
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let units = try context.fetch(FetchDescriptor<Unit>())
-        let settings = try context.fetch(FetchDescriptor<AppSettings>())
-        let recipies = try context.fetch(FetchDescriptor<Recipie>())
-        let mealComponents = try context.fetch(FetchDescriptor<MealComponent>())
+        let referencedIDs = try referencedUnitIDs()
 
         if let unit = units.first(where: { unit in
-            selectedIDs.contains(unit.id) && (
-                settings.contains { $0.preferredWeight.id == unit.id || $0.preferredVolume.id == unit.id }
-                    || recipies.contains { $0.ingredients.contains { $0.unit.id == unit.id } }
-                    || mealComponents.contains { $0.unit?.id == unit.id }
-            )
+            selectedIDs.contains(unit.id) && referencedIDs.contains(unit.id)
         }) {
             throw Error.inUse(unit.name)
         }
 
         units.filter { selectedIDs.contains($0.id) }.forEach(context.delete)
         try context.save()
+    }
+
+    /// Required references prevent deletion while allowing corrections to unit conversion.
+    private func referencedUnitIDs() throws -> Set<UUID> {
+        var ids = Set<UUID>()
+        for settings in try context.fetch(FetchDescriptor<AppSettings>()) {
+            ids.insert(settings.preferredWeight.id)
+            ids.insert(settings.preferredVolume.id)
+        }
+        ids.formUnion(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.unit.id })
+        ids.formUnion(try context.fetch(FetchDescriptor<MealComponent>()).compactMap { $0.unit?.id })
+        ids.formUnion(try context.fetch(FetchDescriptor<PlannedMiscEntry>()).compactMap { $0.unit?.id })
+        ids.formUnion(try context.fetch(FetchDescriptor<ShoppingListEntry>()).compactMap { $0.unit?.id })
+        return ids
     }
 }

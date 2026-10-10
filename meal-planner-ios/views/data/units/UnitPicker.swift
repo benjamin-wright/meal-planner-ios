@@ -70,7 +70,10 @@ struct UnitPicker: View {
             }
             .toolbar {
                 Button("Add") {
-                    router.path.append(.newUnit(typeFilter ?? UnitType(rawValue: type) ?? .weight))
+                    router.showCreation(.newUnit(typeFilter ?? UnitType(rawValue: type) ?? .weight)) { id in
+                        router.selectUnit(id)
+                        router.path = Array(router.path.dropLast())
+                    }
                 }
             }
         }

@@ -11,6 +11,7 @@ import SwiftData
 struct CategoryEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
     private var isEditing: Bool { id != nil }
@@ -44,7 +45,8 @@ struct CategoryEdit: View {
 
     private func save() {
         do {
-            try CategoryStore(context: context).save(draft, id: id)
+            let savedID = try CategoryStore(context: context).save(draft, id: id)
+            if !isEditing, router.completeCreation(id: savedID) { return }
             dismiss()
         } catch {
             saveError = error.localizedDescription

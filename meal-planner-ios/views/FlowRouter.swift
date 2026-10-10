@@ -47,7 +47,11 @@ final class FlowRouter {
         case editMeal(UUID)
     }
 
-    var path: [Route] = []
+    var path: [Route] = [] {
+        didSet {
+            creations.removeAll { !path.starts(with: $0.path) }
+        }
+    }
     var selectedCategoryID = UUID()
     var selectedItemID = UUID()
     var selectedUnitID = UUID()
@@ -68,6 +72,26 @@ final class FlowRouter {
     private var onImportedRecipieIngredientSaved: ((ImportedRecipieIngredient) -> Void)?
     private var onMealComponentSaved: ((MealComponentDraft) -> Void)?
     private var mealComponentReturnDepth = 0
+
+    private struct Creation {
+        let path: [Route]
+        let onCreate: (UUID) -> Void
+    }
+
+    private var creations: [Creation] = []
+
+    func showCreation(_ route: Route, onCreate: @escaping (UUID) -> Void) {
+        path.append(route)
+        creations.append(Creation(path: path, onCreate: onCreate))
+    }
+
+    /// Only a successful save from the active picker creation completes its selection.
+    func completeCreation(id: UUID) -> Bool {
+        guard let creation = creations.last, creation.path == path else { return false }
+        path.removeLast()
+        creation.onCreate(id)
+        return true
+    }
 
     func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
         selectedCategoryID = selectedID

@@ -33,7 +33,10 @@ final class MealStore {
         return MealDraft(meal: meal)
     }
 
-    func save(_ draft: MealDraft, id: UUID?) throws {
+    @discardableResult
+    func save(_ draft: MealDraft, id: UUID?) throws -> UUID {
+        var draft = draft
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let existingNames = try context.fetch(FetchDescriptor<Meal>())
             .filter { $0.id != id }
             .map(\.name)
@@ -74,6 +77,7 @@ final class MealStore {
         meal.mealType = draft.mealType
         removed.forEach(context.delete)
         try context.save()
+        return meal.id
     }
 
     func delete(ids: [UUID]) throws {

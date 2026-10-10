@@ -51,7 +51,11 @@ struct ItemPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
-                    router.path.append(.newItem)
+                    isSearchPresented = false
+                    router.showCreation(.newItem) { id in
+                        router.selectItem(id)
+                        router.path = Array(router.path.dropLast())
+                    }
                 }
             }
         }
