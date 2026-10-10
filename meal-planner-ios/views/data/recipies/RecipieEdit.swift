@@ -141,6 +141,7 @@ struct RecipieEdit: View {
                     .accessibilityIdentifier("recipeStep\(index)")
             }
             .onDelete { offsets in draft.steps.remove(atOffsets: offsets) }
+            .onMove { offsets, destination in draft.steps.move(fromOffsets: offsets, toOffset: destination) }
             AddButton(addStep)
                 .accessibilityIdentifier("addRecipeStep")
         }
@@ -177,6 +178,7 @@ struct RecipieEdit: View {
                         Text(isEditing ? "Save" : "Add")
                     }
                     .disabled(editMode.isEditing || isInvalid)
+                    .accessibilityIdentifier("saveRecipe")
                 }
             }
         }
