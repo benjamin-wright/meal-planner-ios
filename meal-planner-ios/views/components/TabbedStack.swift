@@ -29,7 +29,7 @@ struct TabbedStack: View {
             }
             .frame(maxWidth: .infinity)
             .pickerStyle(.segmented)
-            .glassControl()
+            .glassControl(in: Capsule())
             pages[selectedPage].content().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.top, 16)
