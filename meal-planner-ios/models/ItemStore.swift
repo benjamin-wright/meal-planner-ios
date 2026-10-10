@@ -12,6 +12,7 @@ final class ItemStore {
         case notFound
         case invalidDraft([ItemDraft.ValidationError])
         case missingCategory
+        case itemInUse
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ final class ItemStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .missingCategory:
                 return "The selected category no longer exists."
+            case .itemInUse:
+                return "This item is used in a meal. Remove it from its meals before changing its kind."
             }
         }
     }
@@ -61,6 +64,9 @@ final class ItemStore {
         if let id {
             guard let existing = try context.fetch(Item.descriptor(id: id)).first else {
                 throw Error.notFound
+            }
+            if draft.kind.rawValue != existing.kind && !existing.mealComponents.isEmpty {
+                throw Error.itemInUse
             }
             item = existing
         } else {

@@ -30,12 +30,14 @@ final class FlowRouter {
         case editCategory(UUID)
         case itemPicker
         case newItem
+        case newItemOfKind(ItemKind)
         case editItem(UUID)
         case unitPicker(typeFilter: UnitType?)
         case newUnit(UnitType)
         case editUnit(id: UUID, type: UnitType)
-        case dishPicker(courseFilter: CourseType, mealFilter: MealType)
-        case newRecipie(MealType, CourseType)
+        case dishPicker(course: CourseType)
+        case mealComponent
+        case newRecipie
         case editRecipie(UUID)
         case recipieIngredient
         case importedRecipieIngredient
@@ -54,14 +56,18 @@ final class FlowRouter {
     private(set) var recipieIngredient: RecipieIngredientDraft?
     private(set) var isEditingRecipieIngredient = false
     private(set) var importedRecipieIngredient: ImportedRecipieIngredient?
+    private(set) var mealComponent: MealComponentDraft?
+    private(set) var isEditingMealComponent = false
 
     private var onCategorySelected: ((UUID) -> Void)?
     private var onItemSelected: ((UUID) -> Void)?
     private var onUnitSelected: ((UUID) -> Void)?
-    private var onDishSelected: ((DishID) -> Void)?
+    private var onDishSelected: ((MealComponentDraft) -> Void)?
     private var onMealSelected: ((UUID) -> Void)?
     private var onRecipieIngredientSaved: ((RecipieIngredientDraft) -> Void)?
     private var onImportedRecipieIngredientSaved: ((ImportedRecipieIngredient) -> Void)?
+    private var onMealComponentSaved: ((MealComponentDraft) -> Void)?
+    private var mealComponentReturnDepth = 0
 
     func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
         selectedCategoryID = selectedID
@@ -97,19 +103,43 @@ final class FlowRouter {
     }
     
     func showDishPicker(
-        selectedID: DishID,
-        courseFilter: CourseType,
-        mealFilter: MealType,
-        onSelect: @escaping (DishID) -> Void
+        course: CourseType,
+        onSelect: @escaping (MealComponentDraft) -> Void
     ) {
-        selectedDishID = selectedID
+        selectedDishID = .recipe(UUID())
         onDishSelected = onSelect
-        path.append(.dishPicker(courseFilter: courseFilter, mealFilter: mealFilter))
+        path.append(.dishPicker(course: course))
     }
 
-    func selectDish(_ dish: DishID) {
-        selectedDishID = dish
-        onDishSelected?(dish)
+    func selectDishComponent(_ component: MealComponentDraft) {
+        selectedDishID = component.source
+        onDishSelected?(component)
+    }
+
+    func showMealComponent(
+        _ component: MealComponentDraft,
+        isEditing: Bool,
+        dismissDishPickerOnSave: Bool = false,
+        onSave: @escaping (MealComponentDraft) -> Void
+    ) {
+        mealComponent = component
+        isEditingMealComponent = isEditing
+        onMealComponentSaved = onSave
+        mealComponentReturnDepth = path.count
+        if dismissDishPickerOnSave,
+           let pickerIndex = path.lastIndex(where: {
+               if case .dishPicker = $0 { return true }
+               return false
+           }) {
+            mealComponentReturnDepth = pickerIndex
+        }
+        path.append(.mealComponent)
+    }
+
+    func saveMealComponent(_ component: MealComponentDraft) {
+        onMealComponentSaved?(component)
+        path = Array(path.prefix(mealComponentReturnDepth))
+        onMealComponentSaved = nil
     }
 
     func showMealPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {

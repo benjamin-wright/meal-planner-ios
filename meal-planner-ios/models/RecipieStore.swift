@@ -98,8 +98,6 @@ final class RecipieStore {
         }
 
         recipie.name = draft.name
-        recipie.mealTypeEnum = draft.mealType
-        recipie.courseEnum = draft.course
         recipie.summary = draft.summary
         recipie.serves = draft.serves
         recipie.time = draft.time

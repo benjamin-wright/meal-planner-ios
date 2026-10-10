@@ -23,8 +23,6 @@ struct RecipieDraft {
     }
 
     var name: String
-    var mealType: MealType
-    var course: CourseType
     var summary: String
     var serves: Int
     var time: Int
@@ -32,10 +30,8 @@ struct RecipieDraft {
     var importedIngredients: [ImportedRecipieIngredient]? = nil
     var steps: [String]
 
-    init(_ mealType: MealType = .dinner, _ course: CourseType = .main) {
+    init() {
         self.name = ""
-        self.mealType = mealType
-        self.course = course
         self.summary = ""
         self.serves = 2
         self.time = 15
@@ -45,8 +41,6 @@ struct RecipieDraft {
 
     init(recipie: Recipie) {
         self.name = recipie.name
-        self.mealType = recipie.mealTypeEnum
-        self.course = recipie.courseEnum
         self.summary = recipie.summary
         self.serves = recipie.serves
         self.time = recipie.time
@@ -73,39 +67,23 @@ final class Recipie {
     @Attribute(.unique)
     var id: UUID = UUID()
     var name: String = ""
-    var mealType: Int
-    var course: Int
     var summary: String = ""
     var serves: Int = 2
     var time: Int = 15
     @Relationship(deleteRule: .cascade)
     var ingredients: [RecipieIngredient]
-    @Relationship(inverse: \Meal.recipies)
-    var meals: [Meal] = []
-    @Relationship(inverse: \PlannedMeal.recipies)
-    var plannedMeals: [PlannedMeal] = []
+    @Relationship(deleteRule: .cascade, inverse: \MealComponent.recipe)
+    var mealComponents: [MealComponent] = []
     var steps: [String]
     
-    init(id: UUID = UUID(), name: String = "", mealType: MealType = .dinner, course: CourseType = .main, summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
+    init(id: UUID = UUID(), name: String = "", summary: String = "", serves: Int = 2, time: Int = 15, ingredients: [RecipieIngredient] = [], steps: [String] = []) {
         self.id = id
         self.name = name
-        self.mealType = mealType.rawValue
-        self.course = course.rawValue
         self.summary = summary
         self.serves = serves
         self.time = time
         self.ingredients = ingredients
         self.steps = steps
-    }
-    
-    var mealTypeEnum: MealType {
-        get { return MealType(rawValue: mealType)! }
-        set { mealType = newValue.rawValue }
-    }
-    
-    var courseEnum: CourseType {
-        get { return CourseType(rawValue: course)! }
-        set { course = newValue.rawValue }
     }
 }
 
@@ -143,24 +121,30 @@ extension Recipie {
 
 struct RecipieFilter {
     var search: String = ""
-    var mealType: MealType? = nil
-    
+    var quick = false
+    var vegan = false
+    var vegetarian = false
+    var pescetarian = false
+    var glutenFree = false
+
+    var hasActiveFilters: Bool {
+        quick || vegan || vegetarian || pescetarian || glutenFree
+    }
+
+    mutating func clearFilters() {
+        quick = false
+        vegan = false
+        vegetarian = false
+        pescetarian = false
+        glutenFree = false
+    }
+
     func filter(recipie: Recipie) -> Bool {
-        var searchFound = false
-        var filtered = false
-        
-        if search.isEmpty {
-            searchFound = true
-        } else {
-            searchFound = recipie.name.lowercased().contains(search.lowercased())
-        }
-        
-        if mealType == nil {
-            filtered = false
-        } else {
-            filtered = recipie.mealTypeEnum != mealType
-        }
-        
-        return searchFound && !filtered
+        (search.isEmpty || recipie.name.localizedCaseInsensitiveContains(search))
+            && (!quick || recipie.isQuick)
+            && (!vegan || recipie.isVegan)
+            && (!vegetarian || recipie.isVegetarian)
+            && (!pescetarian || recipie.isPescetarian)
+            && (!glutenFree || recipie.isGlutenFree)
     }
 }

@@ -66,30 +66,16 @@ struct DietaryItems {
 }
 
 struct ReadymealData: Codable {
-    var mealType: Int
-    var course: Int
     var serves: Int
     var time: Int
     
-    init(mealType: Int = 0, course: Int = 0, serves: Int = 1, time: Int = 0) {
-        self.mealType = mealType
-        self.course = course
+    init(serves: Int = 1, time: Int = 0) {
         self.serves = serves
         self.time = time
     }
     
-    var mealTypeEnum: MealType {
-        get { MealType(rawValue: mealType)! }
-        set { mealType = newValue.rawValue }
-    }
-    
-    var courseEnum: CourseType {
-        get { CourseType(rawValue: course)! }
-        set { course = newValue.rawValue }
-    }
-
     static var `default`: ReadymealData {
-        ReadymealData(mealType: MealType.dinner.rawValue, course: CourseType.main.rawValue, serves: 1, time: 30)
+        ReadymealData(serves: 1, time: 30)
     }
 }
 
@@ -162,10 +148,8 @@ final class Item {
     var kind: Int
     var dietary: Set<Dietary>
     var readymealData: Optional<ReadymealData>
-    @Relationship(inverse: \Meal.readymeals)
-    var meals: [Meal] = []
-    @Relationship(inverse: \PlannedMeal.readymeals)
-    var plannedMeals: [PlannedMeal] = []
+    @Relationship(deleteRule: .cascade, inverse: \MealComponent.item)
+    var mealComponents: [MealComponent] = []
     
     var itemKind: ItemKind {
         ItemKind(rawValue: kind) ?? ItemKind.ingredient

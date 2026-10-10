@@ -181,13 +181,13 @@ struct meal_planner_iosTests {
     @MainActor
     @Test func mealStoreCreatesUpdatesAndDeletesMeals() throws {
         let context = try makeMealContext()
-        let recipie = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
+        let recipie = Recipie(name: "Tomato soup")
         let category = Category(name: "Prepared", order: 0)
         let readymeal = Item(
             name: "Prepared salad",
             category: category,
             kind: .readymeal,
-            readymealData: ReadymealData(mealType: MealType.dinner.rawValue, course: CourseType.side.rawValue)
+            readymealData: ReadymealData()
         )
         context.insert(category)
         context.insert(recipie)
@@ -196,16 +196,19 @@ struct meal_planner_iosTests {
 
         var draft = MealDraft(mealType: .dinner)
         draft.name = "Soup supper"
-        draft.dishes = [.recipe(recipie.id), .readymeal(readymeal.id)]
+        draft.components = [
+            MealComponentDraft(source: .recipe(recipie.id), course: .starter),
+            MealComponentDraft(source: .readymeal(readymeal.id), course: .side),
+        ]
 
         let store = MealStore(context: context)
         try store.save(draft, id: nil)
 
         let meal = try #require(context.fetch(FetchDescriptor<Meal>()).first)
         #expect(meal.name == "Soup supper")
-        #expect(meal.recipies.map(\.id) == [recipie.id])
-        #expect(meal.readymeals.map(\.id) == [readymeal.id])
-        #expect(try store.draft(id: meal.id).dishes == draft.dishes)
+        #expect(meal.orderedComponents.map(\.source) == [.recipe(recipie.id), .readymeal(readymeal.id)])
+        #expect(meal.orderedComponents.map(\.courseEnum) == [.starter, .side])
+        #expect(try store.draft(id: meal.id).components == draft.components)
 
         draft.name = "Updated soup supper"
         try store.save(draft, id: meal.id)
@@ -220,13 +223,13 @@ struct meal_planner_iosTests {
         let context = try makeMealContext()
         var draft = MealDraft(mealType: .dinner)
         draft.name = "Missing dish meal"
-        draft.dishes = [.recipe(UUID())]
+        draft.components = [MealComponentDraft(source: .recipe(UUID()))]
 
         do {
             try MealStore(context: context).save(draft, id: nil)
             Issue.record("Saving with a missing dish reference should fail.")
         } catch let error as MealStore.Error {
-            guard case .missingDishReference = error else {
+            guard case .invalidComponent(.missingSource) = error else {
                 Issue.record("Expected a missing dish reference error, got \(error).")
                 return
             }
@@ -236,37 +239,42 @@ struct meal_planner_iosTests {
     }
 
     @Test func plannedMealDraftPrefillsANewUnnamedMeal() {
-        let dishes: [DishID] = [.recipe(UUID()), .readymeal(UUID())]
-        let plannedDraft = PlannedMealDraft(dishes: dishes)
+        let components = [
+            MealComponentDraft(source: .recipe(UUID()), course: .main),
+            MealComponentDraft(source: .readymeal(UUID()), course: .side),
+        ]
+        let plannedDraft = PlannedMealDraft(components: components)
 
         let mealDraft = MealDraft(plannedMeal: plannedDraft, mealType: .lunch)
 
         #expect(mealDraft.name.isEmpty)
         #expect(mealDraft.mealType == .lunch)
-        #expect(mealDraft.dishes == dishes)
+        #expect(mealDraft.components.map(\.source) == components.map(\.source))
+        #expect(mealDraft.components.map(\.course) == components.map(\.course))
+        #expect(Set(mealDraft.components.map(\.id)).isDisjoint(with: Set(components.map(\.id))))
         #expect(plannedDraft.servings == 2)
     }
 
     @MainActor
     @Test func plannedMealsKeepIndependentCopiesAndMoveBetweenDinnerDays() throws {
         let context = try makePlannerContext()
-        let recipie = Recipie(name: "Tomato soup", mealType: .dinner, course: .main)
+        let recipie = Recipie(name: "Tomato soup")
         context.insert(recipie)
         try context.save()
 
         var firstDraft = PlannedMealDraft()
-        firstDraft.dishes = [.recipe(recipie.id)]
+        firstDraft.components = [MealComponentDraft(source: .recipe(recipie.id))]
         let store = PlannedMealStore(context: context)
         try store.save(firstDraft, id: nil, mealType: .dinner, day: .saturday)
 
-        let secondDraft = firstDraft
+        let secondDraft = PlannedMealDraft(components: firstDraft.components.map { MealComponentDraft(copying: $0) })
         try store.save(secondDraft, id: nil, mealType: .dinner, day: .sunday)
 
         let plannedMeals = try context.fetch(FetchDescriptor<PlannedMeal>())
         let saturday = try #require(plannedMeals.first { $0.dayEnum == .saturday })
         let sunday = try #require(plannedMeals.first { $0.dayEnum == .sunday })
         
-        #expect(saturday.recipies.map(\.id) == [recipie.id])
+        #expect(saturday.components.map(\.source) == [.recipe(recipie.id)])
         
         try store.moveDinner(from: .saturday, to: .sunday)
 
@@ -275,37 +283,43 @@ struct meal_planner_iosTests {
         let movedSaturday = try #require(
             context.fetch(FetchDescriptor<PlannedMeal>()).first { $0.id == saturday.id }
         )
-        #expect(movedSaturday.recipies.map(\.id) == [recipie.id])
+        #expect(movedSaturday.components.map(\.source) == [.recipe(recipie.id)])
     }
 
     @Test func plannedMealDerivesItsDisplayNameFromMainsAndSides() {
-        let starter = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
-        let main = Recipie(name: "Roast chicken", mealType: .dinner, course: .main)
-        let side = Recipie(name: "Mashed potatoes", mealType: .dinner, course: .side)
+        let starter = Recipie(name: "Tomato soup")
+        let main = Recipie(name: "Roast chicken")
+        let side = Recipie(name: "Mashed potatoes")
         let category = Category(name: "Prepared", order: 0)
         let readySide = Item(
             name: "Peas",
             category: category,
             kind: .readymeal,
-            readymealData: ReadymealData(mealType: MealType.dinner.rawValue, course: CourseType.side.rawValue)
+            readymealData: ReadymealData()
         )
         let meal = PlannedMeal(
             mealType: .dinner,
-            recipies: [starter, main, side],
-            readymeals: [readySide]
+            components: [
+                MealComponent(recipe: starter, course: .starter),
+                MealComponent(recipe: main, course: .main),
+                MealComponent(recipe: side, course: .side),
+                MealComponent(readymeal: readySide, course: .side),
+            ]
         )
 
         #expect(meal.displayName == "Roast chicken, Mashed potatoes, Peas")
 
-        meal.recipies = [main]
-        meal.readymeals = []
+        meal.components = [MealComponent(recipe: side, course: .side), MealComponent(recipe: main, course: .main)]
+        #expect(meal.displayName == "Roast chicken, Mashed potatoes")
+
+        meal.components = [MealComponent(recipe: main, course: .main)]
         #expect(meal.displayName == "Roast chicken")
     }
 
     @Test func plannedMealDisplayNameFallsBackWhenThereAreNoMainsOrSides() {
-        let starter = Recipie(name: "Tomato soup", mealType: .dinner, course: .starter)
-        let dessert = Recipie(name: "Apple crumble", mealType: .dinner, course: .dessert)
-        let meal = PlannedMeal(mealType: .dinner, recipies: [starter, dessert])
+        let starter = Recipie(name: "Tomato soup")
+        let dessert = Recipie(name: "Apple crumble")
+        let meal = PlannedMeal(mealType: .dinner, components: [MealComponent(recipe: starter, course: .starter), MealComponent(recipe: dessert, course: .dessert)])
 
         #expect(meal.displayName == "Tomato soup, Apple crumble")
         #expect(PlannedMeal(mealType: .dinner).displayName == "No dishes")
@@ -344,15 +358,15 @@ struct meal_planner_iosTests {
         let category = Category(name: "Food", order: 0)
         let unit = Unit(name: "count", type: .count, magnitudes: [])
         let item = Item(name: "Apples", category: category, kind: .ingredient)
-        let recipe = Recipie(name: "Apple salad", mealType: .lunch, course: .main)
-        let template = Meal(name: "Lunch", mealType: .lunch, recipies: [recipe])
+        let recipe = Recipie(name: "Apple salad")
+        let template = Meal(name: "Lunch", mealType: .lunch, components: [MealComponent(recipe: recipe)])
         context.insert(category)
         context.insert(unit)
         context.insert(item)
         context.insert(recipe)
         context.insert(template)
-        context.insert(PlannedMeal(mealType: .lunch, sourceMealID: template.id, recipies: [recipe]))
-        context.insert(PlannedMeal(mealType: .dinner, day: .monday, readymeals: [item]))
+        context.insert(PlannedMeal(mealType: .lunch, sourceMealID: template.id, components: [MealComponent(recipe: recipe)]))
+        context.insert(PlannedMeal(mealType: .dinner, day: .monday, components: [MealComponent(ingredient: item, unit: unit, quantity: 1)]))
         context.insert(PlannedMiscEntry(item: item, unit: unit))
         context.insert(PlannedMiscEntry(note: PlannedMiscNote(text: "Candles", category: category), unit: unit))
         context.insert(ShoppingListEntry(name: "Apples", quantity: 2, item: item, category: category, unit: unit))
@@ -400,8 +414,6 @@ struct meal_planner_iosTests {
             category: prepared,
             kind: .readymeal,
             readymealData: ReadymealData(
-                mealType: MealType.dinner.rawValue,
-                course: CourseType.main.rawValue,
                 serves: 3,
                 time: 5
             )
@@ -433,8 +445,7 @@ struct meal_planner_iosTests {
         context.insert(PlannedMeal(
             mealType: .dinner,
             servings: 4,
-            recipies: [firstRecipe, secondRecipe],
-            readymeals: [readymeal]
+            components: [MealComponent(recipe: firstRecipe), MealComponent(recipe: secondRecipe), MealComponent(readymeal: readymeal)]
         ))
         context.insert(PlannedMiscEntry(
             item: carrots,

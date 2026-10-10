@@ -1,5 +1,33 @@
 # Meal Planner
 
+## Dishes and portions in meals
+
+Saved and planned meals contain components referencing recipes, ready meals, or
+ingredients served directly. Each component owns its course, so the same soup
+can be a starter in one meal and a main in another. Breakfast, lunch, and dinner
+belong to the meal; recipe yield and cooking time, and ready-meal servings and
+reheating time, belong to the catalogue entry.
+
+Adding a main, side, starter, or dessert opens a searchable catalogue with a
+Recipes/Items switch. Recipes is selected initially and includes recipes and
+ready meals; Items contains ingredients. Selecting an ingredient opens a quantity
+and unit editor **per person**. For example, a light lunch can include half an
+apple, while a hiking lunch can include two apples. Tap an ingredient in a meal
+to edit its portion.
+
+In Edit mode, drag the handle beside a dish to change its order or move it to
+another course, including an empty course. Use the remove button beside a dish
+to delete it. The order and courses are preserved when the meal is reopened.
+
+Components belong to the meal, so the ingredient catalogue needs no serving
+defaults. Planning a saved meal copies its components; changing that planned meal
+does not change the saved meal. Shopping-list generation scales ingredient
+portions by planned servings and combines them with the same ingredients used
+in recipes.
+
+This alpha schema uses a fresh named `MealPlanner` store and starts with sample
+data. There is no migration from the previous database.
+
 ## Recipe import playground
 
 Open `playgrounds/RecipieImportPlayground.swift`, select the **meal-planner-ios** scheme

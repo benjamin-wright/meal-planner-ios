@@ -11,10 +11,11 @@ import SwiftData
 enum DishID: Identifiable, Hashable {
     case recipe(UUID)
     case readymeal(UUID)
+    case ingredient(UUID)
 
     var id: UUID {
         switch self {
-        case .recipe(let id), .readymeal(let id):
+        case .recipe(let id), .readymeal(let id), .ingredient(let id):
             return id
         }
     }
@@ -24,9 +25,9 @@ struct MealDraft: Hashable {
     enum ValidationError: Hashable, LocalizedError {
         case nameTooShort
         case duplicateName
-        case invalidServings
-        case missingDays
         case noDishes
+        case invalidPortion
+        case duplicateComponent
 
         var errorDescription: String? {
             switch self {
@@ -34,40 +35,38 @@ struct MealDraft: Hashable {
                 return "Meal names must be at least 3 characters."
             case .duplicateName:
                 return "A meal with this name already exists."
-            case .invalidServings:
-                return "Meals must serve at least one person."
-            case .missingDays:
-                return "Meals must be assigned to at least one day."
             case .noDishes:
                 return "Please add at least one dish."
+            case .invalidPortion:
+                return "Ingredient portions need a valid unit and a finite quantity greater than zero."
+            case .duplicateComponent:
+                return "Each dish must have its own identifier."
             }
         }
     }
 
     var name: String
     var mealType: MealType
-    var dishes: [DishID]
+    var components: [MealComponentDraft]
 
     init(mealType: MealType = .dinner) {
         self.name = ""
         self.mealType = mealType
-        self.dishes = []
+        self.components = []
     }
 
     init(plannedMeal: PlannedMealDraft, mealType: MealType) {
         self.name = ""
         self.mealType = mealType
-        self.dishes = plannedMeal.dishes
+        self.components = plannedMeal.components.map { MealComponentDraft(copying: $0) }
     }
 
     init(meal: Meal) {
         self.name = meal.name
         self.mealType = meal.mealType
-        self.dishes = meal.recipies.map { .recipe($0.id) }
-            + meal.readymeals.map { .readymeal($0.id) }
+        self.components = meal.orderedComponents.map { MealComponentDraft(component: $0) }
     }
 
-    /// Mirrors the `validate` function from the TS model.
     func validate(existingNames: [String] = []) -> [ValidationError] {
         var errors: [ValidationError] = []
 
@@ -77,8 +76,14 @@ struct MealDraft: Hashable {
         if existingNames.contains(name) {
             errors.append(.duplicateName)
         }
-        if dishes.isEmpty {
+        if components.isEmpty {
             errors.append(.noDishes)
+        }
+        if !components.allSatisfy(\.hasValidPortion) {
+            errors.append(.invalidPortion)
+        }
+        if Set(components.map(\.id)).count != components.count {
+            errors.append(.duplicateComponent)
         }
 
         return errors
@@ -91,30 +96,35 @@ final class Meal {
     var id: UUID = UUID()
     var name: String = ""
     var mealType: MealType
-    @Relationship(deleteRule: .nullify)
-    var recipies: [Recipie]
-    @Relationship(deleteRule: .nullify)
-    var readymeals: [Item]
+    @Relationship(deleteRule: .cascade, inverse: \MealComponent.meal)
+    var components: [MealComponent] = []
 
     init(
         id: UUID = UUID(),
         name: String = "",
         mealType: MealType,
-        recipies: [Recipie] = [],
-        readymeals: [Item] = []
+        components: [MealComponent] = []
     ) {
         self.id = id
         self.name = name
         self.mealType = mealType
-        self.recipies = recipies
-        self.readymeals = readymeals
+        self.components = components
+        components.enumerated().forEach { index, component in
+            component.sortOrder = index
+            component.meal = self
+        }
     }
 
-    /// Mirrors the `validate` function from the TS model.
+    var orderedComponents: [MealComponent] {
+        components.sorted {
+            $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
+        }
+    }
+
     var isValid: Bool {
-        if name.count < 3 { return false }
-        if recipies.isEmpty && readymeals.isEmpty { return false }
-        return true
+        name.count >= 3 && !components.isEmpty && components.allSatisfy {
+            $0.source != nil && MealComponentDraft(component: $0).hasValidPortion
+        }
     }
 }
 

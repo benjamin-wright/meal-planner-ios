@@ -14,10 +14,13 @@ struct PlannedMealEdit: View {
     @State private var isLoading = false
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
+    @State private var isReorderingComponents = false
+    @State private var componentScroller = MealComponentScrollController()
     @Query private var plannedMeals: [PlannedMeal]
     @Query private var meals: [Meal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
+    @Query private var units: [Unit]
 
     init(id: UUID? = nil, mealType: MealType = .dinner, day: Day? = nil) {
         self.id = id
@@ -80,97 +83,64 @@ struct PlannedMealEdit: View {
         router.path.append(.newMealDraft(mealDraft))
     }
 
-    private func dishes(for course: CourseType) -> [(DishID, String)] {
-        draft.dishes.compactMap { dish in
-            switch dish {
-            case .recipe(let id):
-                guard let recipie = recipies.first(where: { $0.id == id }), recipie.courseEnum == course else { return nil }
-                return (dish, recipie.name)
-            case .readymeal(let id):
-                guard let item = items.first(where: { $0.id == id }),
-                      item.itemKind == .readymeal,
-                      item.readymealData?.courseEnum == course else { return nil }
-                return (dish, item.name)
-            }
-        }
-    }
-
     private func addDish(course: CourseType) {
-        router.showDishPicker(
-            selectedID: .recipe(UUID()),
-            courseFilter: course,
-            mealFilter: mealType
-        ) { dish in
-            guard !draft.dishes.contains(dish) else { return }
-            draft.dishes.append(dish)
+        router.showDishPicker(course: course) { component in
+            draft.components.append(component)
         }
     }
 
-    private func courseRows(_ course: CourseType) -> some View {
-        let courseDishes = dishes(for: course)
-        return Group {
-            Text(course.label)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ForEach(courseDishes, id: \.0) { dish, name in
-                HStack {
-                    Text(name)
-                    Spacer()
-                    if case .readymeal = dish {
-                        Image(systemName: "microwave")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .onDelete { offsets in
-                let deleted = offsets.map { courseDishes[$0].0 }
-                draft.dishes.removeAll { deleted.contains($0) }
-            }
-            Button { addDish(course: course) } label: {
-                Label("Add \(course.label.lowercased())", systemImage: "plus")
-                    .foregroundStyle(.tint)
-            }
-            .disabled(editMode.isEditing)
+    private func editComponent(_ component: MealComponentDraft) {
+        router.showMealComponent(component, isEditing: true) { updated in
+            guard let index = draft.components.firstIndex(where: { $0.id == updated.id }) else { return }
+            draft.components[index] = updated
         }
     }
 
     var body: some View {
-        GlassForm {
-            Section {
-                if let validationError = validationErrors.first {
-                    Text(validationError.localizedDescription)
-                        .foregroundStyle(.red)
+        GeometryReader { geometry in
+            GlassForm {
+                Section {
+                    if let validationError = validationErrors.first {
+                        Text(validationError.localizedDescription)
+                            .foregroundStyle(.red)
+                    }
+                    IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
+                        .background(MealComponentScrollProbe(controller: componentScroller))
+                    Button("Choose Saved Meal", action: chooseTemplate)
+                } header: {
+                    GlassSectionHeader(title: "Details")
                 }
-                IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
-                Button("Choose Saved Meal", action: chooseTemplate)
-            } header: {
-                GlassSectionHeader(title: "Details")
-            }
-            Section {
-                courseRows(.starter)
-                courseRows(.main)
-                courseRows(.side)
-                courseRows(.dessert)
-            } header: {
-                GlassSectionHeader(title: "Dishes")
-            }
-            HStack(spacing: 12) {
-                Button(action: save) {
-                    Text(id == nil ? "Add" : "Save")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderless)
+                MealComponentsEditor(
+                    components: $draft.components,
+                    isEditing: editMode.isEditing,
+                    recipies: recipies,
+                    items: items,
+                    units: units,
+                    onAdd: addDish,
+                    onEditPortion: editComponent,
+                    onReorderingChanged: { isReorderingComponents = $0 },
+                    viewport: geometry.frame(in: .global),
+                    scrollBy: { componentScroller.scroll(by: $0) }
+                )
+                HStack(spacing: 12) {
+                    Button(action: save) {
+                        Text(id == nil ? "Add" : "Save")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderless)
 
-                Button(action: saveAsMeal) {
-                    Image(systemName: "square.and.arrow.down")
-                        .frame(width: 20, height: 20)
+                    Button(action: saveAsMeal) {
+                        Image(systemName: "square.and.arrow.down")
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.circle)
+                    .accessibilityLabel("Save as Meal")
+                    .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
                 }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.circle)
-                .accessibilityLabel("Save as Meal")
-                .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
+                .disabled(editMode.isEditing || !validationErrors.isEmpty)
             }
-            .disabled(editMode.isEditing || !validationErrors.isEmpty)
+            .scrollDisabled(isReorderingComponents)
         }
         .toolbar { EditButton() }
         .environment(\.editMode, $editMode)

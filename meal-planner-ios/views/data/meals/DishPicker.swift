@@ -1,139 +1,136 @@
-//
-//  DishPicker.swift
-//  meal-planner-ios
-//
-//  Created by Benjamin Wright on 09/09/2026.
-//
-
 import SwiftUI
 import SwiftData
 
 struct DishPicker: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let recipies: [Recipie]
-    let readymeals: [Item]
+    let items: [Item]
+    let units: [Unit]
     @Binding var selectedID: DishID
-    @State private var search = ""
-    @State private var courseFilter: CourseType
-    @State private var mealFilter: MealType
+    var course: CourseType = .main
 
-    init(
-        recipies: [Recipie],
-        readymeals: [Item],
-        selectedID: Binding<DishID>,
-        initialCourseFilter: CourseType = .main,
-        initialMealFilter: MealType = .dinner
-    ) {
-        self.recipies = recipies
-        self.readymeals = readymeals
-        self._selectedID = selectedID
-        self._courseFilter = State(initialValue: initialCourseFilter)
-        self._mealFilter = State(initialValue: initialMealFilter)
+    @State private var search = ""
+    @State private var isSearchPresented = false
+    @State private var catalogue: Catalogue = .recipes
+    @State private var selectionError: String?
+
+    private enum Catalogue: String, LabeledEnum {
+        case recipes = "Recipes"
+        case items = "Items"
+
+        var id: Self { self }
+        var label: String { rawValue }
     }
 
     private struct Option: Identifiable {
         let dish: DishID
         let name: String
-        let kind: String
-        let course: CourseType
-        let meal: MealType
+        var category: String = ""
 
         var id: DishID { dish }
     }
 
     private var dishes: [Option] {
         let recipes = recipies.map {
-            Option(dish: .recipe($0.id), name: $0.name, kind: "Recipe", course: $0.courseEnum, meal: $0.mealTypeEnum)
+            Option(dish: .recipe($0.id), name: $0.name)
         }
-        let readyMeals = readymeals
-            .filter { $0.itemKind == .readymeal }
-            .map {
-                Option(
-                    dish: .readymeal($0.id),
-                    name: $0.name,
-                    kind: "Ready Meal",
-                    course: $0.readymealData?.courseEnum ?? .main,
-                    meal: $0.readymealData?.mealTypeEnum ?? .dinner
-                )
-            }
+        let readyMeals = items.filter { $0.itemKind == .readymeal }.map {
+            Option(dish: .readymeal($0.id), name: $0.name, category: $0.category.name)
+        }
+        let ingredients = items.filter { $0.itemKind == .ingredient }.map {
+            Option(dish: .ingredient($0.id), name: $0.name, category: $0.category.name)
+        }
 
-        return (recipes + readyMeals)
-            .filter { $0.course == courseFilter }
-            .filter { $0.meal == mealFilter }
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+        return (catalogue == .recipes ? recipes + readyMeals : ingredients)
+            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
+                || $0.category.localizedCaseInsensitiveContains(search) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func select(_ dish: DishID) {
+        isSearchPresented = false
+        if case .ingredient = dish {
+            guard let unit = units.first(where: { $0.unitType == .count && $0.magnitudes.isEmpty })
+                    ?? units.first(where: { $0.unitType == .count })
+                    ?? units.first else {
+                selectionError = "Add a unit in Data before adding an ingredient portion."
+                return
+            }
+            router.showMealComponent(
+                MealComponentDraft(source: dish, course: course, quantity: 1, unitID: unit.id),
+                isEditing: false,
+                dismissDishPickerOnSave: true,
+                onSave: router.selectDishComponent
+            )
+        } else {
+            router.selectDishComponent(MealComponentDraft(source: dish, course: course))
+            dismiss()
+        }
+    }
+
+    private func create(_ route: FlowRouter.Route, in catalogue: Catalogue) {
+        self.catalogue = catalogue
+        search = ""
+        isSearchPresented = false
+        router.path.append(route)
     }
 
     var body: some View {
         VStack {
-            Picker("Meal", selection: $mealFilter) {
-                ForEach(MealType.allCases, id: \.id) { meal in
-                    Text(meal.label).tag(Optional(meal))
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            Picker("Course", selection: $courseFilter) {
-                ForEach(CourseType.allCases, id: \.id) { course in
-                    Text(course.label).tag(Optional(course))
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-
+            EnumPicker(label: "Catalogue", selection: $catalogue)
+                .padding(.horizontal)
             GlassList {
                 ForEach(dishes) { dish in
                     Button {
-                        router.selectDish(dish.dish)
-                        dismiss()
+                        select(dish.dish)
                     } label: {
                         HStack {
-                            VStack(alignment: .leading) {
-                                Text(dish.name)
-                            }
+                            Text(dish.name)
+                                .lineLimit(1)
                             Spacer()
-                            if dish.kind == "Ready Meal" {
-                                Image(systemName: "microwave")
-                                    .foregroundStyle(.secondary)
-                                    .accessibilityLabel("Ready meal")
-                            }
                             if dish.dish == selectedID {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.tint)
                             }
                         }
                     }
+                    .accessibilityIdentifier("dishOption-\(dish.dish)")
                 }
             }
-            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
+            .searchable(text: $search, isPresented: $isSearchPresented, placement: .navigationBarDrawer(displayMode: .always))
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Add") {
-                    router.path.append(.newRecipie(mealFilter, courseFilter))
+                Menu("Add", systemImage: "plus") {
+                    Button("Recipe") { create(.newRecipie, in: .recipes) }
+                    Button("Ready Meal") { create(.newItemOfKind(.readymeal), in: .recipes) }
+                    Button("Ingredient") { create(.newItemOfKind(.ingredient), in: .items) }
                 }
             }
         }
         .navigationTitle("Dish")
+        .alert("Ingredient Portion", isPresented: Binding(
+            get: { selectionError != nil },
+            set: { if !$0 { selectionError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(selectionError ?? "")
+        }
     }
 }
 
 private struct DishPickerPreview: View {
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
+    @Query private var units: [Unit]
     @State private var selectedID: DishID = .recipe(UUID())
-
-    init() {}
 
     var body: some View {
         FlowContainer {
-            DishPicker(
-                recipies: recipies,
-                readymeals: items,
-                selectedID: $selectedID
-            )
+            DishPicker(recipies: recipies, items: items, units: units, selectedID: $selectedID)
         }
     }
 }

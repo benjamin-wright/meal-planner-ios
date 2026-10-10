@@ -54,6 +54,8 @@ struct FlowDestination: View {
             ItemPicker(items: items, selectedID: $router.selectedItemID)
         case .newItem:
             ItemEdit()
+        case .newItemOfKind(let kind):
+            ItemEdit(kind: kind)
         case .editItem(let id):
             ItemEdit(id: id)
         case .unitPicker(let typeFilter):
@@ -62,19 +64,32 @@ struct FlowDestination: View {
             UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
-        case .dishPicker(let courseFilter, let mealFilter):
+        case .dishPicker(let course):
             DishPicker(
                 recipies: recipies,
-                readymeals: items,
+                items: items,
+                units: units,
                 selectedID: $router.selectedDishID,
-                initialCourseFilter: courseFilter,
-                initialMealFilter: mealFilter
+                course: course
             )
-        case .newRecipie(let mealType, let courseType):
-            RecipieEdit(mealType: mealType, courseType: courseType)
+        case .mealComponent:
+            if let component = router.mealComponent {
+                MealComponentEdit(
+                    value: component,
+                    isEditing: router.isEditingMealComponent,
+                    recipies: recipies,
+                    items: items,
+                    units: units,
+                    onSave: router.saveMealComponent
+                )
+            } else {
+                ContentUnavailableView("Dish Not Found", systemImage: "exclamationmark.triangle")
+            }
+        case .newRecipie:
+            RecipieEdit()
         case .editRecipie(let id):
-            if let recipie = recipies.first(where: { $0.id == id }) {
-                RecipieEdit(id: id, mealType: recipie.mealTypeEnum, courseType: recipie.courseEnum)
+            if recipies.contains(where: { $0.id == id }) {
+                RecipieEdit(id: id)
             } else {
                 ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
             }

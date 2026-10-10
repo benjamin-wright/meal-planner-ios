@@ -22,7 +22,10 @@ struct MealEdit: View {
     @Query private var existingMeals: [Meal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
+    @Query private var units: [Unit]
     @State private var editMode: EditMode = .inactive
+    @State private var isReorderingComponents = false
+    @State private var componentScroller = MealComponentScrollController()
 
     init(id: UUID? = nil, mealType: MealType) {
         self.id = id
@@ -56,99 +59,53 @@ struct MealEdit: View {
         }
     }
 
-    private func newDish(course: CourseType, meal: MealType) {
-        router.showDishPicker(
-            selectedID: .recipe(UUID()),
-            courseFilter: course,
-            mealFilter: meal
-        ) { dish in
-            guard !draft.dishes.contains(dish) else { return }
-            draft.dishes.append(dish)
+    private func newDish(course: CourseType) {
+        router.showDishPicker(course: course) { component in
+            draft.components.append(component)
         }
     }
 
-    private func dishes(for course: CourseType) -> [(dish: DishID, name: String)] {
-        draft.dishes.compactMap { dish in
-            switch dish {
-            case .recipe(let id):
-                guard let recipie = recipies.first(where: { $0.id == id }),
-                      recipie.courseEnum == course else { return nil }
-                return (dish, recipie.name)
-            case .readymeal(let id):
-                guard let item = items.first(where: { $0.id == id }),
-                      item.itemKind == .readymeal,
-                      let data = item.readymealData,
-                      data.courseEnum == course else { return nil }
-                return (dish, item.name)
-            }
-        }
-        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    private func deleteDishes(at offsets: IndexSet, for course: CourseType) {
-        let courseDishes = dishes(for: course)
-        let dishesToDelete = offsets.map { courseDishes[$0].dish }
-        draft.dishes.removeAll { dishesToDelete.contains($0) }
-    }
-    
-    private func courseRow(course: CourseType) -> some View {
-        Section {
-            let courseDishes = dishes(for: course)
-            if !courseDishes.isEmpty {
-                ForEach(courseDishes, id: \.dish) { dish in
-                    HStack {
-                        Text(dish.name)
-                        Spacer()
-                        if case .readymeal = dish.dish {
-                            Image(systemName: "microwave")
-                                .foregroundStyle(.secondary)
-                                .accessibilityLabel("Ready meal")
-                        }
-                    }
-                }
-                .onDelete { offsets in
-                    deleteDishes(at: offsets, for: course)
-                }
-            }
-        } header: {
-            HStack {
-                Text(course.label)
-                Spacer()
-                Button {
-                    newDish(course: course, meal: draft.mealType)
-                } label: {
-                    Image(systemName: "plus")
-                        .accessibilityLabel("Add \(course.label) dish")
-                }
-                .disabled(editMode.isEditing)
-            }
+    private func editComponent(_ component: MealComponentDraft) {
+        router.showMealComponent(component, isEditing: true) { updated in
+            guard let index = draft.components.firstIndex(where: { $0.id == updated.id }) else { return }
+            draft.components[index] = updated
         }
     }
-        
 
     var body: some View {
         Group {
             if isLoading {
                 ProgressView()
             } else {
-                GlassForm {
-                    Section("Details") {
-                        TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
-                        EnumPicker(label: "Meal", selection: $draft.mealType)
-                        if let validationError = validationErrors.first {
-                            Text(validationError.localizedDescription)
-                                .foregroundStyle(.red)
+                GeometryReader { geometry in
+                    GlassForm {
+                        Section("Details") {
+                            TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
+                                .background(MealComponentScrollProbe(controller: componentScroller))
+                            EnumPicker(label: "Meal", selection: $draft.mealType)
+                            if let validationError = validationErrors.first {
+                                Text(validationError.localizedDescription)
+                                    .foregroundStyle(.red)
+                            }
                         }
-                    }
-                    
-                    courseRow(course: .starter)
-                    courseRow(course: .main)
-                    courseRow(course: .side)
-                    courseRow(course: .dessert)
-                    
 
-                    Button(isEditing ? "Save" : "Add", action: save)
-                        .disabled(editMode.isEditing || !validationErrors.isEmpty)
+                        MealComponentsEditor(
+                            components: $draft.components,
+                            isEditing: editMode.isEditing,
+                            recipies: recipies,
+                            items: items,
+                            units: units,
+                            onAdd: newDish,
+                            onEditPortion: editComponent,
+                            onReorderingChanged: { isReorderingComponents = $0 },
+                            viewport: geometry.frame(in: .global),
+                            scrollBy: { componentScroller.scroll(by: $0) }
+                        )
+
+                        Button(isEditing ? "Save" : "Add", action: save)
+                            .disabled(editMode.isEditing || !validationErrors.isEmpty)
+                    }
+                    .scrollDisabled(isReorderingComponents)
                 }
             }
         }

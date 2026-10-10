@@ -33,6 +33,7 @@ class Models {
             try Models.clear(PlannedMiscEntry.self, context)
             try Models.clear(PlannedMeal.self, context)
             try Models.clear(Meal.self, context)
+            try Models.clear(MealComponent.self, context)
             try Models.clear(Recipie.self, context)
             try Models.clear(Item.self, context)
             try Models.clear(Category.self, context)
@@ -53,12 +54,13 @@ class Models {
             AppSettings.self,
             Item.self,
             Recipie.self,
+            MealComponent.self,
             Meal.self,
             PlannedMeal.self,
             PlannedMiscEntry.self,
             ShoppingListEntry.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: testing)
+        let modelConfiguration = ModelConfiguration("MealPlanner", schema: schema, isStoredInMemoryOnly: testing)
 
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -149,15 +151,13 @@ class Models {
         let paracetamol = Item(name: "paracetamol", category: drugCategory, kind: .misc)
         let dishwasherTablets = Item(name: "dishwasher tablets", category: householdCategory, kind: .misc)
         let pastaPot = Item(name: "pasta pot", category: precookedCategory, kind: .readymeal, readymealData: ReadymealData(
-            mealType: MealType.dinner.rawValue, course: CourseType.main.rawValue, serves: 1, time: 5
+            serves: 1, time: 5
         ))
         let fruitPot = Item(
             name: "fruit pot",
             category: precookedCategory,
             kind: .readymeal,
             readymealData: ReadymealData(
-                mealType: MealType.breakfast.rawValue,
-                course: CourseType.main.rawValue,
                 serves: 1,
                 time: 0
             )
@@ -181,8 +181,6 @@ class Models {
         
         let carrotSoup = Recipie(
             name: "carrot soup",
-            mealType: .lunch,
-            course: .starter,
             summary: "A warming carrot and rosemary soup",
             serves: 4,
             time: 35,
@@ -207,8 +205,6 @@ class Models {
         )
         let roastChicken = Recipie(
             name: "roast chicken",
-            mealType: .dinner,
-            course: .main,
             summary: "Rosemary roast chicken",
             serves: 4,
             time: 60,
@@ -228,8 +224,6 @@ class Models {
         )
         let mashedPotatoes = Recipie(
             name: "mashed potatoes",
-            mealType: .dinner,
-            course: .side,
             summary: "Creamy mashed potatoes",
             serves: 4,
             time: 25,
@@ -249,8 +243,6 @@ class Models {
         )
         let salmonSalad = Recipie(
             name: "salmon salad",
-            mealType: .lunch,
-            course: .main,
             summary: "A light salmon and apple salad",
             serves: 2,
             time: 20,
@@ -262,8 +254,6 @@ class Models {
         )
         let breakfastLoaf = Recipie(
             name: "breakfast loaf",
-            mealType: .breakfast,
-            course: .main,
             summary: "A simple apple breakfast loaf",
             serves: 6,
             time: 45,
@@ -276,8 +266,6 @@ class Models {
         )
         let appleCrumble = Recipie(
             name: "apple crumble",
-            mealType: .dinner,
-            course: .dessert,
             summary: "Baked apples with a crisp topping",
             serves: 4,
             time: 40,
@@ -298,23 +286,29 @@ class Models {
         let roastChickenMeal = Meal(
             name: "Roast Chicken Dinner",
             mealType: .dinner,
-            recipies: [roastChicken, mashedPotatoes, appleCrumble]
+            components: [
+                MealComponent(recipe: roastChicken, course: .main),
+                MealComponent(recipe: mashedPotatoes, course: .side),
+                MealComponent(recipe: appleCrumble, course: .dessert),
+            ]
         )
         let salmonLunch = Meal(
             name: "Salmon Lunch",
             mealType: .lunch,
-            recipies: [salmonSalad]
+            components: [MealComponent(recipe: salmonSalad, course: .main)]
         )
         let breakfast = Meal(
             name: "Breakfast",
             mealType: .breakfast,
-            recipies: [breakfastLoaf],
-            readymeals: [fruitPot]
+            components: [
+                MealComponent(recipe: breakfastLoaf, course: .main),
+                MealComponent(readymeal: fruitPot, course: .side),
+            ]
         )
         let quickDinner = Meal(
             name: "Quick Dinner",
             mealType: .dinner,
-            readymeals: [pastaPot]
+            components: [MealComponent(readymeal: pastaPot, course: .main)]
         )
         
         context.insert(roastChickenMeal)
@@ -327,29 +321,28 @@ class Models {
             sortOrder: 0,
             sourceMealID: breakfast.id,
             servings: 2,
-            recipies: breakfast.recipies,
-            readymeals: breakfast.readymeals
+            components: breakfast.orderedComponents.map { MealComponent(copying: $0) }
         )
         let plannedLunch = PlannedMeal(
             mealType: .lunch,
             sortOrder: 0,
             sourceMealID: salmonLunch.id,
             servings: 2,
-            recipies: salmonLunch.recipies
+            components: salmonLunch.orderedComponents.map { MealComponent(copying: $0) }
         )
         let saturdayDinner = PlannedMeal(
             mealType: .dinner,
             day: .saturday,
             sourceMealID: roastChickenMeal.id,
             servings: 4,
-            recipies: roastChickenMeal.recipies
+            components: roastChickenMeal.orderedComponents.map { MealComponent(copying: $0) }
         )
         let sundayDinner = PlannedMeal(
             mealType: .dinner,
             day: .sunday,
             sourceMealID: quickDinner.id,
             servings: 2,
-            readymeals: quickDinner.readymeals
+            components: quickDinner.orderedComponents.map { MealComponent(copying: $0) }
         )
 
         context.insert(plannedBreakfast)

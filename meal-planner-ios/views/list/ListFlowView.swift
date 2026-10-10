@@ -18,7 +18,19 @@ private struct ShoppingListSection: Identifiable {
     let id: UUID?
     let name: String
     let order: Int
-    let entries: [ShoppingListEntry]
+    let entries: [ShoppingListRow]
+}
+
+/// Values captured before SwiftUI retains a row for a deferred render or transition.
+private struct ShoppingListRow: Identifiable {
+    let id: UUID
+    let name: String
+    let formattedQuantity: String
+    let isChecked: Bool
+    let sortOrder: Int
+    let categoryID: UUID?
+    let categoryName: String
+    let categoryOrder: Int
 }
 
 private struct ShoppingListView: View {
@@ -34,14 +46,35 @@ private struct ShoppingListView: View {
 
     private static let completionDelay: TimeInterval = 3
 
+    private var rows: [ShoppingListRow] {
+        entries.compactMap { entry in
+            guard !entry.isDeleted, entry.modelContext === context else { return nil }
+            let category = entry.category.flatMap { category in
+                !category.isDeleted && category.modelContext === context ? category : nil
+            }
+            let unit = entry.unit.flatMap { unit in
+                !unit.isDeleted && unit.modelContext === context ? unit : nil
+            }
+            return ShoppingListRow(
+                id: entry.id,
+                name: entry.name,
+                formattedQuantity: unit?.toString(forValue: entry.quantity) ?? String(format: "%g", entry.quantity),
+                isChecked: entry.isChecked,
+                sortOrder: entry.sortOrder,
+                categoryID: category?.id,
+                categoryName: category?.name ?? "Uncategorized",
+                categoryOrder: category?.order ?? Int.max
+            )
+        }
+    }
+
     private var sections: [ShoppingListSection] {
-        let grouped = Dictionary(grouping: entries) { $0.category?.id }
+        let grouped = Dictionary(grouping: rows, by: \.categoryID)
         return grouped.map { categoryID, entries in
-            let category = entries.compactMap(\.category).first
             return ShoppingListSection(
                 id: categoryID,
-                name: category?.name ?? "Uncategorized",
-                order: category?.order ?? Int.max,
+                name: entries.first?.categoryName ?? "Uncategorized",
+                order: entries.first?.categoryOrder ?? Int.max,
                 entries: entries.sorted {
                     let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
                     return comparison == .orderedSame ? $0.sortOrder < $1.sortOrder : comparison == .orderedAscending
@@ -64,13 +97,13 @@ private struct ShoppingListView: View {
         }
     }
 
-    private func toggle(_ entry: ShoppingListEntry) {
+    private func toggle(_ entry: ShoppingListRow) {
         let checking = !entry.isChecked
         do {
             try ShoppingListStore(context: context).setChecked(checking, id: entry.id)
             if checking {
                 restartCompletionTimer()
-            } else if !entries.contains(where: { $0.id != entry.id && $0.isChecked }) {
+            } else if !rows.contains(where: { $0.id != entry.id && $0.isChecked }) {
                 cancelCompletionTimer()
             }
         } catch {
@@ -137,7 +170,7 @@ private struct ShoppingListView: View {
 
     var body: some View {
         GlassList {
-            if entries.isEmpty {
+            if rows.isEmpty {
                 ContentUnavailableView {
                     Label("Shopping List Is Empty", systemImage: "cart")
                 } description: {
@@ -206,7 +239,7 @@ private struct ShoppingListView: View {
             .presentationBackground(.thinMaterial)
         }
         .onAppear {
-            if entries.contains(where: \.isChecked) { restartCompletionTimer() }
+            if rows.contains(where: \.isChecked) { restartCompletionTimer() }
         }
         .onDisappear { cancelCompletionTimer() }
         .alert("Shopping List", isPresented: Binding(

@@ -9,21 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct RecipiesView: View {
-    @State var mealType: MealType = .dinner
-    @State var course: CourseType = .main
-    
     var body: some View {
-        VStack {
-            VStack(spacing: 8) {
-                EnumPicker(label: "Meal", selection: $mealType)
-                EnumPicker(label: "Course", selection: $course)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-
-            RecipiesFilteredView(mealType: mealType, course: course)
-        }
-        .navigationTitle("Recipies")
+        RecipiesFilteredView()
+            .navigationTitle("Recipies")
     }
 }
 

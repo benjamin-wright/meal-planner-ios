@@ -67,6 +67,9 @@ final class ShoppingListStore {
         case missingSettings
         case missingCountUnit
         case invalidRecipe(String)
+        case invalidMealIngredient(String)
+        case invalidMealIngredientItem(String)
+        case missingMealComponentReference
         case incompleteMiscEntry(String)
         case incompatibleUnits
         case emptyName
@@ -83,6 +86,12 @@ final class ShoppingListStore {
                 return "Add a count unit before generating ready meals."
             case .invalidRecipe(let name):
                 return "\(name) must serve at least one person before the list can be generated."
+            case .invalidMealIngredient(let name):
+                return "The portion of \(name) must be a valid quantity greater than zero."
+            case .invalidMealIngredientItem(let name):
+                return "\(name) must be an ingredient before it can be added directly to a meal."
+            case .missingMealComponentReference:
+                return "A recipe, item, or unit used in a planned meal no longer exists."
             case .incompleteMiscEntry(let name):
                 return "\(name) needs a category, unit, and positive quantity."
             case .incompatibleUnits:
@@ -131,6 +140,13 @@ final class ShoppingListStore {
             ?? units.first { $0.unitType == .count }
         let meals = try context.fetch(FetchDescriptor<PlannedMeal>())
         let miscEntries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
+        let itemsByID = Dictionary(
+            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) }
+        )
+        let recipesByID = Dictionary(
+            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Recipie>()).map { ($0.id, $0) }
+        )
+        let unitsByID = Dictionary(uniqueKeysWithValues: units.map { ($0.id, $0) })
         var aggregated: [AggregationKey: PendingEntry] = [:]
         var standalone: [PendingEntry] = []
 
@@ -156,6 +172,9 @@ final class ShoppingListStore {
                 outputUnit = sourceUnit
                 outputQuantity = quantity
             }
+            guard outputQuantity > 0, outputQuantity.isFinite else {
+                throw Error.invalidQuantity
+            }
 
             let key = AggregationKey(
                 itemID: item.id,
@@ -163,7 +182,9 @@ final class ShoppingListStore {
                 countUnitID: sourceUnit.unitType == .count ? sourceUnit.id : nil
             )
             if aggregated[key] != nil {
-                aggregated[key]!.quantity += outputQuantity
+                let total = aggregated[key]!.quantity + outputQuantity
+                guard total.isFinite else { throw Error.invalidQuantity }
+                aggregated[key]!.quantity = total
             } else {
                 aggregated[key] = PendingEntry(
                     name: item.name,
@@ -176,23 +197,41 @@ final class ShoppingListStore {
         }
 
         for meal in meals {
-            for recipie in meal.recipies {
-                guard recipie.serves > 0 else { throw Error.invalidRecipe(recipie.name) }
-                let scale = Double(meal.servings) / Double(recipie.serves)
-                for ingredient in recipie.ingredients {
-                    try add(
-                        item: ingredient.item,
-                        unit: ingredient.unit,
-                        quantity: ingredient.quantity * scale
-                    )
+            for component in meal.components {
+                switch component.source {
+                case .recipe(let id):
+                    guard let recipie = recipesByID[id] else { throw Error.missingMealComponentReference }
+                    guard recipie.serves > 0 else { throw Error.invalidRecipe(recipie.name) }
+                    let scale = Double(meal.servings) / Double(recipie.serves)
+                    for ingredient in recipie.ingredients {
+                        try add(item: ingredient.item, unit: ingredient.unit, quantity: ingredient.quantity * scale)
+                    }
+                case .readymeal(let id):
+                    guard let readymeal = itemsByID[id], readymeal.itemKind == .readymeal else {
+                        throw Error.missingMealComponentReference
+                    }
+                    guard let countUnit else { throw Error.missingCountUnit }
+                    let serves = max(readymeal.readymealData?.serves ?? 1, 1)
+                    let quantity = ceil(Double(meal.servings) / Double(serves))
+                    try add(item: readymeal, unit: countUnit, quantity: quantity)
+                case .ingredient(let id):
+                    guard let item = itemsByID[id],
+                          let unitID = component.unit?.id,
+                          let unit = unitsByID[unitID],
+                          UnitType(rawValue: unit.type) != nil,
+                          unit.base > 0, unit.base.isFinite else {
+                        throw Error.missingMealComponentReference
+                    }
+                    guard item.itemKind == .ingredient else { throw Error.invalidMealIngredientItem(item.name) }
+                    guard let portion = component.quantity, portion > 0, portion.isFinite else {
+                        throw Error.invalidMealIngredient(item.name)
+                    }
+                    let quantity = portion * Double(meal.servings)
+                    guard quantity > 0, quantity.isFinite else { throw Error.invalidMealIngredient(item.name) }
+                    try add(item: item, unit: unit, quantity: quantity)
+                case nil:
+                    throw Error.missingMealComponentReference
                 }
-            }
-
-            for readymeal in meal.readymeals {
-                guard let countUnit else { throw Error.missingCountUnit }
-                let serves = max(readymeal.readymealData?.serves ?? 1, 1)
-                let quantity = ceil(Double(meal.servings) / Double(serves))
-                try add(item: readymeal, unit: countUnit, quantity: quantity)
             }
         }
 

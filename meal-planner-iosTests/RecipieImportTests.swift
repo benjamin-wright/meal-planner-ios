@@ -169,8 +169,9 @@ struct RecipieImportTests {
 
     @MainActor
     @Test func applyingImportKeepsMissingFieldsAndReplacesPresentLists() {
-        var draft = RecipieDraft(.lunch, .starter)
+        var draft = RecipieDraft()
         draft.name = "Original recipe"
+        draft.summary = "Original summary"
         draft.serves = 5
         draft.time = 40
         draft.steps = ["Old step"]
@@ -180,8 +181,7 @@ struct RecipieImportTests {
         #expect(draft.name == "New recipe")
         #expect(draft.serves == 5)
         #expect(draft.time == 40)
-        #expect(draft.mealType == .lunch)
-        #expect(draft.course == .starter)
+        #expect(draft.summary == "Original summary")
         #expect(draft.steps == ["First step", "Second step"])
         #expect(draft.importedIngredients == nil)
     }

@@ -14,6 +14,7 @@ struct ItemEdit: View {
     @Environment(FlowRouter.self) private var router
     
     private let id: UUID?
+    private let initialKind: ItemKind
     private var isEditing: Bool { id != nil }
     
     @State private var draft: ItemDraft?
@@ -22,8 +23,9 @@ struct ItemEdit: View {
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
     
-    init(id: UUID? = nil) {
+    init(id: UUID? = nil, kind: ItemKind = .ingredient) {
         self.id = id
+        self.initialKind = kind
         self._draft = State(initialValue: nil)
     }
     
@@ -38,7 +40,13 @@ struct ItemEdit: View {
     private func loadDraft() {
         do {
             let store = ItemStore(context: context)
-            draft = try id.map(store.draft) ?? store.newDraft()
+            if let id {
+                draft = try store.draft(id: id)
+            } else {
+                var newDraft = try store.newDraft()
+                newDraft.kind = initialKind
+                draft = newDraft
+            }
         } catch {
             saveError = error.localizedDescription
         }
@@ -72,12 +80,8 @@ struct ItemEdit: View {
                         }
                         EnumPicker(selection: draft.kind)
                         if draft.wrappedValue.kind == .readymeal {
-                            EnumPicker(label: "Meal", selection: draft.readymealData.mealTypeEnum)
-                            if draft.wrappedValue.readymealData.mealTypeEnum == .dinner {
-                                EnumPicker(label: "Course", selection: draft.readymealData.courseEnum)
-                            }
                             IntegerInput(number: draft.readymealData.serves, label: "Serves", placeholder: "number of portions")
-                            IntegerInput(number: draft.readymealData.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
+                            IntegerInput(number: draft.readymealData.time, label: "Reheat Time", placeholder: "minutes to reheat", step: 5)
                         }
                         if draft.wrappedValue.kind != .misc {
                             HStack {

@@ -49,7 +49,13 @@ final class meal_planner_iosUITests: XCTestCase {
         let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
         XCTAssertTrue(clear.waitForExistence(timeout: 5))
         clear.tap()
-        app.buttons["Cancel"].tap()
+        let cancel = app.buttons["Cancel"]
+        if cancel.waitForExistence(timeout: 2) {
+            cancel.tap()
+        } else {
+            // Native popover confirmations cancel when tapped outside their content.
+            app.tabBars.buttons["Planner"].tap()
+        }
         XCTAssertTrue(clear.isEnabled)
         XCTAssertFalse(app.buttons["Add dinner for Saturday"].exists)
 

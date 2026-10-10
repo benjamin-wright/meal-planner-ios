@@ -15,6 +15,7 @@ struct ItemPicker: View {
     let items: [Item]
     @Binding var selectedID: UUID
     @State var filter: ItemFilter = ItemFilter()
+    @State private var isSearchPresented = false
 
     var filteredItems: [Item] {
         items.filter(filter.filter)
@@ -30,6 +31,7 @@ struct ItemPicker: View {
             GlassList {
                 ForEach(filteredItems) { item in
                     Button {
+                        isSearchPresented = false
                         router.selectItem(item.id)
                         dismiss()
                     } label: {
@@ -44,7 +46,7 @@ struct ItemPicker: View {
                     }
                 }
             }
-            .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
+            .searchable(text: $filter.search, isPresented: $isSearchPresented, placement: .navigationBarDrawer(displayMode: .always))
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

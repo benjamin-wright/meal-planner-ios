@@ -7,31 +7,18 @@
 
 import SwiftUI
 import SwiftData
-import OSLog
 
 struct RecipiesFilteredView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.editMode) private var editMode
-    
     @Query private var recipies: [Recipie]
-    let mealType: MealType
-    let course: CourseType
-    @State private var search = ""
+    @State private var filter = RecipieFilter()
     @State private var deletionError: String?
-    
-    init(mealType: MealType, course: CourseType) {
-        self.mealType = mealType
-        self.course = course
-        
-        _recipies = Query(filter: #Predicate<Recipie> { recipie in
-            recipie.mealType == mealType.rawValue && recipie.course == course.rawValue
-        })
-    }
 
     private var filteredRecipies: [Recipie] {
-        recipies.filter {
-            search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
-        }
+        recipies.filter { filter.filter(recipie: $0) }
+            .sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
     }
 
     private func delete(at offsets: IndexSet) {
@@ -75,15 +62,32 @@ struct RecipiesFilteredView: View {
                 }
             }.onDelete(perform: delete)
             Section {
-                NavigationLink(value: FlowRouter.Route.newRecipie(mealType, course)) {
+                NavigationLink(value: FlowRouter.Route.newRecipie) {
                     Text("Add").foregroundStyle(.accent)
                 }
             }
         }
         .toolbar {
-            EditButton()
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    Toggle("Quick (15 minutes or less)", isOn: $filter.quick)
+                    Toggle("Vegan", isOn: $filter.vegan)
+                    Toggle("Vegetarian", isOn: $filter.vegetarian)
+                    Toggle("Pescetarian", isOn: $filter.pescetarian)
+                    Toggle("Gluten Free", isOn: $filter.glutenFree)
+                    if filter.hasActiveFilters {
+                        Button("Clear Filters") { filter.clearFilters() }
+                    }
+                } label: {
+                    Label("Filters", systemImage: filter.hasActiveFilters
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityIdentifier("recipeFilters")
+                EditButton()
+            }
         }
-        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
+        .searchable(text: $filter.search, placement: .navigationBarDrawer(displayMode: .always))
         .alert("Recipe", isPresented: Binding(
             get: { deletionError != nil },
             set: { if !$0 { deletionError = nil } }
@@ -97,10 +101,7 @@ struct RecipiesFilteredView: View {
 
 #Preview {
     FlowContainer {
-        RecipiesFilteredView(
-            mealType: .dinner,
-            course: .main
-        )
+        RecipiesFilteredView()
     }
     .modelContainer(Models.testing.modelContainer)
 }

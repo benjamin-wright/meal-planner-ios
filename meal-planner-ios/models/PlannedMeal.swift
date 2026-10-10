@@ -5,6 +5,8 @@ struct PlannedMealDraft {
     enum ValidationError: Hashable, LocalizedError {
         case noDishes
         case invalidServings
+        case invalidPortion
+        case duplicateComponent
 
         var errorDescription: String? {
             switch self {
@@ -12,45 +14,47 @@ struct PlannedMealDraft {
                 return "Please add at least one dish."
             case .invalidServings:
                 return "Planned meals must serve at least one person."
+            case .invalidPortion:
+                return "Ingredient portions need a valid unit and a finite quantity greater than zero."
+            case .duplicateComponent:
+                return "Each dish must have its own identifier."
             }
         }
     }
 
-    var dishes: [DishID]
+    var components: [MealComponentDraft]
     var servings: Int
 
-    init(dishes: [DishID] = [], servings: Int = 2) {
-        self.dishes = dishes
+    init(components: [MealComponentDraft] = [], servings: Int = 2) {
+        self.components = components
         self.servings = servings
     }
 
     init(meal: Meal) {
-        self.dishes = meal.recipies.map { .recipe($0.id) }
-            + meal.readymeals.map { .readymeal($0.id) }
+        self.components = meal.orderedComponents.map { MealComponentDraft(copying: $0) }
         self.servings = 2
     }
 
     func validate() -> [ValidationError] {
         var errors: [ValidationError] = []
-        if dishes.isEmpty { errors.append(.noDishes) }
+        if components.isEmpty { errors.append(.noDishes) }
         if servings < 1 { errors.append(.invalidServings) }
+        if !components.allSatisfy(\.hasValidPortion) { errors.append(.invalidPortion) }
+        if Set(components.map(\.id)).count != components.count { errors.append(.duplicateComponent) }
         return errors
     }
 }
 
 @Model
 final class PlannedMeal {
-    @Attribute(.unique)
-    var id: UUID = UUID()
+    @Attribute(.unique) var id: UUID = UUID()
     var mealType: Int
     var day: Int?
     var sortOrder: Int
     var sourceMealID: UUID?
     var servings: Int = 2
-    @Relationship(deleteRule: .nullify)
-    var recipies: [Recipie]
-    @Relationship(deleteRule: .nullify)
-    var readymeals: [Item]
+    @Relationship(deleteRule: .cascade, inverse: \MealComponent.plannedMeal)
+    var components: [MealComponent] = []
 
     var mealTypeEnum: MealType {
         get { MealType(rawValue: mealType) ?? .dinner }
@@ -69,8 +73,7 @@ final class PlannedMeal {
         sortOrder: Int = 0,
         sourceMealID: UUID? = nil,
         servings: Int = 2,
-        recipies: [Recipie] = [],
-        readymeals: [Item] = []
+        components: [MealComponent] = []
     ) {
         self.id = id
         self.mealType = mealType.rawValue
@@ -78,21 +81,25 @@ final class PlannedMeal {
         self.sortOrder = sortOrder
         self.sourceMealID = sourceMealID
         self.servings = servings
-        self.recipies = recipies
-        self.readymeals = readymeals
+        self.components = components
+        components.enumerated().forEach { index, component in
+            component.sortOrder = index
+            component.plannedMeal = self
+        }
+    }
+
+    var orderedComponents: [MealComponent] {
+        components.sorted {
+            $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
+        }
     }
 
     var displayName: String {
-        let mainAndSideNames = names(for: .main) + names(for: .side)
-        let names = mainAndSideNames.isEmpty
-            ? recipies.map(\.name) + readymeals.map(\.name)
-            : mainAndSideNames
-        return names.isEmpty ? "No dishes" : names.joined(separator: ", ")
-    }
-
-    private func names(for course: CourseType) -> [String] {
-        recipies.filter { $0.courseEnum == course }.map(\.name)
-            + readymeals.filter { $0.readymealData?.courseEnum == course }.map(\.name)
+        let ordered = orderedComponents
+        let mainAndSides = ordered.filter { $0.courseEnum == .main }
+            + ordered.filter { $0.courseEnum == .side }
+        let displayed = mainAndSides.isEmpty ? ordered : mainAndSides
+        return displayed.isEmpty ? "No dishes" : displayed.map(\.displayName).joined(separator: ", ")
     }
 }
 
@@ -107,7 +114,7 @@ final class PlannedMealStore {
     enum Error: LocalizedError {
         case notFound
         case invalidDraft([PlannedMealDraft.ValidationError])
-        case missingDishReference
+        case invalidComponent(MealComponentPersistence.Error)
 
         var errorDescription: String? {
             switch self {
@@ -115,8 +122,8 @@ final class PlannedMealStore {
                 return "This planned meal no longer exists."
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
-            case .missingDishReference:
-                return "A selected recipe or ready meal no longer exists."
+            case .invalidComponent(let error):
+                return error.localizedDescription
             }
         }
     }
@@ -128,11 +135,9 @@ final class PlannedMealStore {
     }
 
     func draft(id: UUID) throws -> PlannedMealDraft {
-        guard let meal = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
-            throw Error.notFound
-        }
+        guard let meal = try context.fetch(PlannedMeal.descriptor(id: id)).first else { throw Error.notFound }
         return PlannedMealDraft(
-            dishes: meal.recipies.map { .recipe($0.id) } + meal.readymeals.map { .readymeal($0.id) },
+            components: meal.orderedComponents.map { MealComponentDraft(component: $0) },
             servings: meal.servings
         )
     }
@@ -147,50 +152,48 @@ final class PlannedMealStore {
         let validationErrors = draft.validate()
         guard validationErrors.isEmpty else { throw Error.invalidDraft(validationErrors) }
 
-        let recipies = Dictionary(
-            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Recipie>()).map { ($0.id, $0) }
-        )
-        let readymeals = Dictionary(
-            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>())
-                .filter { $0.itemKind == .readymeal }
-                .map { ($0.id, $0) }
-        )
-        var selectedRecipies: [Recipie] = []
-        var selectedReadymeals: [Item] = []
-
-        for dish in draft.dishes {
-            switch dish {
-            case .recipe(let id):
-                guard let recipie = recipies[id] else { throw Error.missingDishReference }
-                selectedRecipies.append(recipie)
-            case .readymeal(let id):
-                guard let readymeal = readymeals[id] else { throw Error.missingDishReference }
-                selectedReadymeals.append(readymeal)
-            }
+        let existingMeal: PlannedMeal?
+        if let id {
+            guard let existing = try context.fetch(PlannedMeal.descriptor(id: id)).first else { throw Error.notFound }
+            existingMeal = existing
+        } else {
+            existingMeal = nil
+        }
+        let selections: [MealComponentPersistence.Selection]
+        do {
+            selections = try MealComponentPersistence.resolve(
+                draft.components,
+                context: context,
+                existingComponents: existingMeal?.components ?? [],
+                plannedMeal: existingMeal
+            )
+        } catch let error as MealComponentPersistence.Error {
+            throw Error.invalidComponent(error)
         }
 
         let plannedMeal: PlannedMeal
-        if let id {
-            guard let existing = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
-                throw Error.notFound
-            }
-            plannedMeal = existing
+        if let existingMeal {
+            plannedMeal = existingMeal
         } else {
             let nextOrder = try context.fetch(FetchDescriptor<PlannedMeal>())
                 .filter { $0.mealTypeEnum == mealType && $0.dayEnum == nil }
-                .map(\.sortOrder)
-                .max()
-                .map { $0 + 1 } ?? 0
+                .map(\.sortOrder).max().map { $0 + 1 } ?? 0
             plannedMeal = PlannedMeal(mealType: mealType, day: day, sortOrder: nextOrder)
             context.insert(plannedMeal)
         }
-
+        let retainedIDs = Set(draft.components.map(\.id))
+        let removed = plannedMeal.components.filter { !retainedIDs.contains($0.id) }
+        plannedMeal.components = MealComponentPersistence.apply(
+            selections,
+            context: context,
+            existingComponents: plannedMeal.components,
+            plannedMeal: plannedMeal
+        )
         plannedMeal.mealTypeEnum = mealType
         plannedMeal.dayEnum = day
         plannedMeal.sourceMealID = sourceMealID ?? plannedMeal.sourceMealID
         plannedMeal.servings = draft.servings
-        plannedMeal.recipies = selectedRecipies
-        plannedMeal.readymeals = selectedReadymeals
+        removed.forEach(context.delete)
         try context.save()
     }
 

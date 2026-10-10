@@ -7,20 +7,10 @@
 
 import Foundation
 
-/// A polymorphic placeholder for the things a meal can consist of:
-/// either a full `Recipie`, or a ready-made `Item` (one whose kind is `.readymeal`).
-/// Uses Swift's native enum with associated values for type-safe polymorphism.
-enum Dish: Identifiable, Hashable {
-    case recipe(Recipie)
-    case readymeal(Item)
-
-    /// The identifier of the referenced `Recipie` or `Item`.
-    var id: UUID {
-        switch self {
-        case .recipe(let recipie):
-            return recipie.id
-        case .readymeal(let item):
-            return item.id
-        }
-    }
+/// A dish is a meal-owned occurrence of a catalogue recipe or item.
+struct Dish: Identifiable, Hashable {
+    let component: MealComponent
+    var id: UUID { component.id }
+    var course: CourseType { component.courseEnum }
+    var name: String { component.displayName }
 }

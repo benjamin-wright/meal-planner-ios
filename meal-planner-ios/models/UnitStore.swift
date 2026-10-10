@@ -20,7 +20,7 @@ final class UnitStore {
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .inUse(let name):
-                return "\(name) is used by settings or a recipe and cannot be deleted."
+                return "\(name) is used by settings, a recipe, or a meal and cannot be deleted."
             }
         }
     }
@@ -66,11 +66,13 @@ final class UnitStore {
         let units = try context.fetch(FetchDescriptor<Unit>())
         let settings = try context.fetch(FetchDescriptor<AppSettings>())
         let recipies = try context.fetch(FetchDescriptor<Recipie>())
+        let mealComponents = try context.fetch(FetchDescriptor<MealComponent>())
 
         if let unit = units.first(where: { unit in
             selectedIDs.contains(unit.id) && (
                 settings.contains { $0.preferredWeight.id == unit.id || $0.preferredVolume.id == unit.id }
                     || recipies.contains { $0.ingredients.contains { $0.unit.id == unit.id } }
+                    || mealComponents.contains { $0.unit?.id == unit.id }
             )
         }) {
             throw Error.inUse(unit.name)

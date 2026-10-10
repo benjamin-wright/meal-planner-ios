@@ -65,7 +65,7 @@ final class CatalogPickerUITests: XCTestCase {
         let item = row(itemName, in: app)
         XCTAssertTrue(item.waitForExistence(timeout: 5), app.debugDescription)
         item.tap()
-        XCTAssertTrue(app.navigationBars["Add to List"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Add to List"].waitForExistence(timeout: 5), app.debugDescription)
         app.navigationBars["Add to List"].buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Add to List"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
@@ -130,24 +130,20 @@ final class CatalogPickerUITests: XCTestCase {
     }
 
     @MainActor
-    func testRecipeEnumPickersRemainSegmentedAndSelectable() {
+    func testRecipeCatalogueAndEditorDoNotHideBehindMealOrCourseFilters() {
         let app = XCUIApplication()
         app.launch()
         app.tabBars.buttons["Data"].tap()
         app.buttons["Recipies"].tap()
-
-        let lunch = app.segmentedControls.buttons["Lunch"]
-        XCTAssertTrue(lunch.waitForExistence(timeout: 5))
-        lunch.tap()
-        XCTAssertTrue(lunch.isSelected)
-        app.segmentedControls.buttons["Dinner"].tap()
+        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.segmentedControls.firstMatch.exists)
+        XCTAssertTrue(app.buttons["recipeFilters"].exists)
 
         app.collectionViews.buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
-        let breakfast = app.segmentedControls.buttons["Breakfast"]
-        XCTAssertTrue(breakfast.waitForExistence(timeout: 5))
-        breakfast.tap()
-        XCTAssertTrue(breakfast.isSelected)
+        XCTAssertFalse(app.segmentedControls.buttons["Breakfast"].exists)
+        XCTAssertFalse(app.segmentedControls.buttons["Main"].exists)
+        XCTAssertTrue(app.textFields["recipe name"].exists)
     }
 
     @MainActor
