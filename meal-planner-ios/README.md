@@ -91,5 +91,6 @@ list missing playground canvas results in that mode (150811580).
 
 ### Fixes
 
-- popups like when adding new items in the list view should have a bit of transparency.
-- the background border radius on the custom segment picker is tighter than the segment radius.
+- trim leading and trailing whitespace in unit, item, recipe names, etc.
+- can we add a keyboard minimisation button, the keyboard often gets stuck open
+- when creating a new entity from a picker, that entity should be automatically selected when the the creation is done
