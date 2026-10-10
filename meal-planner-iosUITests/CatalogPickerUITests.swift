@@ -129,6 +129,71 @@ final class CatalogPickerUITests: XCTestCase {
     }
 
     @MainActor
+    func testRecipeStepsCanBeReorderedAndSaved() {
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Data"].tap()
+        app.buttons["Recipies"].tap()
+        app.collectionViews.buttons["Add"].tap()
+        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+
+        let recipeName = "reordered steps \(UUID().uuidString.lowercased())"
+        let name = app.textFields["recipe name"]
+        name.tap()
+        name.typeText(recipeName + "\n")
+
+        let addStep = app.buttons["addRecipeStep"]
+        for _ in 0..<6 {
+            if addStep.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(addStep.isHittable, app.debugDescription)
+        addStep.tap()
+        addStep.tap()
+
+        let firstStep = app.descendants(matching: .any)["recipeStep0"]
+        let secondStep = app.descendants(matching: .any)["recipeStep1"]
+        XCTAssertTrue(firstStep.waitForExistence(timeout: 5))
+        firstStep.tap()
+        firstStep.typeText("Chop onions.")
+        secondStep.tap()
+        secondStep.typeText("Add oil.")
+        let reorderButtons = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder"))
+        XCTAssertEqual(reorderButtons.count, 0)
+        app.navigationBars["Recipe"].buttons["Edit"].tap()
+        for _ in 0..<6 {
+            if secondStep.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+
+        XCTAssertEqual(reorderButtons.count, 2, app.debugDescription)
+        XCTAssertFalse(app.buttons["Add"].isEnabled)
+        reorderButtons.element(boundBy: 1).press(
+            forDuration: 1,
+            thenDragTo: reorderButtons.element(boundBy: 0)
+        )
+        XCTAssertEqual(firstStep.value as? String, "Add oil.")
+        XCTAssertEqual(secondStep.value as? String, "Chop onions.")
+        app.navigationBars["Recipe"].buttons["Done"].tap()
+        app.buttons["Add"].tap()
+        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
+
+        let search = app.searchFields.firstMatch
+        search.tap()
+        search.typeText(recipeName)
+        let recipe = row(recipeName, in: app)
+        XCTAssertTrue(recipe.waitForExistence(timeout: 5))
+        recipe.tap()
+        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        for _ in 0..<6 {
+            if firstStep.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertEqual(firstStep.value as? String, "Add oil.")
+        XCTAssertEqual(secondStep.value as? String, "Chop onions.")
+    }
+
+    @MainActor
     func testRecipeStepsAllowMultilineReview() {
         let app = XCUIApplication()
         app.launch()
