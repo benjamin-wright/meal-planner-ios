@@ -135,7 +135,6 @@ struct MealEdit: View {
                     Section("Details") {
                         TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
                         EnumPicker(label: "Meal", selection: $draft.mealType)
-                            .pickerStyle(.segmented)
                         if let validationError = validationErrors.first {
                             Text(validationError.localizedDescription)
                                 .foregroundStyle(.red)

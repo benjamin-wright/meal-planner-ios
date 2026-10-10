@@ -38,8 +38,6 @@ struct PlannerView: View {
     var body: some View {
         VStack(spacing: 0) {
             EnumPicker(label: "Plan", selection: $section)
-                .pickerStyle(.segmented)
-                .glassControl()
                 .padding(.horizontal, 32)
 
             switch section {

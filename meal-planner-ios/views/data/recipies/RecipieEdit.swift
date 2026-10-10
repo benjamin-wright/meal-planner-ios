@@ -90,8 +90,8 @@ struct RecipieEdit: View {
     var detailsSection: some View {
         Section("Details") {
             TextInput(text: $draft.summary, label: "Summary", placeholder: "A basic description", multiline: true)
-            EnumPicker(label: "Meal", selection: $draft.mealType).pickerStyle(.segmented)
-            EnumPicker(label: "Course", selection: $draft.course).pickerStyle(.segmented)
+            EnumPicker(label: "Meal", selection: $draft.mealType)
+            EnumPicker(label: "Course", selection: $draft.course)
             IntegerInput(number: $draft.serves, label: "Serves", placeholder: "number of portions")
             IntegerInput(number: $draft.time, label: "Time", placeholder: "time to cook (minutes)", step: 5)
         }

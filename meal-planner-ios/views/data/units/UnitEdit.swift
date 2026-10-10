@@ -72,7 +72,7 @@ struct UnitEdit: View {
                 GlassForm {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
-                EnumPicker(label: "Type", selection: $draft.type)
+                EnumPicker(label: "Type", selection: $draft.type, presentation: .automatic)
                 if draft.type != .count {   
                     NumberInput(number: $draft.base, label: "Base", placeholder: "base")
                 }
