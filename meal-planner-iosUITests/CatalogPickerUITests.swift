@@ -167,7 +167,7 @@ final class CatalogPickerUITests: XCTestCase {
         }
 
         XCTAssertEqual(reorderButtons.count, 2, app.debugDescription)
-        XCTAssertFalse(app.buttons["Add"].isEnabled)
+        XCTAssertFalse(app.buttons["saveRecipe"].isEnabled)
         reorderButtons.element(boundBy: 1).press(
             forDuration: 1,
             thenDragTo: reorderButtons.element(boundBy: 0)
@@ -175,7 +175,7 @@ final class CatalogPickerUITests: XCTestCase {
         XCTAssertEqual(firstStep.value as? String, "Add oil.")
         XCTAssertEqual(secondStep.value as? String, "Chop onions.")
         app.navigationBars["Recipe"].buttons["Done"].tap()
-        app.buttons["Add"].tap()
+        app.buttons["saveRecipe"].tap()
         XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
 
         let search = app.searchFields.firstMatch

@@ -178,6 +178,7 @@ struct RecipieEdit: View {
                         Text(isEditing ? "Save" : "Add")
                     }
                     .disabled(editMode.isEditing || isInvalid)
+                    .accessibilityIdentifier("saveRecipe")
                 }
             }
         }
