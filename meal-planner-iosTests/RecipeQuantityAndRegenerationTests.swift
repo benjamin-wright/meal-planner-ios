@@ -41,15 +41,12 @@ struct RecipeQuantityAndRegenerationTests {
             fixture.recipe.ingredients[0].quantity = quantity
             try context.save()
 
-            do {
+            #expect {
                 try ShoppingListStore(context: context).regenerate()
-                Issue.record("A stored recipe with an invalid quantity must not regenerate the list.")
-            } catch let error as ShoppingListStore.Error {
-                guard case .invalidRecipeIngredient(let name) = error else {
-                    Issue.record("Expected an invalid recipe ingredient error, got \(error).")
-                    return
-                }
-                #expect(name == "Apple salad")
+            } throws: { error in
+                guard let error = error as? ShoppingListStore.Error,
+                      case .invalidRecipeIngredient(let name) = error else { return false }
+                return name == "Apple salad"
             }
             try expectOriginalList(context: context, id: fixture.oldEntry.id)
             #expect(!context.hasChanges)
@@ -141,14 +138,10 @@ struct RecipeQuantityAndRegenerationTests {
 
     @MainActor
     private func makeFixture() throws -> Fixture {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self, Unit.self, AppSettings.self, Item.self, RecipieIngredient.self,
+        let context = try makeTestContext([
+            Category.self, Unit.self, AppSettings.self, Item.self, RecipieIngredient.self,
             Recipie.self, Meal.self, PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: configuration
-        )
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
+        ], autosaveEnabled: false)
         let category = Category(name: "Produce", order: 0)
         let count = Unit(name: "count", type: .count, magnitudes: [])
         let grams = Unit(name: "grams", type: .weight, magnitudes: [])

@@ -119,13 +119,7 @@ struct MealComponentOrderTests {
     }
 
     private func makeFixture() throws -> Fixture {
-        let container = try ModelContainer(
-            for: meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
-            RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
-            PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        let context = ModelContext(container)
+        let context = try makeTestContext()
         let category = meal_planner_ios.Category(name: "Food", order: 0)
         let count = meal_planner_ios.Unit(name: "count", type: .count, magnitudes: [])
         let apple = Item(name: "Apple", category: category, kind: .ingredient)

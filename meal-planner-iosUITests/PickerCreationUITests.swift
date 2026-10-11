@@ -1,25 +1,6 @@
 import XCTest
 
-final class PickerCreationUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
-    @MainActor
-    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<6 {
-            if element.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
-        if !element.isHittable {
-            for _ in 0..<6 {
-                if element.isHittable { break }
-                app.collectionViews.firstMatch.swipeDown()
-            }
-        }
-        XCTAssertTrue(element.isHittable, app.debugDescription)
-    }
-
+final class PickerCreationUITests: MealPlannerUITestCase {
     @MainActor
     private func enterName(_ name: String, placeholder: String, in app: XCUIApplication) {
         let field = app.textFields[placeholder]
@@ -57,14 +38,6 @@ final class PickerCreationUITests: XCTestCase {
     }
 
     @MainActor
-    private func component(_ name: String, course: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier BEGINSWITH %@ AND label CONTAINS %@ AND value == %@",
-            "mealComponent-", name, course
-        )).firstMatch
-    }
-
-    @MainActor
     private func assertComponent(_ name: String, course: String, in app: XCUIApplication) {
         let dish = component(name, course: course, in: app)
         scrollTo(dish, in: app)
@@ -75,7 +48,7 @@ final class PickerCreationUITests: XCTestCase {
     @MainActor
     func testCreatedRecipeAndReadyMealAreAddedToTheirChosenCourses() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         let suffix = UUID().uuidString.lowercased()
         let mealName = "picker meal \(suffix)"
         let recipeName = "picker recipe \(suffix)"
@@ -104,7 +77,7 @@ final class PickerCreationUITests: XCTestCase {
     @MainActor
     func testCreatedIngredientAutomaticallyOpensItsPortionEditor() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         let suffix = UUID().uuidString.lowercased()
         let ingredientName = "picker ingredient \(suffix)"
         openNewSavedMeal("picker ingredient meal \(suffix)", in: app)
@@ -117,14 +90,7 @@ final class PickerCreationUITests: XCTestCase {
             format: "label CONTAINS %@", ingredientName
         )).firstMatch.exists, app.debugDescription)
 
-        let quantity = app.textFields.firstMatch
-        XCTAssertTrue(quantity.waitForExistence(timeout: 5))
-        quantity.tap()
-        let existing = quantity.value as? String ?? ""
-        quantity.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
-        quantity.typeText("0.5")
-        app.buttons["hideKeyboard"].tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        setPortion("0.5", in: app)
         let savePortion = app.buttons["saveMealComponent"]
         scrollTo(savePortion, in: app)
         XCTAssertTrue(savePortion.isEnabled, app.debugDescription)
@@ -140,7 +106,7 @@ final class PickerCreationUITests: XCTestCase {
     @MainActor
     func testMealCreatedFromPlannerPickerImmediatelySuppliesItsDishes() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         app.tabBars.buttons["Planner"].tap()
         app.segmentedControls.buttons["Lunch"].tap()
         let addLunch = app.buttons["Add lunch"]

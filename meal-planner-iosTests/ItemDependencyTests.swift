@@ -10,16 +10,12 @@ struct ItemDependencyTests {
         let fixture = try makeFixture()
         let context = fixture.context
 
-        do {
+        #expect {
             try ItemStore(context: context).delete(ids: [fixture.unusedItem.id, fixture.recipeItem.id])
-            Issue.record("An item required by a recipe must not be deleted.")
-        } catch let error as ItemStore.Error {
-            guard case .usedInRecipe(let name) = error else {
-                Issue.record("Expected a recipe dependency error, got \(error).")
-                return
-            }
-            #expect(name == fixture.recipeItem.name)
-            #expect(error.errorDescription?.contains("recipe") == true)
+        } throws: { error in
+            guard let error = error as? ItemStore.Error,
+                  case .usedInRecipe(let name) = error else { return false }
+            return name == fixture.recipeItem.name && error.errorDescription?.contains("recipe") == true
         }
 
         #expect(!context.hasChanges)
@@ -35,17 +31,13 @@ struct ItemDependencyTests {
         let fixture = try makeFixture()
         let context = fixture.context
 
-        do {
+        #expect {
             try CategoryStore(context: context).delete(ids: [fixture.unusedCategory.id, fixture.recipeCategory.id])
-            Issue.record("A category containing an item required by a recipe must not be deleted.")
-        } catch let error as CategoryStore.Error {
-            guard case .itemUsedInRecipe(let category, let item) = error else {
-                Issue.record("Expected a recipe dependency error, got \(error).")
-                return
-            }
-            #expect(category == fixture.recipeCategory.name)
-            #expect(item == fixture.recipeItem.name)
-            #expect(error.errorDescription?.contains("recipe") == true)
+        } throws: { error in
+            guard let error = error as? CategoryStore.Error,
+                  case .itemUsedInRecipe(let category, let item) = error else { return false }
+            return category == fixture.recipeCategory.name && item == fixture.recipeItem.name
+                && error.errorDescription?.contains("recipe") == true
         }
 
         #expect(!context.hasChanges)
@@ -133,13 +125,7 @@ struct ItemDependencyTests {
     }
 
     private func makeFixture() throws -> Fixture {
-        let container = try ModelContainer(
-            for: meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
-            RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
-            PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        let context = ModelContext(container)
+        let context = try makeTestContext()
         let unusedCategory = meal_planner_ios.Category(name: "Unused", order: 0)
         let recipeCategory = meal_planner_ios.Category(name: "Produce", order: 1)
         let retainedCategory = meal_planner_ios.Category(name: "Retained", order: 2)

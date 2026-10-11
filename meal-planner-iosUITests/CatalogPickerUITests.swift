@@ -1,30 +1,6 @@
 import XCTest
 
-final class CatalogPickerUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
-    @MainActor
-    private func row(_ label: String, in app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
-    }
-
-    @MainActor
-    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<6 {
-            if element.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
-        if !element.isHittable {
-            for _ in 0..<6 {
-                if element.isHittable { break }
-                app.collectionViews.firstMatch.swipeDown()
-            }
-        }
-        XCTAssertTrue(element.isHittable, app.debugDescription)
-    }
-
+final class CatalogPickerUITests: MealPlannerUITestCase {
     @MainActor
     private func assertShoppingEntry(_ name: String, in app: XCUIApplication) {
         let entry = row(name, in: app)
@@ -64,7 +40,9 @@ final class CatalogPickerUITests: XCTestCase {
         if type == "Count" {
             XCTAssertFalse(app.textFields["base"].exists)
         } else {
-            app.buttons["addUnitMagnitude"].tap()
+            let addMagnitude = app.buttons["addUnitMagnitude"]
+            scrollTo(addMagnitude, in: app)
+            addMagnitude.tap()
             for (placeholder, value) in [
                 ("abbreviation", "pu"),
                 ("singular", "picker unit"),
@@ -72,16 +50,14 @@ final class CatalogPickerUITests: XCTestCase {
             ] {
                 let magnitude = app.textFields[placeholder]
                 XCTAssertTrue(magnitude.waitForExistence(timeout: 5))
+                scrollTo(magnitude, in: app)
                 magnitude.tap()
                 magnitude.typeText(value + "\n")
             }
         }
 
         let add = app.buttons["saveUnit"]
-        for _ in 0..<6 {
-            if add.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
+        scrollTo(add, in: app)
         XCTAssertTrue(add.isEnabled, app.debugDescription)
         add.tap()
         XCTAssertTrue(app.navigationBars["Unit"].waitForNonExistence(timeout: 5), app.debugDescription)
@@ -90,7 +66,7 @@ final class CatalogPickerUITests: XCTestCase {
     @MainActor
     func testShoppingListCanCreateAnItemAndItsCategoryFromPickers() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         app.tabBars.buttons["List"].tap()
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         row("Item", in: app).tap()
@@ -121,7 +97,7 @@ final class CatalogPickerUITests: XCTestCase {
     @MainActor
     func testShoppingListNoteAutomaticallySelectsCreatedCategoryAndCountUnit() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         app.tabBars.buttons["List"].tap()
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         app.segmentedControls.buttons["Quick Note"].tap()
@@ -154,41 +130,33 @@ final class CatalogPickerUITests: XCTestCase {
     @MainActor
     func testSettingsUseTypeRestrictedUnitPickers() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         app.tabBars.buttons["Settings"].tap()
-        row("Weight", in: app).tap()
-        XCTAssertTrue(row("grams", in: app).waitForExistence(timeout: 5))
-        XCTAssertFalse(row("litres", in: app).exists)
-        XCTAssertFalse(row("count", in: app).exists)
-        XCTAssertFalse(app.segmentedControls.buttons["All"].exists)
-        let weightName = "picker weight \(UUID().uuidString.lowercased())"
-        createUnit(weightName, type: "Weight", in: app)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        assertSelection("Weight", is: weightName, in: app)
-
-        row("Volume", in: app).tap()
-        XCTAssertTrue(row("litres", in: app).waitForExistence(timeout: 5))
-        XCTAssertFalse(row("grams", in: app).exists)
-        XCTAssertFalse(row("count", in: app).exists)
-        XCTAssertFalse(app.segmentedControls.buttons["All"].exists)
-        let volumeName = "picker volume \(UUID().uuidString.lowercased())"
-        createUnit(volumeName, type: "Volume", in: app)
-        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        assertSelection("Volume", is: volumeName, in: app)
+        for (type, included, excluded) in [
+            ("Weight", "grams", "litres"),
+            ("Volume", "litres", "grams"),
+        ] {
+            row(type, in: app).tap()
+            XCTAssertTrue(row(included, in: app).waitForExistence(timeout: 5), type)
+            XCTAssertFalse(row(excluded, in: app).exists, type)
+            XCTAssertFalse(row("count", in: app).exists, type)
+            XCTAssertFalse(app.segmentedControls.buttons["All"].exists, type)
+            let name = "picker \(type.lowercased()) \(UUID().uuidString.lowercased())"
+            createUnit(name, type: type, in: app)
+            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), type)
+            assertSelection(type, is: name, in: app)
+        }
     }
 
     @MainActor
     func testRecipeCatalogueAndEditorDoNotHideBehindMealOrCourseFilters() {
         let app = XCUIApplication()
-        app.launch()
-        app.tabBars.buttons["Data"].tap()
-        app.buttons["Recipies"].tap()
-        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
+        launchInPortrait(app)
+        openRecipeCatalogue(in: app)
         XCTAssertFalse(app.segmentedControls.firstMatch.exists)
         XCTAssertTrue(app.buttons["recipeFilters"].exists)
 
-        app.collectionViews.buttons["Add"].tap()
-        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        openNewRecipe(in: app)
         XCTAssertFalse(app.segmentedControls.buttons["Breakfast"].exists)
         XCTAssertFalse(app.segmentedControls.buttons["Main"].exists)
         XCTAssertTrue(app.textFields["recipe name"].exists)
@@ -197,14 +165,9 @@ final class CatalogPickerUITests: XCTestCase {
     @MainActor
     func testRecipeStepsCanBeReorderedAndSaved() {
         let app = XCUIApplication()
-        app.launch()
-        app.tabBars.buttons["Data"].tap()
-        app.buttons["Recipies"].tap()
-        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
-        let addRecipe = app.collectionViews.buttons["Add"]
-        scrollTo(addRecipe, in: app)
-        addRecipe.tap()
-        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        launchInPortrait(app)
+        openRecipeCatalogue(in: app)
+        openNewRecipe(in: app)
 
         let recipeName = "reordered steps \(UUID().uuidString.lowercased())"
         let name = app.textFields["recipe name"]
@@ -240,7 +203,9 @@ final class CatalogPickerUITests: XCTestCase {
             forDuration: 1,
             thenDragTo: reorderButtons.element(boundBy: 0)
         )
+        scrollTo(firstStep, in: app)
         XCTAssertEqual(firstStep.value as? String, "Add oil.")
+        scrollTo(secondStep, in: app)
         XCTAssertEqual(secondStep.value as? String, "Chop onions.")
         app.navigationBars["Recipe"].buttons["Done"].tap()
         app.buttons["saveRecipe"].tap()
@@ -253,29 +218,21 @@ final class CatalogPickerUITests: XCTestCase {
         XCTAssertTrue(recipe.waitForExistence(timeout: 5))
         recipe.tap()
         XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
-        for _ in 0..<6 {
-            if firstStep.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
+        scrollTo(firstStep, in: app)
         XCTAssertEqual(firstStep.value as? String, "Add oil.")
+        scrollTo(secondStep, in: app)
         XCTAssertEqual(secondStep.value as? String, "Chop onions.")
     }
 
     @MainActor
     func testRecipeStepsAllowMultilineReview() {
         let app = XCUIApplication()
-        app.launch()
-        app.tabBars.buttons["Data"].tap()
-        app.buttons["Recipies"].tap()
-        app.collectionViews.buttons["Add"].tap()
-        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        launchInPortrait(app)
+        openRecipeCatalogue(in: app)
+        openNewRecipe(in: app)
 
         let addStep = app.buttons["addRecipeStep"]
-        for _ in 0..<6 {
-            if addStep.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
-        XCTAssertTrue(addStep.isHittable, app.debugDescription)
+        scrollTo(addStep, in: app)
         addStep.tap()
 
         let step = app.descendants(matching: .any)["recipeStep0"]

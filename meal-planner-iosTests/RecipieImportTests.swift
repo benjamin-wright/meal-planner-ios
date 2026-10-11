@@ -412,9 +412,7 @@ struct RecipieImportTests {
 
     @MainActor
     private func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(for: Category.self, Unit.self, Item.self, RecipieIngredient.self, Recipie.self,
-                                          configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        return ModelContext(container)
+        try makeTestContext([Category.self, Unit.self, Item.self, RecipieIngredient.self, Recipie.self])
     }
 }
 

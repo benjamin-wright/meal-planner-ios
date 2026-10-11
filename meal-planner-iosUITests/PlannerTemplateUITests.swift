@@ -1,32 +1,6 @@
 import XCTest
 
-final class PlannerTemplateUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
-    @MainActor
-    private func resetSampleData(in app: XCUIApplication) {
-        app.tabBars.buttons["Settings"].tap()
-        app.buttons["Reset"].tap()
-        app.buttons["Yes, delete it all!"].tap()
-    }
-
-    @MainActor
-    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<6 {
-            if element.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
-        }
-        if !element.isHittable {
-            for _ in 0..<6 {
-                if element.isHittable { break }
-                app.collectionViews.firstMatch.swipeDown()
-            }
-        }
-        XCTAssertTrue(element.isHittable, app.debugDescription)
-    }
-
+final class PlannerTemplateUITests: MealPlannerUITestCase {
     @MainActor
     private func plannedMeal(containing dish: String, in app: XCUIApplication) -> XCUIElement {
         app.collectionViews.buttons.matching(NSPredicate(format: "label CONTAINS %@", dish)).firstMatch
@@ -35,7 +9,7 @@ final class PlannerTemplateUITests: XCTestCase {
     @MainActor
     func testChoosingALunchTemplateKeepsMondayDinnerVisibleAfterSavingAndRelaunching() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         resetSampleData(in: app)
         defer { resetSampleData(in: app) }
         app.tabBars.buttons["Planner"].tap()
@@ -87,7 +61,7 @@ final class PlannerTemplateUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Monday Dinner"].waitForExistence(timeout: 5))
 
         app.terminate()
-        app.launch()
+        launchInPortrait(app)
         app.tabBars.buttons["Planner"].tap()
         app.segmentedControls.buttons["Dinner"].tap()
         let persistedDinner = plannedMeal(containing: "salmon salad", in: app)

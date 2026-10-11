@@ -63,15 +63,12 @@ struct UnitDependencyTests {
             context.insert(unused)
             try context.save()
 
-            do {
+            #expect {
                 try UnitStore(context: context).delete(ids: [unused.id, fixture.unit.id])
-                Issue.record("A unit with a required reference should not delete.")
-            } catch let error as UnitStore.Error {
-                guard case .inUse(let name) = error else {
-                    Issue.record("Expected an in-use error, got \(error).")
-                    continue
-                }
-                #expect(name == fixture.unit.name)
+            } throws: { error in
+                guard let error = error as? UnitStore.Error,
+                      case .inUse(let name) = error else { return false }
+                return name == fixture.unit.name
             }
 
             #expect(!context.hasChanges)
@@ -83,7 +80,7 @@ struct UnitDependencyTests {
     }
 
     @Test func unreferencedUnitsCanChangeConversionAndBeDeleted() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let unit = meal_planner_ios.Unit(name: "Custom weight", type: .weight, magnitudes: [
             Magnitude(abbreviation: "w", singular: "weight", plural: "weights", multiplier: 1)
         ])
@@ -119,7 +116,7 @@ struct UnitDependencyTests {
     }
 
     private func makeFixture(reference: UnitReference) throws -> Fixture {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let category = meal_planner_ios.Category(name: "Produce", order: 0)
         let item = Item(name: "Apple", category: category, kind: .ingredient)
         let type: UnitType = reference == .preferredVolume ? .volume : .weight
@@ -161,16 +158,6 @@ struct UnitDependencyTests {
         }
         try context.save()
         return Fixture(context: context, unit: unit)
-    }
-
-    private func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(
-            for: meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
-            RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
-            PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        return ModelContext(container)
     }
 
     private struct Fixture {

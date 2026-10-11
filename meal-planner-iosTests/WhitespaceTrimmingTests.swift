@@ -79,7 +79,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func categoryStoreTrimsCreatedAndUpdatedNames() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let store = CategoryStore(context: context)
         var draft = CategoryDraft(order: 2)
         draft.name = " \nFresh  produce\t "
@@ -101,7 +101,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func itemStoreTrimsCreatedAndUpdatedNames() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let category = meal_planner_ios.Category(name: "Produce", order: 0)
         context.insert(category)
         try context.save()
@@ -124,7 +124,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func unitStoreTrimsNamesAndMagnitudeLabelsWithoutChangingIdentityOrScale() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let store = UnitStore(context: context)
         var draft = UnitDraft(type: .weight)
         draft.name = " \nMetric  weight\t "
@@ -161,7 +161,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func recipeStoreTrimsTextWhilePreservingInnerWhitespaceAndStepCount() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let (item, unit) = try addIngredient(in: context)
         let store = RecipieStore(context: context)
         var draft = RecipieDraft()
@@ -195,7 +195,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func mealStoreTrimsCreatedAndUpdatedNames() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let recipe = Recipie(name: "Soup")
         context.insert(recipe)
         try context.save()
@@ -219,7 +219,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func storesRejectNamesMatchingPaddedExistingRecords() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let category = meal_planner_ios.Category(name: " \nProduce\t ", order: 0)
         let item = Item(name: " \nTomatoes\t ", category: category, kind: .ingredient)
         let recipe = Recipie(name: " \nTomato soup\t ")
@@ -253,7 +253,7 @@ struct WhitespaceTrimmingTests {
 
     @Test
     func importedRecipeSaveTrimsRecipeAndIngredientText() throws {
-        let context = try makeContext()
+        let context = try makeTestContext()
         let (item, unit) = try addIngredient(in: context)
         var draft = RecipieDraft()
         draft.name = " \nImported  soup\t "
@@ -283,15 +283,5 @@ struct WhitespaceTrimmingTests {
         context.insert(unit)
         try context.save()
         return (item, unit)
-    }
-
-    private func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(
-            for: meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
-            RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
-            PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        return ModelContext(container)
     }
 }

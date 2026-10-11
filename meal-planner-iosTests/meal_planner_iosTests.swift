@@ -26,23 +26,6 @@ struct meal_planner_iosTests {
         #expect(!draft.validate().isEmpty)
     }
 
-    @Test func unitCanBeFetchedByItsNavigationIdentifier() throws {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Unit.self, configurations: configuration)
-        let context = ModelContext(container)
-        let unit = Unit(
-            name: "grams",
-            type: .weight,
-            magnitudes: [Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)]
-        )
-
-        context.insert(unit)
-        try context.save()
-
-        let fetched = try context.fetch(Unit.descriptor(id: unit.id)).first
-        #expect(fetched?.id == unit.id)
-    }
-
     @MainActor
     @Test func recipieStoreCreatesUpdatesAndRemovesIngredients() throws {
         let context = try makeRecipieContext()
@@ -90,14 +73,12 @@ struct meal_planner_iosTests {
             RecipieIngredientDraft(itemID: UUID(), unitID: UUID(), quantity: 1)
         ]
 
-        do {
+        #expect {
             try RecipieStore(context: context).save(draft, id: nil)
-            Issue.record("Saving with missing ingredient references should fail.")
-        } catch let error as RecipieStore.Error {
-            guard case .missingIngredientReference = error else {
-                Issue.record("Expected a missing ingredient reference error, got \(error).")
-                return
-            }
+        } throws: { error in
+            guard let error = error as? RecipieStore.Error,
+                  case .missingIngredientReference = error else { return false }
+            return true
         }
 
         #expect(try context.fetch(FetchDescriptor<Recipie>()).isEmpty)
@@ -132,49 +113,27 @@ struct meal_planner_iosTests {
     @Test func itemStoreRequiresCategoryToCreateDraft() throws {
         let context = try makeDataContext()
 
-        do {
+        #expect {
             _ = try ItemStore(context: context).newDraft()
-            Issue.record("Creating an item draft without a category should fail.")
-        } catch let error as ItemStore.Error {
-            guard case .missingCategory = error else {
-                Issue.record("Expected a missing category error, got \(error).")
-                return
-            }
+        } throws: { error in
+            guard let error = error as? ItemStore.Error,
+                  case .missingCategory = error else { return false }
+            return true
         }
     }
 
     @MainActor
-    @Test func unitStoreValidatesDraftsAndProtectsReferencedUnits() throws {
+    @Test func unitStoreRejectsInvalidDrafts() throws {
         let context = try makeDataContext()
         let store = UnitStore(context: context)
-        var draft = UnitDraft(type: .weight)
+        let draft = UnitDraft(type: .weight)
 
-        do {
+        #expect {
             try store.save(draft, id: nil)
-            Issue.record("An incomplete unit draft should not save.")
-        } catch let error as UnitStore.Error {
-            guard case .invalidDraft = error else {
-                Issue.record("Expected an invalid draft error, got \(error).")
-                return
-            }
-        }
-
-        draft.name = "grams"
-        draft.magnitudes = [Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1)]
-        try store.save(draft, id: nil)
-        let savedUnit = try #require(context.fetch(FetchDescriptor<meal_planner_ios.Unit>()).first)
-        context.insert(AppSettings(preferredVolume: savedUnit, preferredWeight: savedUnit))
-        try context.save()
-
-        do {
-            try store.delete(ids: [savedUnit.id])
-            Issue.record("A unit referenced by settings should not delete.")
-        } catch let error as UnitStore.Error {
-            guard case .inUse(let name) = error else {
-                Issue.record("Expected an in-use error, got \(error).")
-                return
-            }
-            #expect(name == "grams")
+        } throws: { error in
+            guard let error = error as? UnitStore.Error,
+                  case .invalidDraft = error else { return false }
+            return true
         }
     }
 
@@ -225,14 +184,12 @@ struct meal_planner_iosTests {
         draft.name = "Missing dish meal"
         draft.components = [MealComponentDraft(source: .recipe(UUID()))]
 
-        do {
+        #expect {
             try MealStore(context: context).save(draft, id: nil)
-            Issue.record("Saving with a missing dish reference should fail.")
-        } catch let error as MealStore.Error {
-            guard case .invalidComponent(.missingSource) = error else {
-                Issue.record("Expected a missing dish reference error, got \(error).")
-                return
-            }
+        } throws: { error in
+            guard let error = error as? MealStore.Error,
+                  case .invalidComponent(.missingSource) = error else { return false }
+            return true
         }
 
         #expect(try context.fetch(FetchDescriptor<Meal>()).isEmpty)
@@ -551,109 +508,50 @@ struct meal_planner_iosTests {
     }
 
     @MainActor
-    @Test func movingEmptyDinnerSlotForwardPersistsTheReorder() throws {
+    @Test(arguments: [false, true])
+    func movingEmptyDinnerSlotPersistsTheReorder(moveForward: Bool) throws {
         let context = try makePlannerContext()
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
-        let monday = PlannedMeal(mealType: .dinner, day: .monday)
-        context.insert(sunday)
-        context.insert(monday)
+        let source: Day = moveForward ? .saturday : .monday
+        let destination: Day = moveForward ? .monday : .saturday
+        let initialDays: [Day] = moveForward ? [.sunday, .monday] : [.saturday, .sunday]
+        let expectedDays: [Day] = moveForward ? [.saturday, .sunday] : [.sunday, .monday]
+        let meals = initialDays.map { PlannedMeal(mealType: .dinner, day: $0) }
+        meals.forEach(context.insert)
         try context.save()
 
-        try PlannedMealStore(context: context).moveDinner(from: .saturday, to: .monday)
+        try PlannedMealStore(context: context).moveDinner(from: source, to: destination)
 
-        #expect(sunday.dayEnum == .saturday)
-        #expect(monday.dayEnum == .sunday)
-        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != .monday })
-    }
-
-    @MainActor
-    @Test func movingEmptyDinnerSlotBackwardPersistsTheReorder() throws {
-        let context = try makePlannerContext()
-        let saturday = PlannedMeal(mealType: .dinner, day: .saturday)
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
-        context.insert(saturday)
-        context.insert(sunday)
-        try context.save()
-
-        try PlannedMealStore(context: context).moveDinner(from: .monday, to: .saturday)
-
-        #expect(saturday.dayEnum == .sunday)
-        #expect(sunday.dayEnum == .monday)
-        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != .saturday })
+        #expect(meals.map(\.dayEnum) == expectedDays.map { Optional($0) })
+        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != destination })
     }
 
     private func makeRecipieContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self,
-            Unit.self,
-            Item.self,
-            RecipieIngredient.self,
-            Recipie.self,
-            configurations: configuration
-        )
-        return ModelContext(container)
+        try makeTestContext([Category.self, Unit.self, Item.self, RecipieIngredient.self, Recipie.self])
     }
 
     private func makeDataContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self,
-            Unit.self,
-            Item.self,
-            RecipieIngredient.self,
-            Recipie.self,
-            AppSettings.self,
-            PlannedMiscEntry.self,
-            ShoppingListEntry.self,
-            configurations: configuration
-        )
-        return ModelContext(container)
+        try makeTestContext([
+            Category.self, Unit.self, Item.self, RecipieIngredient.self, Recipie.self,
+            AppSettings.self, PlannedMiscEntry.self, ShoppingListEntry.self,
+        ])
     }
 
     private func makeMealContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self,
-            Item.self,
-            Recipie.self,
-            Meal.self,
-            configurations: configuration
-        )
-        return ModelContext(container)
+        try makeTestContext([Category.self, Item.self, Recipie.self, Meal.self])
     }
 
     private func makePlannerContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self,
-            Unit.self,
-            Item.self,
-            Recipie.self,
-            Meal.self,
-            PlannedMeal.self,
-            PlannedMiscEntry.self,
-            configurations: configuration
-        )
-        return ModelContext(container)
+        try makeTestContext([
+            Category.self, Unit.self, Item.self, Recipie.self, Meal.self,
+            PlannedMeal.self, PlannedMiscEntry.self,
+        ])
     }
 
     private func makeShoppingContext() throws -> ModelContext {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(
-            for: Category.self,
-            Unit.self,
-            AppSettings.self,
-            Item.self,
-            RecipieIngredient.self,
-            Recipie.self,
-            Meal.self,
-            PlannedMeal.self,
-            PlannedMiscEntry.self,
-            ShoppingListEntry.self,
-            configurations: configuration
-        )
-        return ModelContext(container)
+        try makeTestContext([
+            Category.self, Unit.self, AppSettings.self, Item.self, RecipieIngredient.self,
+            Recipie.self, Meal.self, PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
+        ])
     }
 
 }

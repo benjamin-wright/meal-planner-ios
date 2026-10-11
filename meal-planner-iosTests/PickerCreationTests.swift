@@ -125,6 +125,7 @@ struct PickerCreationTests {
         unitDraft.name = "Picker count"
         let unitID = try UnitStore(context: context).save(unitDraft, id: nil)
         let unit = try #require(context.fetch(meal_planner_ios.Unit.descriptor(id: unitID)).first)
+        #expect(unit.id == unitID)
         #expect(unit.name == unitDraft.name)
 
         var recipeDraft = RecipieDraft()
@@ -169,15 +170,9 @@ struct PickerCreationTests {
     }
 
     private func makeContext() throws -> ModelContext {
-        let container = try ModelContainer(
-            for: Category.self,
-            meal_planner_ios.Unit.self,
-            Item.self,
-            RecipieIngredient.self,
-            Recipie.self,
-            Meal.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        return ModelContext(container)
+        try makeTestContext([
+            Category.self, meal_planner_ios.Unit.self, Item.self, RecipieIngredient.self,
+            Recipie.self, Meal.self,
+        ])
     }
 }

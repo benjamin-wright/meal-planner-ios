@@ -1,22 +1,14 @@
 import XCTest
 
-final class ShoppingRegenerationUITests: XCTestCase {
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
-
+final class ShoppingRegenerationUITests: MealPlannerUITestCase {
     @MainActor
     func testRegenerationRefreshesVisibleEntriesAndResetsCheckedState() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         resetSampleData(in: app)
         defer { resetSampleData(in: app) }
 
-        app.tabBars.buttons["List"].tap()
-        XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
-        let entry = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "apples,")).firstMatch
-        XCTAssertTrue(entry.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertEqual(entry.value as? String, "Not checked")
+        let entry = openShoppingList(in: app)
         entry.tap()
         XCTAssertEqual(entry.value as? String, "Checked")
 
@@ -37,12 +29,5 @@ final class ShoppingRegenerationUITests: XCTestCase {
         XCTAssertEqual(entry.value as? String, "Checked")
         app.buttons["Cancel pending removal"].tap()
         XCTAssertEqual(entry.value as? String, "Not checked")
-    }
-
-    @MainActor
-    private func resetSampleData(in app: XCUIApplication) {
-        app.tabBars.buttons["Settings"].tap()
-        app.buttons["Reset"].tap()
-        app.buttons["Yes, delete it all!"].tap()
     }
 }

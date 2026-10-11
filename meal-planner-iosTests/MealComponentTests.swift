@@ -303,14 +303,12 @@ struct MealComponentTests {
             invalid.kind = kind
             invalid.name = "Unwanted change"
             invalid.dietary.dairy = false
-            do {
+            #expect {
                 try itemStore.save(invalid, id: fixture.apple.id)
-                Issue.record("Changing a used ingredient's kind should fail.")
-            } catch let error as ItemStore.Error {
-                guard case .itemInUse = error else {
-                    Issue.record("Expected an ingredient-in-use error, got \(error).")
-                    return
-                }
+            } throws: { error in
+                guard let error = error as? ItemStore.Error,
+                      case .itemInUse = error else { return false }
+                return true
             }
             #expect(!context.hasChanges)
             #expect(fixture.apple.itemKind == .ingredient)
@@ -469,13 +467,7 @@ struct MealComponentTests {
     }
 
     private func makeFixture() throws -> Fixture {
-        let container = try ModelContainer(
-            for: meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
-            RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
-            PlannedMeal.self, PlannedMiscEntry.self, ShoppingListEntry.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        let context = ModelContext(container)
+        let context = try makeTestContext()
         let category = meal_planner_ios.Category(name: "Produce", order: 0)
         let apple = Item(name: "Apple", category: category, kind: .ingredient)
         let count = meal_planner_ios.Unit(name: "count", type: .count, magnitudes: [])

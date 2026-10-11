@@ -1,47 +1,10 @@
-//
-//  meal_planner_iosUITests.swift
-//  meal-planner-iosUITests
-//
-//  Created by Benjamin Wright on 09/09/2025.
-//
-
 import XCTest
 
-final class meal_planner_iosUITests: XCTestCase {
-
-    @MainActor
-    private func resetSampleData(in app: XCUIApplication) {
-        app.tabBars.buttons["Settings"].tap()
-        app.buttons["Reset"].tap()
-        app.buttons["Yes, delete it all!"].tap()
-    }
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
-        continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
-    @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-    }
-
+final class meal_planner_iosUITests: MealPlannerUITestCase {
     @MainActor
     func testClearPlanRequiresConfirmationAndLeavesShoppingList() {
         let app = XCUIApplication()
-        app.launch()
+        launchInPortrait(app)
         resetSampleData(in: app)
         defer { resetSampleData(in: app) }
         app.tabBars.buttons["Planner"].tap()
@@ -79,7 +42,6 @@ final class meal_planner_iosUITests: XCTestCase {
 
     @MainActor
     func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }
