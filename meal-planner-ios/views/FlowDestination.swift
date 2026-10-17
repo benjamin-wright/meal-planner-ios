@@ -56,7 +56,7 @@ struct FlowDestination: View {
         case .editCategory(let id):
             CategoryEdit(id: id)
         case .itemPicker:
-            ItemPicker(items: items, selectedID: $router.selectedItemID)
+            ItemPicker(items: items, selectedID: $router.selectedItemID, kindFilter: router.itemKindFilter)
         case .newItem:
             ItemEdit()
         case .newItemOfKind(let kind):
@@ -90,6 +90,14 @@ struct FlowDestination: View {
             } else {
                 ContentUnavailableView("Dish Not Found", systemImage: "exclamationmark.triangle")
             }
+        case .plannedRecipe:
+            if let component = router.mealComponent,
+               case .recipe(let id) = component.source,
+               let recipe = recipies.first(where: { $0.id == id }) {
+                PlannedRecipeEdit(component: component, recipe: recipe, items: items, units: units)
+            } else {
+                ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
+            }
         case .newRecipie:
             RecipieEdit()
         case .editRecipie(let id):
@@ -105,6 +113,7 @@ struct FlowDestination: View {
                     value: ingredient,
                     items: items,
                     units: units,
+                    requiresIngredient: router.path.contains(.plannedRecipe),
                     action: router.saveRecipieIngredient
                 )
             } else {

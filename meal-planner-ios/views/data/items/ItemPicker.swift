@@ -14,20 +14,25 @@ struct ItemPicker: View {
 
     let items: [Item]
     @Binding var selectedID: UUID
+    var kindFilter: ItemKind? = nil
     @State var filter: ItemFilter = ItemFilter()
     @State private var isSearchPresented = false
 
     var filteredItems: [Item] {
-        items.filter(filter.filter)
+        items.filter { item in
+            (kindFilter == nil || item.itemKind == kindFilter) && filter.filter(item: item)
+        }
     }
 
     var body: some View {
         VStack {
-            HStack {
-                FilterButton(image: .system("carrot.fill"), selected: $filter.ingredients)
-                FilterButton(image: .system("microwave.fill"), aspect: 1.5, selected: $filter.readymeals)
-                FilterButton(image: .system("bag.fill"), selected: $filter.misc)
-            }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+            if kindFilter == nil {
+                HStack {
+                    FilterButton(image: .system("carrot.fill"), selected: $filter.ingredients)
+                    FilterButton(image: .system("microwave.fill"), aspect: 1.5, selected: $filter.readymeals)
+                    FilterButton(image: .system("bag.fill"), selected: $filter.misc)
+                }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+            }
             GlassList {
                 ForEach(filteredItems) { item in
                     Button {
@@ -52,7 +57,7 @@ struct ItemPicker: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
                     isSearchPresented = false
-                    router.showCreation(.newItem) { id in
+                    router.showCreation(kindFilter.map { .newItemOfKind($0) } ?? .newItem) { id in
                         router.selectItem(id)
                         router.path = Array(router.path.dropLast())
                     }

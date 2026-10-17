@@ -95,7 +95,10 @@ final class UnitStore {
             ids.insert(settings.preferredVolume.id)
         }
         ids.formUnion(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.unit.id })
-        ids.formUnion(try context.fetch(FetchDescriptor<MealComponent>()).compactMap { $0.unit?.id })
+        for component in try context.fetch(FetchDescriptor<MealComponent>()) {
+            if let id = component.unit?.id { ids.insert(id) }
+            ids.formUnion((component.ingredientOverrides ?? []).map(\.unitID))
+        }
         ids.formUnion(try context.fetch(FetchDescriptor<PlannedMiscEntry>()).compactMap { $0.unit?.id })
         ids.formUnion(try context.fetch(FetchDescriptor<ShoppingListEntry>()).compactMap { $0.unit?.id })
         return ids

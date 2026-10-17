@@ -32,6 +32,7 @@ struct MealComponentsEditor: View {
     let units: [Unit]
     let onAdd: (CourseType) -> Void
     let onEditPortion: (MealComponentDraft) -> Void
+    var allowsRecipeEditing = false
     var onReorderingChanged: (Bool) -> Void = { _ in }
     var viewport: CGRect = .zero
     var scrollBy: (CGFloat) -> Void = { _ in }
@@ -206,7 +207,7 @@ struct MealComponentsEditor: View {
                             }
                     )
             }
-        } else if case .ingredient = component.source {
+        } else if canEdit(component) {
             Button { onEditPortion(component) } label: {
                 componentLabel(component).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -218,6 +219,14 @@ struct MealComponentsEditor: View {
             componentLabel(component)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("mealComponent-\(component.id)")
+        }
+    }
+
+    private func canEdit(_ component: MealComponentDraft) -> Bool {
+        switch component.source {
+        case .ingredient: true
+        case .recipe: allowsRecipeEditing
+        case .readymeal: false
         }
     }
 

@@ -209,11 +209,26 @@ final class ShoppingListStore {
                     guard let recipie = recipesByID[id] else { throw Error.missingMealComponentReference }
                     guard recipie.serves > 0 else { throw Error.invalidRecipe(recipie.name) }
                     let scale = Double(meal.servings) / Double(recipie.serves)
-                    for ingredient in recipie.ingredients {
+                    let draft = MealComponentDraft(component: component)
+                    guard draft.hasValidPortion else { throw Error.invalidRecipeIngredient(recipie.name) }
+                    let ingredientIDs = Set(recipie.ingredients.map(\.id))
+                    guard draft.ingredientOverrides.allSatisfy({ ingredientIDs.contains($0.id) }) else {
+                        throw Error.missingMealComponentReference
+                    }
+                    for ingredient in draft.ingredients(for: recipie) {
                         guard ingredient.quantity > 0, ingredient.quantity.isFinite else {
                             throw Error.invalidRecipeIngredient(recipie.name)
                         }
-                        try add(item: ingredient.item, unit: ingredient.unit, quantity: ingredient.quantity * scale)
+                        guard let item = itemsByID[ingredient.itemID],
+                              let unit = unitsByID[ingredient.unitID],
+                              UnitType(rawValue: unit.type) != nil, unit.base > 0, unit.base.isFinite else {
+                            throw Error.missingMealComponentReference
+                        }
+                        if draft.ingredientOverrides.contains(where: { $0.id == ingredient.id }),
+                           item.itemKind != .ingredient {
+                            throw Error.missingMealComponentReference
+                        }
+                        try add(item: item, unit: unit, quantity: ingredient.quantity * scale)
                     }
                 case .readymeal(let id):
                     guard let readymeal = itemsByID[id], readymeal.itemKind == .readymeal else {

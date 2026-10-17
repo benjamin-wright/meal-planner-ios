@@ -89,7 +89,7 @@ struct PlannedMealEdit: View {
     }
 
     private func editComponent(_ component: MealComponentDraft) {
-        router.showMealComponent(component, isEditing: true) { updated in
+        router.showMealComponent(component, isEditing: true, allowsRecipeEditing: true) { updated in
             guard let index = draft.components.firstIndex(where: { $0.id == updated.id }) else { return }
             draft.components[index] = updated
         }
@@ -117,6 +117,7 @@ struct PlannedMealEdit: View {
                     units: units,
                     onAdd: addDish,
                     onEditPortion: editComponent,
+                    allowsRecipeEditing: true,
                     onReorderingChanged: { isReorderingComponents = $0 },
                     viewport: geometry.frame(in: .global),
                     scrollBy: { componentScroller.scroll(by: $0) }

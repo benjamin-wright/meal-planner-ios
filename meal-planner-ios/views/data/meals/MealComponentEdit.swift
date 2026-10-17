@@ -105,7 +105,9 @@ struct MealComponentRow: View {
 
     private var name: String {
         switch component.source {
-        case .recipe(let id): recipies.first { $0.id == id }?.name ?? "Missing recipe"
+        case .recipe(let id):
+            (recipies.first { $0.id == id }?.name ?? "Missing recipe")
+                + (component.ingredientOverrides.isEmpty ? "" : "*")
         case .readymeal(let id): items.first { $0.id == id }?.name ?? "Missing ready meal"
         case .ingredient(let id): items.first { $0.id == id }?.name ?? "Missing ingredient"
         }

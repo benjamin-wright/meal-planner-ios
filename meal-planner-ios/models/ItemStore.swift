@@ -14,6 +14,7 @@ final class ItemStore {
         case missingCategory
         case itemInUse
         case usedInRecipe(String)
+        case usedInSubstitution(String)
 
         var errorDescription: String? {
             switch self {
@@ -27,6 +28,8 @@ final class ItemStore {
                 return "This item is used in a meal. Remove it from its meals before changing its kind."
             case .usedInRecipe(let name):
                 return "\"\(name)\" is used in a recipe. Remove it from its recipes before deleting it."
+            case .usedInSubstitution(let name):
+                return "\"\(name)\" is used in a recipe substitution. Remove the substitution before deleting it."
             }
         }
     }
@@ -71,7 +74,9 @@ final class ItemStore {
             guard let existing = try context.fetch(Item.descriptor(id: id)).first else {
                 throw Error.notFound
             }
-            if draft.kind.rawValue != existing.kind && !existing.mealComponents.isEmpty {
+            let usedInSubstitution = try context.fetch(FetchDescriptor<MealComponent>())
+                .contains { $0.ingredientOverrides?.contains { $0.itemID == id } == true }
+            if draft.kind.rawValue != existing.kind && (!existing.mealComponents.isEmpty || usedInSubstitution) {
                 throw Error.itemInUse
             }
             item = existing
@@ -95,6 +100,11 @@ final class ItemStore {
         let referencedItemIDs = Set(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.item.id })
         if let referencedItem = itemsToDelete.first(where: { referencedItemIDs.contains($0.id) }) {
             throw Error.usedInRecipe(referencedItem.name)
+        }
+        let substitutionItemIDs = Set(try context.fetch(FetchDescriptor<MealComponent>())
+            .flatMap { ($0.ingredientOverrides ?? []).map(\.itemID) })
+        if let item = itemsToDelete.first(where: { substitutionItemIDs.contains($0.id) }) {
+            throw Error.usedInSubstitution(item.name)
         }
         itemsToDelete.forEach(context.delete)
         try context.save()

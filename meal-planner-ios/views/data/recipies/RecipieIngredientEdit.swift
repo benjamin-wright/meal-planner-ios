@@ -13,14 +13,23 @@ struct RecipieIngredientEdit: View {
     @State private var value: RecipieIngredientDraft
     private let items: [Item]
     private let units: [Unit]
+    private let requiresIngredient: Bool
     private let action: (RecipieIngredientDraft) -> Void
 
-    init(edit: Bool, value: RecipieIngredientDraft, items: [Item], units: [Unit], action: @escaping (RecipieIngredientDraft) -> Void) {
+    init(edit: Bool, value: RecipieIngredientDraft, items: [Item], units: [Unit], requiresIngredient: Bool = false, action: @escaping (RecipieIngredientDraft) -> Void) {
         self.edit = edit
         self._value = State(initialValue: value)
         self.items = items
         self.units = units
+        self.requiresIngredient = requiresIngredient
         self.action = action
+    }
+
+    private var isValid: Bool {
+        guard requiresIngredient else { return true }
+        return items.contains { $0.id == value.itemID && $0.itemKind == .ingredient }
+            && units.contains { $0.id == value.unitID && UnitType(rawValue: $0.type) != nil && $0.base > 0 && $0.base.isFinite }
+            && value.quantity > 0 && value.quantity.isFinite
     }
 
     var body: some View {
@@ -32,7 +41,7 @@ struct RecipieIngredientEdit: View {
             }
             Section {
                 Button {
-                    router.showItemPicker(selectedID: value.itemID) { id in
+                    router.showItemPicker(selectedID: value.itemID, kindFilter: requiresIngredient ? .ingredient : nil) { id in
                         value.itemID = id
                     }
                 } label: {
@@ -53,10 +62,15 @@ struct RecipieIngredientEdit: View {
                     )
                 }
             }
+            if !isValid {
+                Text("Choose an ingredient item, a valid unit, and a quantity greater than zero.")
+                    .foregroundStyle(.red)
+            }
             Button(edit ? "Save" : "Add") {
                 action(value)
                 dismiss()
             }
+            .disabled(!isValid)
         }
         .navigationTitle("Ingredient")
     }
