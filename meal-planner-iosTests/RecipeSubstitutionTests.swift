@@ -536,6 +536,75 @@ struct RecipeSubstitutionTests {
         #expect(try reset.fetch(Recipie.descriptor(id: fixture.recipe.id)).first?.ingredients.count == 2)
     }
 
+    @Test(arguments: [false, true], [false, true])
+    func substitutionCategoriesRejectBatchDeletionBeforeMutation(planned: Bool, pending: Bool) throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let substituteCategory = fixture.substitute.category
+        let originalCategory = fixture.original.category
+        let unusedCategory = meal_planner_ios.Category(name: "Unused category", order: 0)
+        let retainedCategory = meal_planner_ios.Category(name: "Retained category", order: 3)
+        let unusedItem = Item(name: "Unused item", category: unusedCategory, kind: .ingredient)
+        originalCategory.order = 1
+        substituteCategory.order = 2
+        context.insert(unusedCategory)
+        context.insert(retainedCategory)
+        context.insert(unusedItem)
+        let component = MealComponent(recipe: fixture.recipe)
+        let overrides = modifiedComponent(fixture).ingredientOverrides
+        if !pending { component.ingredientOverrides = overrides }
+        if planned {
+            context.insert(PlannedMeal(mealType: .lunch, components: [component]))
+        } else {
+            context.insert(Meal(name: "Substitution category dependency", mealType: .lunch,
+                                components: [component]))
+        }
+        try context.save()
+        if pending { component.ingredientOverrides = overrides }
+        #expect(fixture.substitute.mealComponents.isEmpty)
+        #expect(fixture.recipe.ingredients.allSatisfy { $0.item.id != fixture.substitute.id })
+        let originalCategoryIDs = [
+            unusedCategory.id, originalCategory.id, substituteCategory.id, retainedCategory.id
+        ]
+        let selectedIDs = [unusedCategory.id, substituteCategory.id]
+        #expect {
+            try CategoryStore(context: context).delete(ids: selectedIDs)
+        } throws: { error in
+            guard let error = error as? CategoryStore.Error,
+                  case .itemUsedInSubstitution(let category, let item) = error else { return false }
+            return category == substituteCategory.name && item == fixture.substitute.name
+        }
+        #expect(context.hasChanges == pending)
+        #expect(component.ingredientOverrides == overrides)
+        let localCategories = try context.fetch(meal_planner_ios.Category.orderedDescriptor)
+        #expect(localCategories.map(\.id) == originalCategoryIDs)
+        #expect(localCategories.map(\.order) == [0, 1, 2, 3])
+        #expect(try context.fetch(Item.descriptor(id: unusedItem.id)).count == 1)
+        #expect(try context.fetch(Item.descriptor(id: fixture.substitute.id)).count == 1)
+
+        let verification = ModelContext(context.container)
+        let savedCategories = try verification.fetch(meal_planner_ios.Category.orderedDescriptor)
+        #expect(savedCategories.map(\.id) == originalCategoryIDs)
+        #expect(savedCategories.map(\.order) == [0, 1, 2, 3])
+        #expect(try verification.fetch(Item.descriptor(id: unusedItem.id)).count == 1)
+        #expect(try verification.fetch(Item.descriptor(id: fixture.substitute.id)).count == 1)
+        #expect(try verification.fetch(FetchDescriptor<MealComponent>()).first?.ingredientOverrides
+                == (pending ? nil : overrides))
+
+        component.ingredientOverrides = nil
+        try context.save()
+        try CategoryStore(context: context).delete(ids: selectedIDs)
+        let reset = ModelContext(context.container)
+        let remainingCategories = try reset.fetch(meal_planner_ios.Category.orderedDescriptor)
+        #expect(remainingCategories.map(\.id) == [originalCategory.id, retainedCategory.id])
+        #expect(remainingCategories.map(\.order) == [0, 1])
+        #expect(try reset.fetch(Item.descriptor(id: unusedItem.id)).isEmpty)
+        #expect(try reset.fetch(Item.descriptor(id: fixture.substitute.id)).isEmpty)
+        #expect(try reset.fetch(FetchDescriptor<MealComponent>()).first?.ingredientOverrides == nil)
+        #expect(try reset.fetch(FetchDescriptor<MealComponent>()).first?.displayName == "Vegetable stew")
+        #expect(try reset.fetch(Recipie.descriptor(id: fixture.recipe.id)).first?.ingredients.count == 2)
+    }
+
     enum InvalidOverride: CaseIterable {
         case missingItem, missingUnit, staleIngredient, duplicateIngredient
         case readymealItem, miscellaneousItem, invalidUnitType, zeroUnitBase, infiniteUnitBase

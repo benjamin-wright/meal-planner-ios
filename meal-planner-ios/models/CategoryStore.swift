@@ -12,6 +12,7 @@ final class CategoryStore {
         case notFound
         case invalidDraft([CategoryDraft.ValidationError])
         case itemUsedInRecipe(category: String, item: String)
+        case itemUsedInSubstitution(category: String, item: String)
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ final class CategoryStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .itemUsedInRecipe(let category, let item):
                 return "\"\(category)\" contains \"\(item)\", which is used in a recipe. Remove it from its recipes before deleting this category."
+            case .itemUsedInSubstitution(let category, let item):
+                return "\"\(category)\" contains \"\(item)\", which is used in a recipe substitution. Remove the substitution before deleting this category."
             }
         }
     }
@@ -76,6 +79,14 @@ final class CategoryStore {
         let ingredients = try context.fetch(FetchDescriptor<RecipieIngredient>())
         if let ingredient = ingredients.first(where: { selectedIDs.contains($0.item.category.id) }) {
             throw Error.itemUsedInRecipe(category: ingredient.item.category.name, item: ingredient.item.name)
+        }
+        let substitutionItemIDs = Set(try context.fetch(FetchDescriptor<MealComponent>())
+            .flatMap { ($0.ingredientOverrides ?? []).map(\.itemID) })
+        let items = try context.fetch(FetchDescriptor<Item>())
+        if let item = items.first(where: {
+            selectedIDs.contains($0.category.id) && substitutionItemIDs.contains($0.id)
+        }) {
+            throw Error.itemUsedInSubstitution(category: item.category.name, item: item.name)
         }
         categories.filter { selectedIDs.contains($0.id) }.forEach(context.delete)
 
