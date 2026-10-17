@@ -101,10 +101,9 @@ final class PlannedMeal {
         let displayed = mainAndSides.isEmpty ? ordered : mainAndSides
         guard !displayed.isEmpty else { return "No dishes" }
         let description = displayed.map(\.displayName).joined(separator: ", ")
-        let hiddenModification = ordered.contains { component in
-            !displayed.contains(where: { $0.id == component.id }) && component.ingredientOverrides?.isEmpty == false
-        }
-        return description + (hiddenModification ? "*" : "")
+        let needsIndicator = ordered.contains { $0.ingredientOverrides?.isEmpty == false }
+            && !displayed.contains { $0.ingredientOverrides?.isEmpty == false }
+        return description + (needsIndicator ? "*" : "")
     }
 }
 

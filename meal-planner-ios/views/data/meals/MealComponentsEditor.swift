@@ -209,7 +209,15 @@ struct MealComponentsEditor: View {
             }
         } else if canEdit(component) {
             Button { onEditPortion(component) } label: {
-                componentLabel(component).frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    componentLabel(component).frame(maxWidth: .infinity, alignment: .leading)
+                    if case .recipe = component.source {
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.primary)
