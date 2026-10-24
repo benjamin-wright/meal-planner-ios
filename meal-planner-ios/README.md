@@ -142,7 +142,7 @@ flagged for review, rather than guessed or clamped. Ingredient weights such as
 found in the photo text; numeric serving counts must agree with that quote.
 Larger recipes can still be entered manually.
 
-Photo imports first match unique exact ingredient names. For all other names,
+Photo and PDF imports first match unique exact ingredient names. For all other names,
 including small spelling differences, the app ranks up to 50 existing ingredients by
 normalized edit similarity and word overlap, then asks the on-device model to
 choose an equivalent ingredient using those names, scores, the original line and
@@ -160,6 +160,31 @@ Accepted matches can be reviewed at a glance; opening each ingredient is optiona
 matching instructions. Each unresolved line uses a fresh model session; unique
 exact matches do not need an additional model request. Similar spelling alone
 cannot accept a match: “oat milk” must not automatically become “goat milk”.
+
+The matching response contains only the candidate name and an equivalence flag;
+it does not generate an explanation. A 256-token output cap protects against
+runaway responses. Each matching request has a 15-second limit, with a 60-second
+budget for the matching stage. Reaching either limit stops further model matching
+and opens the extracted recipe for review, retaining completed matches. This also
+avoids queuing more requests behind inference that is slow to acknowledge cancellation.
+**Review Recipe Now** does the same immediately during matching. **Stop Processing**
+and **Cancel** still discard the pending import. These limits apply to catalogue
+matching, after text recognition and recipe extraction have completed.
+
+For device diagnostics, filter Console logs by category `RecipeIngredientMatching`.
+Each request has a correlation ID, ingredient position, candidate count, elapsed
+milliseconds, outcome, thermal state and low-power state. Cancellation requests and
+actual model completion are separate events, so delayed cancellation is visible.
+Recipe and ingredient text are not logged; detailed framework errors are private.
+The **Ingredient selection** signpost interval can be recorded alongside the
+Foundation Models instrument to inspect the actual inference lifetime.
+
+For real-model matching checks, run
+`try await RecipieIngredientMatchingPlayground.run()` in a snippet in
+`playgrounds/RecipieImportPlayground.swift`. It reports expected and actual results
+and durations for ambiguous beef, explicit cuts, apples versus sauce, dietary and
+fresh-form qualifiers, and a full 50-candidate shortlist. These checks need Apple
+Intelligence; the timeout, cancellation and review tests use deterministic fakes.
 
 ## Recipe import playground
 

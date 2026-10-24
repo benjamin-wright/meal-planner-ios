@@ -22,18 +22,23 @@ final class RecipieImportModel {
     var result: ExtractedRecipie?
     private var operation: Task<Void, Never>?
     private var operationID: UUID?
+    private var reviewableRecipe: ExtractedRecipie?
     private let recognizer: any RecipieTextRecognizing
     private let extractor: any RecipieExtracting
     private let ingredientSelector: any RecipieIngredientSelecting
+    private let matchingLimits: RecipieMatchingLimits
 
     var isBusy: Bool { progress != nil }
+    var canReview: Bool { isBusy && reviewableRecipe != nil }
 
     init(recognizer: any RecipieTextRecognizing = VisionRecipieTextRecognizer(),
          extractor: any RecipieExtracting = FoundationRecipieExtractor(),
-         ingredientSelector: any RecipieIngredientSelecting = FoundationRecipieIngredientSelector()) {
+         ingredientSelector: any RecipieIngredientSelecting = FoundationRecipieIngredientSelector(),
+         matchingLimits: RecipieMatchingLimits = .init()) {
         self.recognizer = recognizer
         self.extractor = extractor
         self.ingredientSelector = ingredientSelector
+        self.matchingLimits = matchingLimits
     }
 
     func load(_ selection: [PhotosPickerItem]) {
@@ -64,6 +69,7 @@ final class RecipieImportModel {
         progress = "Loading PDF…"
         error = nil
         result = nil
+        reviewableRecipe = nil
         operation = Task {
             defer { finish(id) }
             do {
@@ -142,6 +148,7 @@ final class RecipieImportModel {
         self.progress = progress
         error = nil
         result = nil
+        reviewableRecipe = nil
         operation = Task {
             defer { finish(id) }
             do {
@@ -152,8 +159,12 @@ final class RecipieImportModel {
                 let extracted = try await extractor.extract(from: text)
                 try Task.checkCancellation()
                 guard operationID == id else { return }
+                reviewableRecipe = extracted
                 let matched = try await RecipieIngredientMatching.matching(
-                    extracted, catalogue: catalogue, selector: ingredientSelector
+                    extracted, catalogue: catalogue, selector: ingredientSelector, limits: matchingLimits,
+                    updated: { recipe in
+                        if self.operationID == id { self.reviewableRecipe = recipe }
+                    }
                 ) { current, total in
                     if operationID == id { self.progress = "Matching ingredient \(current) of \(total)…" }
                 }
@@ -167,11 +178,19 @@ final class RecipieImportModel {
         return operation
     }
 
+    func reviewNow() {
+        guard canReview, let recipe = reviewableRecipe else { return }
+        RecipieMatchingDiagnostics.logger.notice("Matching stopped: review requested")
+        cancel()
+        result = recipe
+    }
+
     func cancel() {
         operationID = nil
         operation?.cancel()
         operation = nil
         progress = nil
+        reviewableRecipe = nil
     }
 
     private func finish(_ id: UUID) {
@@ -179,5 +198,6 @@ final class RecipieImportModel {
         operation = nil
         operationID = nil
         progress = nil
+        reviewableRecipe = nil
     }
 }

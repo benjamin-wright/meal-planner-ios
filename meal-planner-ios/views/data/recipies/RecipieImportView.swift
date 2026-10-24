@@ -44,6 +44,14 @@ struct RecipieImportView: View {
                 }
                 if let progress = model.progress {
                     ProgressView { Text(progress) }
+                    if model.canReview {
+                        Button("Review Recipe Now") { model.reviewNow() }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("reviewRecipeNow")
+                        Text("Unmatched ingredients can be chosen during review.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Stop Processing") { model.cancel() }
                 } else {
                     Button("Extract Recipe") {
