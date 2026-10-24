@@ -118,10 +118,13 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         scrollTo(addLunch, in: app)
         addLunch.tap()
         XCTAssertTrue(app.navigationBars["Lunch"].waitForExistence(timeout: 5))
-        app.buttons["Choose Saved Meal"].tap()
+        app.buttons["chooseMeal"].tap()
+        XCTAssertTrue(app.navigationBars["Choose a meal"].waitForExistence(timeout: 5))
+        app.buttons["mealDiscovery-name"].tap()
+        XCTAssertTrue(app.navigationBars["By name"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["discoveryMealType"].value as? String, "Lunch")
+        app.buttons["createDiscoveryMeal"].tap()
         XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.segmentedControls.buttons["Lunch"].isSelected)
-        app.navigationBars["Meal"].buttons["Add"].tap()
 
         let mealName = "planner picker meal"
         let recipeName = "planner picker recipe"

@@ -191,11 +191,17 @@ final class RecipeSubstitutionUITests: MealPlannerUITestCase {
             let originalDinner = plan(named: "carrot soup", in: app)
             XCTAssertTrue(originalDinner.waitForExistence(timeout: 5), app.debugDescription)
             editDinner(on: "Monday", in: app)
-            app.buttons["Choose Saved Meal"].tap()
-            XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.segmentedControls.buttons["Dinner"].isSelected)
-            app.segmentedControls.buttons["Lunch"].tap()
-            let lunchTemplate = app.buttons["Salmon Lunch"]
+            app.buttons["chooseMeal"].tap()
+            XCTAssertTrue(app.navigationBars["Choose a meal"].waitForExistence(timeout: 5))
+            app.buttons["mealDiscovery-name"].tap()
+            XCTAssertTrue(app.navigationBars["By name"].waitForExistence(timeout: 5))
+            let mealType = app.buttons["discoveryMealType"]
+            XCTAssertEqual(mealType.value as? String, "Dinner")
+            mealType.tap()
+            app.buttons["Lunch"].tap()
+            XCTAssertEqual(mealType.value as? String, "Lunch")
+            let lunchTemplate = app.buttons["useMeal-Salmon Lunch"]
+            scrollTo(lunchTemplate, in: app)
             XCTAssertTrue(lunchTemplate.waitForExistence(timeout: 5), app.debugDescription)
             lunchTemplate.tap()
             XCTAssertTrue(app.navigationBars["Monday Dinner"].waitForExistence(timeout: 5))

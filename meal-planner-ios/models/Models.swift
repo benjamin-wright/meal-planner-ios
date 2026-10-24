@@ -17,7 +17,7 @@ class Models {
 
     static let schema = Schema([
         Category.self, Unit.self, AppSettings.self, Item.self, Recipie.self,
-        MealComponent.self, Meal.self, PlannedMeal.self, PlannedMiscEntry.self,
+        MealComponent.self, Meal.self, PlannedMeal.self, MealHistory.self, PlannedMiscEntry.self,
         ShoppingListEntry.self,
     ])
     
@@ -39,6 +39,7 @@ class Models {
         do {
             try Models.clear(ShoppingListEntry.self, context)
             try Models.clear(PlannedMiscEntry.self, context)
+            try Models.clear(MealHistory.self, context)
             try Models.clear(PlannedMeal.self, context)
             try Models.clear(Meal.self, context)
             try Models.clear(MealComponent.self, context)
@@ -68,6 +69,7 @@ class Models {
                 try additionalSeed(context)
             }
             _ = try UnitStore.ensureBaseUnits(in: context)
+            try MealHistoryStore(context: context).synchronizeExisting()
             try context.save()
         } catch {
             fatalError("Could not create ModelContainer: \(error)")

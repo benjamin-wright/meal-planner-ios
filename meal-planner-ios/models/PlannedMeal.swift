@@ -184,6 +184,11 @@ final class PlannedMealStore {
             throw Error.invalidComponent(error)
         }
 
+        let history = try existingMeal.flatMap { meal in
+            try context.fetch(MealHistory.descriptor(id: meal.id)).first
+        }
+        let componentData = try MealHistory.encode(draft.components)
+
         let plannedMeal: PlannedMeal
         if let existingMeal {
             plannedMeal = existingMeal
@@ -206,6 +211,7 @@ final class PlannedMealStore {
         plannedMeal.dayEnum = day
         plannedMeal.servings = draft.servings
         removed.forEach(context.delete)
+        MealHistoryStore(context: context).remember(plannedMeal, existing: history, componentData: componentData)
         try context.save()
     }
 
@@ -213,7 +219,9 @@ final class PlannedMealStore {
         guard let meal = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
             throw Error.notFound
         }
+        let history = try context.fetch(MealHistory.descriptor(id: id)).first
         context.delete(meal)
+        if let history { context.delete(history) }
         try context.save()
     }
 

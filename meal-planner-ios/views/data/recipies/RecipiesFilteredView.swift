@@ -73,7 +73,9 @@ struct RecipiesFilteredView: View {
                     Toggle("Quick (15 minutes or less)", isOn: $filter.quick)
                     Toggle("Vegan", isOn: $filter.vegan)
                     Toggle("Vegetarian", isOn: $filter.vegetarian)
-                    Toggle("Pescetarian", isOn: $filter.pescetarian)
+                    Toggle("Pescatarian", isOn: $filter.pescetarian)
+                        .accessibilityHint("Includes fish and vegetarian recipes; excludes meat")
+                        .accessibilityIdentifier("recipePescetarianFilter")
                     Toggle("Gluten Free", isOn: $filter.glutenFree)
                     if filter.hasActiveFilters {
                         Button("Clear Filters") { filter.clearFilters() }

@@ -36,13 +36,14 @@ final class FlowRouter {
         case newItem, editItem(UUID)
         case unitPicker(Session<UUID>, typeFilter: UnitType?)
         case newUnit(UnitType), editUnit(id: UUID, type: UnitType)
-        case dishPicker(Session<MealComponentDraft>)
+        case dishPicker(Session<MealComponentDraft>, initialCourse: CourseType)
         case mealComponent(Session<MealComponentDraft>, isEditing: Bool)
         case plannedRecipe(Session<MealComponentDraft>)
         case newRecipie, editRecipie(UUID)
         case recipieIngredient(Session<RecipieIngredientDraft>, isEditing: Bool)
         case importedRecipieIngredient(Session<ImportedRecipieIngredient>)
         case mealPicker(Session<UUID>, initialMealType: MealType)
+        case mealDiscovery(Session<PlannedMealDraft>, mealType: MealType, plannedMealID: UUID?)
         case newMeal(MealType), newMealDraft(MealDraft), editMeal(UUID)
         case creation(CreationScreen, Session<UUID>)
 
@@ -51,8 +52,9 @@ final class FlowRouter {
             case .categoryPicker(let session), .itemPicker(let session, _),
                  .unitPicker(let session, _), .mealPicker(let session, _),
                  .creation(_, let session): session.id
-            case .dishPicker(let session), .mealComponent(let session, _),
+            case .dishPicker(let session, _), .mealComponent(let session, _),
                  .plannedRecipe(let session): session.id
+            case .mealDiscovery(let session, _, _): session.id
             case .recipieIngredient(let session, _): session.id
             case .importedRecipieIngredient(let session): session.id
             default: nil
@@ -102,9 +104,9 @@ final class FlowRouter {
     }
 
     @discardableResult
-    func showDishPicker(onSelect: @escaping (MealComponentDraft) -> Void) -> Session<MealComponentDraft> {
+    func showDishPicker(initialCourse: CourseType = .main, onSelect: @escaping (MealComponentDraft) -> Void) -> Session<MealComponentDraft> {
         let session = session(onComplete: onSelect)
-        path.append(.dishPicker(session))
+        path.append(.dishPicker(session, initialCourse: initialCourse))
         return session
     }
 
@@ -128,6 +130,16 @@ final class FlowRouter {
     func showPlannerMealPicker(mealType: MealType, onSelect: @escaping (UUID) -> Void) -> Session<UUID> {
         let session = session(onComplete: onSelect)
         path.append(.mealPicker(session, initialMealType: mealType))
+        return session
+    }
+
+    @discardableResult
+    func showMealDiscovery(
+        mealType: MealType, plannedMealID: UUID?, draft: PlannedMealDraft,
+        onSelect: @escaping (PlannedMealDraft) -> Void
+    ) -> Session<PlannedMealDraft> {
+        let session = session(initialValue: draft, onComplete: onSelect)
+        path.append(.mealDiscovery(session, mealType: mealType, plannedMealID: plannedMealID))
         return session
     }
 

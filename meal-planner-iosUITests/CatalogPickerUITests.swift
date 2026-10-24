@@ -32,7 +32,9 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
 
     @MainActor
     private func createCategory(_ name: String, in app: XCUIApplication) {
-        app.navigationBars["Category"].buttons["Add"].tap()
+        let create = app.navigationBars["Category"].buttons["createCategory"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        create.tap()
         let field = app.textFields["category"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()

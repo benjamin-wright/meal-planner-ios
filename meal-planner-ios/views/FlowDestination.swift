@@ -55,8 +55,8 @@ struct FlowDestination: View {
             UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
-        case .dishPicker(let session):
-            DishPicker(recipies: recipies, items: items, units: units) {
+        case .dishPicker(let session, let initialCourse):
+            DishPicker(recipies: recipies, items: items, units: units, initialCourse: initialCourse) {
                 router.complete(session, with: $0)
             }
         case .mealComponent(let session, let isEditing):
@@ -98,6 +98,13 @@ struct FlowDestination: View {
             }
         case .mealPicker(let session, let mealType):
             MealPicker(meals: meals, selectedID: session.initialValue, initialMealType: mealType) {
+                router.complete(session, with: $0)
+            }
+        case .mealDiscovery(let session, let mealType, let plannedMealID):
+            MealDiscoveryPicker(
+                mealType: mealType, plannedMealID: plannedMealID,
+                currentDraft: session.initialValue ?? PlannedMealDraft()
+            ) {
                 router.complete(session, with: $0)
             }
         case .newMeal(let mealType):

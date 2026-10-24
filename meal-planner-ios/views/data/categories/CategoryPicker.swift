@@ -36,6 +36,7 @@ struct CategoryPicker: View {
             Button("Add") {
                 router.showCreation(.category, onCreate: onSelect)
             }
+            .accessibilityIdentifier("createCategory")
         }
         .navigationTitle("Category")
     }

@@ -11,6 +11,7 @@ final class PlannerStore {
     func clear() throws {
         let meals = try context.fetch(FetchDescriptor<PlannedMeal>())
         let miscEntries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
+        try MealHistoryStore(context: context).synchronize(meals)
         meals.forEach(context.delete)
         miscEntries.forEach(context.delete)
         try context.save()

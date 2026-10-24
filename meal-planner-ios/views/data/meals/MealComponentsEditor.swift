@@ -8,6 +8,7 @@ struct MealComponentsEditor: View {
     let onAdd: () -> Void
     let onEdit: (MealComponentDraft) -> Void
     var allowsRecipeEditing = false
+    var onReplace: ((MealComponentDraft) -> Void)? = nil
 
     private var sortedComponents: [MealComponentDraft] {
         CourseType.allCases.flatMap { course in
@@ -19,6 +20,9 @@ struct MealComponentsEditor: View {
         Section {
             ForEach(sortedComponents) { component in
                 Menu {
+                    if let onReplace {
+                        Button("Replace Dish") { onReplace(component) }
+                    }
                     Picker("Course", selection: course(for: component)) {
                         ForEach(CourseType.allCases) { course in
                             Text(course.label).tag(course)

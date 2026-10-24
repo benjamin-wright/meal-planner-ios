@@ -9,6 +9,7 @@ struct MealComponentsForm<Details: View, Actions: View>: View {
     let onAdd: () -> Void
     let onEdit: (MealComponentDraft) -> Void
     var allowsRecipeEditing = false
+    var onReplace: ((MealComponentDraft) -> Void)? = nil
     let details: () -> Details
     let actions: () -> Actions
 
@@ -19,7 +20,7 @@ struct MealComponentsForm<Details: View, Actions: View>: View {
                 components: $components,
                 recipies: recipies, items: items, units: units,
                 onAdd: onAdd, onEdit: onEdit,
-                allowsRecipeEditing: allowsRecipeEditing
+                allowsRecipeEditing: allowsRecipeEditing, onReplace: onReplace
             )
             actions()
         }

@@ -5,6 +5,37 @@ import Testing
 
 @MainActor
 struct PickerCreationTests {
+    @Test func mealDiscoveryPreservesItsParentAndCompletesOnlyOnce() {
+        let router = FlowRouter()
+        router.path = [.newPlannedMeal(mealType: .dinner, day: .wednesday)]
+        let parent = router.path
+        let initial = PlannedMealDraft(servings: 3)
+        var selections: [PlannedMealDraft] = []
+        let discovery = router.showMealDiscovery(mealType: .dinner, plannedMealID: nil, draft: initial) {
+            selections.append($0)
+        }
+        let child = router.showCreation(.meal(.dinner)) { _ in }
+        #expect(router.complete(child, with: UUID()))
+        #expect(selections.isEmpty)
+        let component = MealComponentDraft(source: .recipe(UUID()), course: .side)
+        let selection = PlannedMealDraft(components: [component], servings: 3)
+        #expect(router.complete(discovery, with: selection))
+        #expect(router.path == parent)
+        #expect(selections.first?.components == [component])
+        #expect(selections.first?.servings == 3)
+        #expect(!router.complete(discovery, with: selection))
+    }
+
+    @Test func cancelledMealDiscoveryCannotReplaceCurrentDraft() {
+        let router = FlowRouter()
+        var count = 0
+        let cancelled = router.showMealDiscovery(mealType: .lunch, plannedMealID: nil, draft: .init()) { _ in count += 1 }
+        router.path.removeLast()
+        router.showMealDiscovery(mealType: .dinner, plannedMealID: nil, draft: .init()) { _ in count += 1 }
+        #expect(!router.complete(cancelled, with: PlannedMealDraft()))
+        #expect(count == 0)
+    }
+
     @Test func repeatedNestedCreationCompletionCannotSelectTheParent() {
         let router = FlowRouter()
         var selectedItemID: UUID?

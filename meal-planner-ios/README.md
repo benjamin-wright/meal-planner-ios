@@ -20,6 +20,11 @@ The dish menu lets you change its course or delete it; planned recipes also offe
 **Substitute Ingredients**. Dishes keep their relative order within each course.
 There is no separate reordering mode, and changes are saved with the meal.
 
+**Replace Dish** in a planned meal opens the catalogue with that dish's course
+selected. Recipe rows show time and yield, with a separate read-only preview of
+ingredients and method. Previewing a planned combination scales quantities to
+the planner's serving count and includes its substitutions.
+
 Components belong to the meal, so the ingredient catalogue needs no serving
 defaults. Planning a saved meal copies its components; changing that planned meal
 does not change the saved meal. Shopping-list generation scales ingredient
@@ -47,6 +52,57 @@ Open the dinner's ellipsis menu and choose **Edit** to change its details.
 The menu also offers **Delete** and the same movement actions under
 **Move to…**, with **Move to** or **Swap with** labels for each destination.
 Moves, swaps and deletions are saved immediately.
+
+## Choosing meals and remembering plans
+
+**Choose a meal** in the planner offers three routes:
+
+- **By name** searches saved meals, previous combinations, and recipes in A–Z
+  order. The meal-type picker can browse another type without changing the
+  destination planner slot or its servings.
+- **By ingredient** uses searchable ingredient tags. Every selected ingredient
+  must occur somewhere in the meal. Optional 15-minute, vegetarian, pescatarian, and
+  gluten-free filters apply to all of its dishes, including substitutions.
+- **Suggest** offers up to three distinct combinations, explaining the quickest
+  option, shared ingredients, or a main not in the current plan. A suggested
+  main must not already appear among the plan's dishes, including the current
+  unsaved draft. Different sides, portions, or substitutions do not make an
+  existing main new. Other mains can still share sides and ingredients.
+  When fewer than three eligible ideas remain, only those ideas are shown.
+  **Show more** visits remaining combinations without repeating portion variants.
+  Ingredient and dietary filters are shared with the ingredient route and remain
+  visible; name search is independent.
+
+Cooking time is the sum of recorded component times, not an estimate of parallel
+preparation. A missing time or direct ingredient portion prevents a meal from
+matching the 15-minute filter. Dietary filtering uses the catalogue's ingredient
+labels; an empty recipe does not count as confirmed vegetarian or gluten-free.
+Pescatarian includes fish and vegetarian choices but excludes meat in any dish,
+including sides and substitutions. Selecting Vegetarian or Pescatarian switches
+between those diets; the time and gluten-free filters can be combined with either.
+The dish picker also offers Pescatarian for recipes and ready meals.
+
+Selecting a meal fills the editor. Dishes and courses can be adjusted before
+**Add** or **Save** commits the plan. Selection, previews, and cancelled drafts
+do not create history. Saving automatically records one `MealHistory` snapshot
+per planned meal, preserving its recipe/item references, courses, portions,
+servings, and ingredient substitutions. Editing updates the same snapshot;
+identical saves do not change its date. Planning it on another occasion creates
+another observation. These are planning choices, not evidence of cooking or liking.
+
+History survives **Clear Plan**. Explicitly deleting an individual planned meal
+retracts that occurrence; the full Settings reset removes history too. Existing
+active plans are backfilled when the app opens. The history model is added to
+the existing named store without resetting it, and its snapshots have no cascade
+relationships to catalogue models. Unresolvable past combinations are omitted
+from choices rather than silently losing a missing dish.
+
+Suggestions learn recipe roles separately for breakfast, lunch, and dinner.
+Saved meals provide initial examples, actual planning supplies stronger evidence,
+and current plans are not counted twice through their history. Known sides remain
+available in browsing while suggestions prefer complete meals and plausible
+mains. Named saved meals remain a curated collection; remembering plans does not
+create extra saved templates.
 
 ## Keyboard controls
 

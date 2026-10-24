@@ -46,11 +46,10 @@ struct PlannedMealEdit: View {
         }
     }
 
-    private func chooseTemplate() {
-        router.showPlannerMealPicker(mealType: mealType) { selectedID in
-            guard let template = try? context.fetch(Meal.descriptor(id: selectedID)).first else { return }
-            // Templates supply dishes while the selected planner slot keeps its type and day.
-            draft = PlannedMealDraft(meal: template)
+    private func chooseMeal() {
+        router.showMealDiscovery(mealType: mealType, plannedMealID: id, draft: draft) { selected in
+            // The picker supplies dishes; the planner retains its slot and serving count.
+            draft = selected
         }
     }
 
@@ -86,37 +85,53 @@ struct PlannedMealEdit: View {
         }
     }
 
+    private func replaceComponent(_ component: MealComponentDraft) {
+        router.showDishPicker(initialCourse: component.course) { replacement in
+            guard let index = draft.components.firstIndex(where: { $0.id == component.id }) else { return }
+            var replacement = replacement
+            replacement.id = component.id
+            draft.components[index] = replacement
+        }
+    }
+
     var body: some View {
         MealComponentsForm(
             components: $draft.components,
             recipies: recipies, items: items, units: units,
             onAdd: addDish, onEdit: editComponent, allowsRecipeEditing: true,
+            onReplace: replaceComponent,
             details: {
                 Section {
                     if let validationError = validationErrors.first {
                         Text(validationError.localizedDescription).foregroundStyle(.red)
                     }
                     IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
-                    Button("Choose Saved Meal", action: chooseTemplate)
+                    Button("Choose a meal", systemImage: "sparkle.magnifyingglass", action: chooseMeal)
+                        .accessibilityIdentifier("chooseMeal")
                 } header: {
                     GlassSectionHeader(title: "Details")
                 }
             },
             actions: {
-                HStack(spacing: 12) {
-                    Button(action: save) {
-                        Text(id == nil ? "Add" : "Save").frame(maxWidth: .infinity)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        Button(action: save) {
+                            Text(id == nil ? "Add" : "Save").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderless)
+                        Button(action: saveAsMeal) {
+                            Image(systemName: "square.and.arrow.down").frame(width: 20, height: 20)
+                        }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.circle)
+                        .accessibilityLabel("Save as Meal")
+                        .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
                     }
-                    .buttonStyle(.borderless)
-                    Button(action: saveAsMeal) {
-                        Image(systemName: "square.and.arrow.down").frame(width: 20, height: 20)
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.circle)
-                    .accessibilityLabel("Save as Meal")
-                    .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
+                    .disabled(!validationErrors.isEmpty)
+                    Text("Planning a meal automatically remembers its dishes and courses for future suggestions.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(!validationErrors.isEmpty)
             }
         )
         .navigationTitle(title)
