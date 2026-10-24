@@ -8,8 +8,8 @@ struct DishPicker: View {
     let recipies: [Recipie]
     let items: [Item]
     let units: [Unit]
-    @Binding var selectedID: DishID
     var course: CourseType = .main
+    let onSelect: (MealComponentDraft) -> Void
 
     @State private var search = ""
     @State private var isSearchPresented = false
@@ -61,24 +61,22 @@ struct DishPicker: View {
             router.showMealComponent(
                 MealComponentDraft(source: dish, course: course, quantity: 1, unitID: unit.id),
                 isEditing: false,
-                dismissDishPickerOnSave: true,
-                onSave: router.selectDishComponent
+                onSave: onSelect
             )
         } else {
-            router.selectDishComponent(MealComponentDraft(source: dish, course: course))
-            router.path = Array(router.path.dropLast())
+            onSelect(MealComponentDraft(source: dish, course: course))
         }
     }
 
-    private func create(_ route: FlowRouter.Route, in catalogue: Catalogue) {
+    private func create(_ screen: FlowRouter.CreationScreen, in catalogue: Catalogue) {
         self.catalogue = catalogue
         search = ""
         isSearchPresented = false
-        router.showCreation(route) { id in
-            switch route {
-            case .newRecipie:
+        router.showCreation(screen) { id in
+            switch screen {
+            case .recipe:
                 select(.recipe(id))
-            case .newItemOfKind:
+            case .item:
                 guard let item = try? context.fetch(Item.descriptor(id: id)).first else { return }
                 switch item.itemKind {
                 case .ingredient: select(.ingredient(id))
@@ -104,10 +102,6 @@ struct DishPicker: View {
                             Text(dish.name)
                                 .lineLimit(1)
                             Spacer()
-                            if dish.dish == selectedID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
                         }
                     }
                     .accessibilityIdentifier("dishOption-\(dish.dish)")
@@ -118,9 +112,9 @@ struct DishPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Add", systemImage: "plus") {
-                    Button("Recipe") { create(.newRecipie, in: .recipes) }
-                    Button("Ready Meal") { create(.newItemOfKind(.readymeal), in: .recipes) }
-                    Button("Ingredient") { create(.newItemOfKind(.ingredient), in: .items) }
+                    Button("Recipe") { create(.recipe, in: .recipes) }
+                    Button("Ready Meal") { create(.item(kind: .readymeal), in: .recipes) }
+                    Button("Ingredient") { create(.item(kind: .ingredient), in: .items) }
                 }
             }
         }
@@ -140,11 +134,10 @@ private struct DishPickerPreview: View {
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
     @Query private var units: [Unit]
-    @State private var selectedID: DishID = .recipe(UUID())
 
     var body: some View {
         FlowContainer {
-            DishPicker(recipies: recipies, items: items, units: units, selectedID: $selectedID)
+            DishPicker(recipies: recipies, items: items, units: units, onSelect: { _ in })
         }
     }
 }

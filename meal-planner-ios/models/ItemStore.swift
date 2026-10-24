@@ -14,6 +14,7 @@ final class ItemStore {
         case missingCategory
         case itemInUse
         case usedInRecipe(String)
+        case usedInSubstitution(String)
 
         var errorDescription: String? {
             switch self {
@@ -24,9 +25,11 @@ final class ItemStore {
             case .missingCategory:
                 return "The selected category no longer exists."
             case .itemInUse:
-                return "This item is used in a meal. Remove it from its meals before changing its kind."
+                return "This item is used in a recipe, meal, or substitution. Remove those references before changing its kind."
             case .usedInRecipe(let name):
                 return "\"\(name)\" is used in a recipe. Remove it from its recipes before deleting it."
+            case .usedInSubstitution(let name):
+                return "\"\(name)\" is used in a recipe substitution. Remove the substitution before deleting it."
             }
         }
     }
@@ -71,8 +74,11 @@ final class ItemStore {
             guard let existing = try context.fetch(Item.descriptor(id: id)).first else {
                 throw Error.notFound
             }
-            if draft.kind.rawValue != existing.kind && !existing.mealComponents.isEmpty {
-                throw Error.itemInUse
+            if draft.kind.rawValue != existing.kind {
+                let dependencies = try IngredientDependencies(context: context)
+                if !existing.mealComponents.isEmpty || dependencies.preventsItemKindChange(id, to: draft.kind) {
+                    throw Error.itemInUse
+                }
             }
             item = existing
         } else {
@@ -92,9 +98,12 @@ final class ItemStore {
         let selectedIDs = Set(ids)
         let items = try context.fetch(FetchDescriptor<Item>())
         let itemsToDelete = items.filter { selectedIDs.contains($0.id) }
-        let referencedItemIDs = Set(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.item.id })
-        if let referencedItem = itemsToDelete.first(where: { referencedItemIDs.contains($0.id) }) {
+        let dependencies = try IngredientDependencies(context: context)
+        if let referencedItem = itemsToDelete.first(where: { dependencies.recipeItemIDs.contains($0.id) }) {
             throw Error.usedInRecipe(referencedItem.name)
+        }
+        if let item = itemsToDelete.first(where: { dependencies.substitutionItemIDs.contains($0.id) }) {
+            throw Error.usedInSubstitution(item.name)
         }
         itemsToDelete.forEach(context.delete)
         try context.save()

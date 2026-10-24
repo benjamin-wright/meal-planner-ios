@@ -27,32 +27,19 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "021272ED2E709C0D003A6B2F"
-               BuildableName = "meal-planner-iosTests.xctest"
-               BlueprintName = "meal-planner-iosTests"
-               ReferencedContainer = "container:meal-planner-ios.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "021272F72E709C0D003A6B2F"
-               BuildableName = "meal-planner-iosUITests.xctest"
-               BlueprintName = "meal-planner-iosUITests"
-               ReferencedContainer = "container:meal-planner-ios.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <TestPlans>
+         <TestPlanReference
+            reference = "container:TestPlans/Deterministic.xctestplan"
+            default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/Platform Integration.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/Launch Diagnostics.xctestplan">
+         </TestPlanReference>
+      </TestPlans>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

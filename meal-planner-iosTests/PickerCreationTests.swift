@@ -5,105 +5,98 @@ import Testing
 
 @MainActor
 struct PickerCreationTests {
-    @Test func nestedCategoryCreationPreservesPendingItemSelection() {
+    @Test func repeatedNestedCreationCompletionCannotSelectTheParent() {
         let router = FlowRouter()
         var selectedItemID: UUID?
         var selectedCategoryID: UUID?
-        var itemCompletions = 0
-        var categoryCompletions = 0
-
-        router.showItemPicker(selectedID: UUID()) { selectedItemID = $0 }
-        router.showCreation(.newItem) { id in
-            itemCompletions += 1
-            router.selectItem(id)
-            router.path = Array(router.path.dropLast())
-        }
-        router.showCategoryPicker(selectedID: UUID()) { selectedCategoryID = $0 }
-        router.showCreation(.newCategory) { id in
-            categoryCompletions += 1
-            router.selectCategory(id)
-            router.path = Array(router.path.dropLast())
-        }
+        let itemPicker = router.showItemPicker(selectedID: UUID()) { selectedItemID = $0 }
+        let itemCreation = router.showCreation(.item(kind: nil)) { router.complete(itemPicker, with: $0) }
+        let itemEditorPath = router.path
+        let categoryPicker = router.showCategoryPicker(selectedID: UUID()) { selectedCategoryID = $0 }
+        let categoryCreation = router.showCreation(.category) { router.complete(categoryPicker, with: $0) }
 
         let categoryID = UUID()
-        #expect(router.completeCreation(id: categoryID))
+        #expect(router.complete(categoryCreation, with: categoryID))
         #expect(selectedCategoryID == categoryID)
         #expect(selectedItemID == nil)
-        #expect(categoryCompletions == 1)
-        #expect(itemCompletions == 0)
-        #expect(router.path == [.itemPicker, .newItem])
+        #expect(router.path == itemEditorPath)
+        // A retained save callback belongs only to its original editor.
+        #expect(!router.complete(categoryCreation, with: categoryID))
+        #expect(selectedItemID == nil)
+        #expect(router.path == itemEditorPath)
 
         let itemID = UUID()
-        #expect(router.completeCreation(id: itemID))
+        #expect(router.complete(itemCreation, with: itemID))
         #expect(selectedItemID == itemID)
-        #expect(itemCompletions == 1)
         #expect(router.path.isEmpty)
+        #expect(!router.complete(itemCreation, with: itemID))
     }
 
     @Test func cancelledCreationDoesNotSelectAReplacementEditor() {
         let router = FlowRouter()
         var cancelledSelections: [UUID] = []
         var replacementSelections: [UUID] = []
-        router.path = [.itemPicker]
-        router.showCreation(.newItem) { cancelledSelections.append($0) }
+        router.showItemPicker(selectedID: UUID()) { _ in }
+        let pickerPath = router.path
+        let cancelled = router.showCreation(.item(kind: nil)) { cancelledSelections.append($0) }
         router.path.removeLast()
 
-        // The same editor route opened directly must not inherit the cancelled callback.
+        // A direct editor has no inherited completion from the cancelled session.
         router.path.append(.newItem)
-        #expect(!router.completeCreation(id: UUID()))
+        #expect(!router.complete(cancelled, with: UUID()))
         #expect(cancelledSelections.isEmpty)
-        #expect(router.path == [.itemPicker, .newItem])
+        #expect(router.path == pickerPath + [.newItem])
         router.path.removeLast()
 
-        router.showCreation(.newItem) { replacementSelections.append($0) }
+        let replacement = router.showCreation(.item(kind: nil)) { replacementSelections.append($0) }
+        #expect(!router.complete(cancelled, with: UUID()))
         let itemID = UUID()
-        #expect(router.completeCreation(id: itemID))
+        #expect(router.complete(replacement, with: itemID))
         #expect(cancelledSelections.isEmpty)
         #expect(replacementSelections == [itemID])
-        #expect(router.path == [.itemPicker])
+        #expect(router.path == pickerPath)
     }
 
-    @Test func directCatalogCreationKeepsItsNormalDismissal() {
+    @Test func cancelledSelectionCannotCompleteAReplacementOfTheSameKind() {
         let router = FlowRouter()
-        router.path = [.categories, .newCategory]
-
-        #expect(!router.completeCreation(id: UUID()))
-        #expect(router.path == [.categories, .newCategory])
-    }
-
-    @Test func creationCompletionSelectsOnlyOnce() {
-        let router = FlowRouter()
-        var selectedIDs: [UUID] = []
-        router.path = [.unitPicker(typeFilter: .weight)]
-        router.showCreation(.newUnit(.weight)) { id in
-            selectedIDs.append(id)
-            router.path = Array(router.path.dropLast())
-        }
-
-        let unitID = UUID()
-        #expect(router.completeCreation(id: unitID))
-        #expect(!router.completeCreation(id: unitID))
-        #expect(selectedIDs == [unitID])
+        var values: [UUID] = []
+        let cancelled = router.showUnitPicker(selectedID: UUID()) { values.append($0) }
+        router.path.removeLast()
+        let replacement = router.showUnitPicker(selectedID: UUID()) { values.append($0) }
+        let replacementPath = router.path
+        #expect(!router.complete(cancelled, with: UUID()))
+        #expect(values.isEmpty)
+        #expect(router.path == replacementPath)
+        let selectedID = UUID()
+        #expect(router.complete(replacement, with: selectedID))
+        #expect(!router.complete(replacement, with: UUID()))
+        #expect(values == [selectedID])
         #expect(router.path.isEmpty)
     }
 
-    @Test func unrelatedNestedEditorCannotCompleteAncestorCreation() {
+    @Test func nestedRecipeCreationSelectsADishWithoutCompletingItsMeal() {
         let router = FlowRouter()
         var selectedMealID: UUID?
-        router.path = [.plannerMealPicker(.lunch)]
-        router.showCreation(.newMeal(.lunch)) { selectedMealID = $0 }
-        router.path.append(.dishPicker(course: .main))
-        router.path.append(.newRecipie)
+        var components: [MealComponentDraft] = []
+        let picker = router.showPlannerMealPicker(mealType: .lunch) { selectedMealID = $0 }
+        let mealCreation = router.showCreation(.meal(.lunch)) { router.complete(picker, with: $0) }
+        let mealEditorPath = router.path
+        let dishPicker = router.showDishPicker(course: .main) { components.append($0) }
+        let recipeCreation = router.showCreation(.recipe) {
+            router.complete(dishPicker, with: MealComponentDraft(source: .recipe($0)))
+        }
 
-        #expect(!router.completeCreation(id: UUID()))
+        let recipeID = UUID()
+        #expect(router.complete(recipeCreation, with: recipeID))
+        #expect(components.map(\.source) == [.recipe(recipeID)])
         #expect(selectedMealID == nil)
-        #expect(router.path == [.plannerMealPicker(.lunch), .newMeal(.lunch), .dishPicker(course: .main), .newRecipie])
-
-        router.path = [.plannerMealPicker(.lunch), .newMeal(.lunch)]
+        #expect(router.path == mealEditorPath)
+        #expect(!router.complete(recipeCreation, with: recipeID))
+        #expect(selectedMealID == nil)
         let mealID = UUID()
-        #expect(router.completeCreation(id: mealID))
+        #expect(router.complete(mealCreation, with: mealID))
         #expect(selectedMealID == mealID)
-        #expect(router.path == [.plannerMealPicker(.lunch)])
+        #expect(router.path.isEmpty)
     }
 
     @Test func savedCatalogIdentifiersResolveImmediately() throws {

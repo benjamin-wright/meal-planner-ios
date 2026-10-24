@@ -11,9 +11,9 @@ import SwiftData
 struct UnitEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
+    private let onCreate: ((UUID) -> Void)?
     private let allowsTypeChange: Bool
     private var isEditing: Bool { id != nil }
 
@@ -22,8 +22,9 @@ struct UnitEdit: View {
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
     
-    init(id: UUID? = nil, type: UnitType, allowsTypeChange: Bool = true) {
+    init(id: UUID? = nil, type: UnitType, allowsTypeChange: Bool = true, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
+        self.onCreate = onCreate
         self.allowsTypeChange = allowsTypeChange
         self._draft = State(initialValue: UnitDraft(type: type))
     }
@@ -45,8 +46,11 @@ struct UnitEdit: View {
     private func save() {
         do {
             let savedID = try UnitStore(context: context).save(draft, id: id)
-            if !isEditing, router.completeCreation(id: savedID) { return }
-            dismiss()
+            if !isEditing, let onCreate {
+                onCreate(savedID)
+            } else {
+                dismiss()
+            }
         } catch {
             saveError = error.localizedDescription
         }

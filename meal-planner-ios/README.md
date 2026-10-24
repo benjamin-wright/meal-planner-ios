@@ -34,6 +34,37 @@ Tap **Hide Keyboard** above the keyboard to finish editing and reveal the rest
 of the screen. The control is shared by forms, recipe steps, catalogue searches
 and the Shopping List Add sheet.
 
+## Recipe photo import
+
+Ingredient-only photos are supported: absent cooking instructions produce no
+steps, and ingredient rows are never meant to become a method. Imported names
+use a short dish title (ideally 2–6 words, limited to 60 characters). A brief
+description may be synthesized from the title and ingredients.
+
+Servings must be explicitly stated as people or portions. Automatic import accepts
+1–24; absent, ambiguous or larger counts keep the current draft value and are
+flagged for review, rather than guessed or clamped. Ingredient weights such as
+750 g are not serving counts. Servings and cooking times also need a source quote
+found in the photo text; numeric serving counts must agree with that quote.
+Larger recipes can still be entered manually.
+
+Photo imports first match ingredient names using exact names and small spelling
+differences. For unresolved names, the app ranks up to 50 existing ingredients by
+normalized edit similarity and word overlap, then asks the on-device model to
+choose an equivalent ingredient using those names, scores, the original line and
+recipe title. This allows “cheddar” to match “cheddar cheese”, and “beef” in
+bolognese to favour “beef mince” over “beef steak”. Explicit ingredient details
+take priority over the title; ambiguous matches remain unresolved when there is
+not enough context. Scores are lexical similarity,
+not confidence; the model can leave a line unmatched and must not substitute a
+different ingredient or prepared dish. Duplicate names, failed model requests and
+uncertain matches remain available for manual review. Original text, quantities
+and units are preserved, and nothing is saved until the import is reviewed.
+
+`models/RecipieIngredientMatching.swift` owns ranking, candidate selection and
+matching instructions. Each unresolved line uses a fresh model session; exact
+and close-spelling matches do not need an additional model request.
+
 ## Recipe import playground
 
 Open `playgrounds/RecipieImportPlayground.swift`, select the **meal-planner-ios** scheme
@@ -95,3 +126,37 @@ Entries created with **Add** inside a picker are selected automatically after
 saving, returning to the form that opened the picker. This also works for nested
 creation, such as a category created while adding an item. New ingredient dishes
 open their per-person quantity and unit editor before being added to the meal.
+
+## Test plans and UI fixtures
+
+Domain rules live outside views and persistence adapters. `IngredientResolver` owns
+ingredient and substitution validity; `IngredientDependencies` owns their reference
+policy. `UnitDefinition` handles unit calculation and formatting as plain values.
+`ShoppingListCalculator` consumes a value snapshot and produces entries, while
+`ShoppingListStore` loads and saves them. `ShoppingListCompletion` owns delayed
+removal and undo, with a controllable clock for tests.
+
+Each picker or staged editor has its own `FlowRouter.Session`, including its return
+destination and completion. Planned extras and direct shopping entries share
+`CatalogEntryDraft` and `CatalogEntryFields`, while their screens choose where to
+save. Both meal editors use `MealComponentsForm` to own scrolling and reordering.
+
+The shared scheme has three explicit test plans:
+
+- **Deterministic** (default): domain and SwiftData tests, plus functional UI journeys.
+- **Platform Integration**: live Vision OCR and Foundation Models checks. Model checks
+  require Apple Intelligence and report as skipped when it is unavailable.
+- **Launch Diagnostics**: launch screenshots and launch performance measurements.
+
+Each UI test receives its own temporary on-disk store. Relaunches within that test
+reuse the same store, so they still verify persistence. The standard fixture is the
+sample catalogue and plan; the long-meal fixture adds ten components for the scrolling
+and drag test without creating them through ten picker interactions. Fixture selection
+is confined to Debug app composition. Views, stores, timers and gestures run normally.
+
+Use `MealPlannerUITestCase.launchInPortrait` (or `launch` when testing UI configurations)
+to preserve this isolation. Do not use the Settings Reset action as general test setup.
+Keep combinatorial rules in domain tests and persistence contracts in real SwiftData
+tests; use bounded UI journeys for navigation, editing, presentation and gestures.
+Run parameterized suites as a whole when using Xcode automation: selecting individual
+methods can retain a single argument selection and omit the rest of the matrix.

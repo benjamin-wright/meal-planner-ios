@@ -6,7 +6,6 @@
 import SwiftUI
 
 struct RecipieIngredientEdit: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let edit: Bool
@@ -23,6 +22,15 @@ struct RecipieIngredientEdit: View {
         self.action = action
     }
 
+    private var validationMessage: String? {
+        do {
+            _ = try IngredientResolver(items: items, units: units).resolve(value)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     var body: some View {
         GlassForm {
             if let sourceText = value.sourceText, !sourceText.isEmpty {
@@ -32,31 +40,30 @@ struct RecipieIngredientEdit: View {
             }
             Section {
                 Button {
-                    router.showItemPicker(selectedID: value.itemID) { id in
+                    router.showItemPicker(selectedID: value.itemID, kindFilter: .ingredient) { id in
                         value.itemID = id
                     }
                 } label: {
                     Text("Item").badge(items.first(where: { $0.id == value.itemID })?.name ?? "")
                 }
-                Button {
+                QuantityFields(
+                    unit: units.first { $0.id == value.unitID },
+                    quantity: $value.quantity,
+                    unitPlaceholder: ""
+                ) {
                     router.showUnitPicker(selectedID: value.unitID) { id in
                         value.unitID = id
                     }
-                } label: {
-                    Text("Unit").badge(units.first(where: { $0.id == value.unitID })?.name ?? "")
                 }
-                if let unit = units.first(where: { $0.id == value.unitID }) {
-                    UnitInput(
-                        label: "Quantity",
-                        unit: .constant(unit),
-                        value: $value.quantity
-                    )
-                }
+            }
+            if let validationMessage {
+                Text(validationMessage)
+                    .foregroundStyle(.red)
             }
             Button(edit ? "Save" : "Add") {
                 action(value)
-                dismiss()
             }
+            .disabled(validationMessage != nil)
         }
         .navigationTitle("Ingredient")
     }

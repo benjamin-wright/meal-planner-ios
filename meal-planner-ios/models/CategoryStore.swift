@@ -12,6 +12,7 @@ final class CategoryStore {
         case notFound
         case invalidDraft([CategoryDraft.ValidationError])
         case itemUsedInRecipe(category: String, item: String)
+        case itemUsedInSubstitution(category: String, item: String)
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ final class CategoryStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .itemUsedInRecipe(let category, let item):
                 return "\"\(category)\" contains \"\(item)\", which is used in a recipe. Remove it from its recipes before deleting this category."
+            case .itemUsedInSubstitution(let category, let item):
+                return "\"\(category)\" contains \"\(item)\", which is used in a recipe substitution. Remove the substitution before deleting this category."
             }
         }
     }
@@ -73,9 +76,14 @@ final class CategoryStore {
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let categories = try context.fetch(Category.orderedDescriptor)
-        let ingredients = try context.fetch(FetchDescriptor<RecipieIngredient>())
-        if let ingredient = ingredients.first(where: { selectedIDs.contains($0.item.category.id) }) {
-            throw Error.itemUsedInRecipe(category: ingredient.item.category.name, item: ingredient.item.name)
+        let dependencies = try IngredientDependencies(context: context)
+        let items = try context.fetch(FetchDescriptor<Item>())
+            .filter { selectedIDs.contains($0.category.id) }
+        if let item = items.first(where: { dependencies.recipeItemIDs.contains($0.id) }) {
+            throw Error.itemUsedInRecipe(category: item.category.name, item: item.name)
+        }
+        if let item = items.first(where: { dependencies.substitutionItemIDs.contains($0.id) }) {
+            throw Error.itemUsedInSubstitution(category: item.category.name, item: item.name)
         }
         categories.filter { selectedIDs.contains($0.id) }.forEach(context.delete)
 

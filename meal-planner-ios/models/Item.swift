@@ -83,6 +83,7 @@ struct ItemDraft {
     enum ValidationError: Hashable, LocalizedError {
         case nameTooShort
         case duplicateName
+        case invalidServings
 
         var errorDescription: String? {
             switch self {
@@ -90,6 +91,8 @@ struct ItemDraft {
                 return "Item names must be at least 3 characters."
             case .duplicateName:
                 return "An item with this name already exists."
+            case .invalidServings:
+                return "Ready meals must serve at least one person."
             }
         }
     }
@@ -135,6 +138,7 @@ struct ItemDraft {
         if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
             errors.append(.duplicateName)
         }
+        if kind == .readymeal && readymealData.serves < 1 { errors.append(.invalidServings) }
         return errors
     }
 
@@ -205,10 +209,4 @@ extension Item {
         FetchDescriptor(predicate: #Predicate { $0.id == id })
     }
 
-    static func makeNew(in context: ModelContext) -> Item? {
-        guard let defaultCategory = try? context.fetch(Category.orderedDescriptor).first
-        else { return nil }
-        let item = Item(name: "", category: defaultCategory, kind: .ingredient)
-        return item
-    }
 }

@@ -32,9 +32,10 @@ struct MealComponentsEditor: View {
     let units: [Unit]
     let onAdd: (CourseType) -> Void
     let onEditPortion: (MealComponentDraft) -> Void
+    var allowsRecipeEditing = false
     var onReorderingChanged: (Bool) -> Void = { _ in }
     var viewport: CGRect = .zero
-    var scrollBy: (CGFloat) -> Void = { _ in }
+    let scrollController: MealComponentScrollController
 
     @State private var draggedID: UUID?
     @State private var dragLocation = CGPoint.zero
@@ -97,6 +98,7 @@ struct MealComponentsEditor: View {
                     .id("mealCourse-\(course.label)")
                 }
             }
+            .background(MealComponentScrollProbe(controller: scrollController))
             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
             .overlay {
                 GeometryReader { geometry in
@@ -206,9 +208,17 @@ struct MealComponentsEditor: View {
                             }
                     )
             }
-        } else if case .ingredient = component.source {
+        } else if canEdit(component) {
             Button { onEditPortion(component) } label: {
-                componentLabel(component).frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    componentLabel(component).frame(maxWidth: .infinity, alignment: .leading)
+                    if case .recipe = component.source {
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.primary)
@@ -218,6 +228,14 @@ struct MealComponentsEditor: View {
             componentLabel(component)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("mealComponent-\(component.id)")
+        }
+    }
+
+    private func canEdit(_ component: MealComponentDraft) -> Bool {
+        switch component.source {
+        case .ingredient: true
+        case .recipe: allowsRecipeEditing
+        case .readymeal: false
         }
     }
 
@@ -287,10 +305,10 @@ struct MealComponentsEditor: View {
     private func scrollTowardsEdge() {
         if scrollDirection > 0, let last = CourseType.allCases.last,
            let frame = frames[.course(last)] {
-            scrollBy(min(24, max(0, frame.maxY - viewport.maxY)))
+            scrollController.scroll(by: min(24, max(0, frame.maxY - viewport.maxY)))
         } else if scrollDirection < 0, let first = CourseType.allCases.first,
                   let frame = frames[.course(first)] {
-            scrollBy(-min(24, max(0, viewport.minY - frame.minY)))
+            scrollController.scroll(by: -min(24, max(0, viewport.minY - frame.minY)))
         }
     }
 

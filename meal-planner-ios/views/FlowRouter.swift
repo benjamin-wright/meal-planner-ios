@@ -1,213 +1,158 @@
-//
-//  FlowRouter.swift
-//  meal-planner-ios
-//
-
 import Observation
 import SwiftUI
 
 @MainActor
 @Observable
 final class FlowRouter {
-    enum Route: Hashable {
-        // Data roots
-        case units
-        case categories
-        case items
-        case recipies
-        case meals
+    /// Each presentation owns its input, completion and return destination. A
+    /// nested picker of the same kind cannot replace its parent's callback.
+    struct Session<Value>: Hashable {
+        let id = UUID()
+        let initialValue: Value?
+        let returnPath: [Route]
+        fileprivate let onComplete: (Value) -> Void
 
-        // Planner destinations.
+        static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+
+    enum CreationScreen: Hashable {
+        case category
+        case item(kind: ItemKind?)
+        case unit(type: UnitType, allowsTypeChange: Bool)
+        case recipe
+        case meal(MealType)
+    }
+
+    enum Route: Hashable {
+        case units, categories, items, recipies, meals
         case newPlannedMeal(mealType: MealType, day: Day?)
         case editPlannedMeal(UUID)
-        case plannerMealPicker(MealType)
-        case newPlannedMisc
-        case editPlannedMisc(UUID)
+        case newPlannedMisc, editPlannedMisc(UUID)
 
-        // Shared catalog and editor destinations.
-        case categoryPicker
-        case newCategory
-        case editCategory(UUID)
-        case itemPicker
-        case newItem
-        case newItemOfKind(ItemKind)
-        case editItem(UUID)
-        case unitPicker(typeFilter: UnitType?)
-        case newUnit(UnitType)
-        case editUnit(id: UUID, type: UnitType)
-        case dishPicker(course: CourseType)
-        case mealComponent
-        case newRecipie
-        case editRecipie(UUID)
-        case recipieIngredient
-        case importedRecipieIngredient
-        case mealPicker
-        case newMeal(MealType)
-        case newMealDraft(MealDraft)
-        case editMeal(UUID)
-    }
+        case categoryPicker(Session<UUID>)
+        case newCategory, editCategory(UUID)
+        case itemPicker(Session<UUID>, kindFilter: ItemKind?)
+        case newItem, editItem(UUID)
+        case unitPicker(Session<UUID>, typeFilter: UnitType?)
+        case newUnit(UnitType), editUnit(id: UUID, type: UnitType)
+        case dishPicker(Session<MealComponentDraft>, course: CourseType)
+        case mealComponent(Session<MealComponentDraft>, isEditing: Bool)
+        case plannedRecipe(Session<MealComponentDraft>)
+        case newRecipie, editRecipie(UUID)
+        case recipieIngredient(Session<RecipieIngredientDraft>, isEditing: Bool)
+        case importedRecipieIngredient(Session<ImportedRecipieIngredient>)
+        case mealPicker(Session<UUID>, initialMealType: MealType)
+        case newMeal(MealType), newMealDraft(MealDraft), editMeal(UUID)
+        case creation(CreationScreen, Session<UUID>)
 
-    var path: [Route] = [] {
-        didSet {
-            creations.removeAll { !path.starts(with: $0.path) }
+        fileprivate var sessionID: UUID? {
+            switch self {
+            case .categoryPicker(let session), .itemPicker(let session, _),
+                 .unitPicker(let session, _), .mealPicker(let session, _),
+                 .creation(_, let session): session.id
+            case .dishPicker(let session, _), .mealComponent(let session, _),
+                 .plannedRecipe(let session): session.id
+            case .recipieIngredient(let session, _): session.id
+            case .importedRecipieIngredient(let session): session.id
+            default: nil
+            }
         }
     }
-    var selectedCategoryID = UUID()
-    var selectedItemID = UUID()
-    var selectedUnitID = UUID()
-    var selectedDishID: DishID = .recipe(UUID())
-    var selectedMealID = UUID()
-    private(set) var recipieIngredient: RecipieIngredientDraft?
-    private(set) var isEditingRecipieIngredient = false
-    private(set) var importedRecipieIngredient: ImportedRecipieIngredient?
-    private(set) var mealComponent: MealComponentDraft?
-    private(set) var isEditingMealComponent = false
 
-    private var onCategorySelected: ((UUID) -> Void)?
-    private var onItemSelected: ((UUID) -> Void)?
-    private var onUnitSelected: ((UUID) -> Void)?
-    private var onDishSelected: ((MealComponentDraft) -> Void)?
-    private var onMealSelected: ((UUID) -> Void)?
-    private var onRecipieIngredientSaved: ((RecipieIngredientDraft) -> Void)?
-    private var onImportedRecipieIngredientSaved: ((ImportedRecipieIngredient) -> Void)?
-    private var onMealComponentSaved: ((MealComponentDraft) -> Void)?
-    private var mealComponentReturnDepth = 0
+    var path: [Route] = []
 
-    private struct Creation {
-        let path: [Route]
-        let onCreate: (UUID) -> Void
-    }
-
-    private var creations: [Creation] = []
-
-    func showCreation(_ route: Route, onCreate: @escaping (UUID) -> Void) {
-        path.append(route)
-        creations.append(Creation(path: path, onCreate: onCreate))
-    }
-
-    /// Only a successful save from the active picker creation completes its selection.
-    func completeCreation(id: UUID) -> Bool {
-        guard let creation = creations.last, creation.path == path else { return false }
-        path.removeLast()
-        creation.onCreate(id)
+    /// Completion consumes a presentation once, including any child screens.
+    /// Cancelled presentations cannot later invoke their retained callbacks.
+    @discardableResult
+    func complete<Value>(_ session: Session<Value>, with value: Value) -> Bool {
+        guard path.contains(where: { $0.sessionID == session.id }),
+              path.starts(with: session.returnPath) else { return false }
+        path = session.returnPath
+        session.onComplete(value)
         return true
     }
 
-    func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
-        selectedCategoryID = selectedID
-        onCategorySelected = onSelect
-        path.append(.categoryPicker)
+    @discardableResult
+    func showCreation(_ screen: CreationScreen, onCreate: @escaping (UUID) -> Void) -> Session<UUID> {
+        let session = session(onComplete: onCreate)
+        path.append(.creation(screen, session))
+        return session
     }
 
-    func selectCategory(_ id: UUID) {
-        selectedCategoryID = id
-        onCategorySelected?(id)
+    @discardableResult
+    func showCategoryPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) -> Session<UUID> {
+        let session = session(initialValue: selectedID, onComplete: onSelect)
+        path.append(.categoryPicker(session))
+        return session
     }
 
-    func showItemPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
-        selectedItemID = selectedID
-        onItemSelected = onSelect
-        path.append(.itemPicker)
+    @discardableResult
+    func showItemPicker(selectedID: UUID, kindFilter: ItemKind? = nil, onSelect: @escaping (UUID) -> Void) -> Session<UUID> {
+        let session = session(initialValue: selectedID, onComplete: onSelect)
+        path.append(.itemPicker(session, kindFilter: kindFilter))
+        return session
     }
 
-    func selectItem(_ id: UUID) {
-        selectedItemID = id
-        onItemSelected?(id)
+    @discardableResult
+    func showUnitPicker(selectedID: UUID, typeFilter: UnitType? = nil, onSelect: @escaping (UUID) -> Void) -> Session<UUID> {
+        let session = session(initialValue: selectedID, onComplete: onSelect)
+        path.append(.unitPicker(session, typeFilter: typeFilter))
+        return session
     }
 
-    func showUnitPicker(selectedID: UUID, typeFilter: UnitType? = nil, onSelect: @escaping (UUID) -> Void) {
-        selectedUnitID = selectedID
-        onUnitSelected = onSelect
-        path.append(.unitPicker(typeFilter: typeFilter))
+    @discardableResult
+    func showDishPicker(course: CourseType, onSelect: @escaping (MealComponentDraft) -> Void) -> Session<MealComponentDraft> {
+        let session = session(onComplete: onSelect)
+        path.append(.dishPicker(session, course: course))
+        return session
     }
 
-    func selectUnit(_ id: UUID) {
-        selectedUnitID = id
-        onUnitSelected?(id)
-    }
-    
-    func showDishPicker(
-        course: CourseType,
-        onSelect: @escaping (MealComponentDraft) -> Void
-    ) {
-        selectedDishID = .recipe(UUID())
-        onDishSelected = onSelect
-        path.append(.dishPicker(course: course))
-    }
-
-    func selectDishComponent(_ component: MealComponentDraft) {
-        selectedDishID = component.source
-        onDishSelected?(component)
-    }
-
+    @discardableResult
     func showMealComponent(
         _ component: MealComponentDraft,
         isEditing: Bool,
-        dismissDishPickerOnSave: Bool = false,
+        allowsRecipeEditing: Bool = false,
         onSave: @escaping (MealComponentDraft) -> Void
-    ) {
-        mealComponent = component
-        isEditingMealComponent = isEditing
-        onMealComponentSaved = onSave
-        mealComponentReturnDepth = path.count
-        if dismissDishPickerOnSave,
-           let pickerIndex = path.lastIndex(where: {
-               if case .dishPicker = $0 { return true }
-               return false
-           }) {
-            mealComponentReturnDepth = pickerIndex
+    ) -> Session<MealComponentDraft> {
+        let session = session(initialValue: component, onComplete: onSave)
+        if allowsRecipeEditing, case .recipe = component.source {
+            path.append(.plannedRecipe(session))
+        } else {
+            path.append(.mealComponent(session, isEditing: isEditing))
         }
-        path.append(.mealComponent)
+        return session
     }
 
-    func saveMealComponent(_ component: MealComponentDraft) {
-        onMealComponentSaved?(component)
-        path = Array(path.prefix(mealComponentReturnDepth))
-        onMealComponentSaved = nil
+    @discardableResult
+    func showPlannerMealPicker(mealType: MealType, onSelect: @escaping (UUID) -> Void) -> Session<UUID> {
+        let session = session(onComplete: onSelect)
+        path.append(.mealPicker(session, initialMealType: mealType))
+        return session
     }
 
-    func showMealPicker(selectedID: UUID, onSelect: @escaping (UUID) -> Void) {
-        selectedMealID = selectedID
-        onMealSelected = onSelect
-        path.append(.mealPicker)
-    }
-
-    func selectMeal(_ id: UUID) {
-        selectedMealID = id
-        onMealSelected?(id)
-    }
-
-    func showPlannerMealPicker(mealType: MealType, onSelect: @escaping (UUID) -> Void) {
-        selectedMealID = UUID()
-        onMealSelected = onSelect
-        path.append(.plannerMealPicker(mealType))
-    }
-
+    @discardableResult
     func showRecipieIngredient(
         _ ingredient: RecipieIngredientDraft,
         isEditing: Bool,
         onSave: @escaping (RecipieIngredientDraft) -> Void
-    ) {
-        recipieIngredient = ingredient
-        isEditingRecipieIngredient = isEditing
-        onRecipieIngredientSaved = onSave
-        path.append(.recipieIngredient)
+    ) -> Session<RecipieIngredientDraft> {
+        let session = session(initialValue: ingredient, onComplete: onSave)
+        path.append(.recipieIngredient(session, isEditing: isEditing))
+        return session
     }
 
-    func saveRecipieIngredient(_ ingredient: RecipieIngredientDraft) {
-        onRecipieIngredientSaved?(ingredient)
-    }
-
+    @discardableResult
     func showImportedRecipieIngredient(
         _ ingredient: ImportedRecipieIngredient,
         onSave: @escaping (ImportedRecipieIngredient) -> Void
-    ) {
-        importedRecipieIngredient = ingredient
-        onImportedRecipieIngredientSaved = onSave
-        path.append(.importedRecipieIngredient)
+    ) -> Session<ImportedRecipieIngredient> {
+        let session = session(initialValue: ingredient, onComplete: onSave)
+        path.append(.importedRecipieIngredient(session))
+        return session
     }
 
-    func saveImportedRecipieIngredient(_ ingredient: ImportedRecipieIngredient) {
-        onImportedRecipieIngredientSaved?(ingredient)
+    private func session<Value>(initialValue: Value? = nil, onComplete: @escaping (Value) -> Void) -> Session<Value> {
+        Session(initialValue: initialValue, returnPath: path, onComplete: onComplete)
     }
 }

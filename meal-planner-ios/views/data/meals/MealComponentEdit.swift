@@ -49,10 +49,15 @@ struct MealComponentEdit: View {
 
     private var validationMessage: String? {
         if sourceName == nil { return "The selected dish no longer exists." }
-        if isIngredient {
-            if unit == nil { return "Choose a unit for this portion." }
-            guard let quantity = value.quantity, quantity > 0, quantity.isFinite else {
-                return "Quantity must be greater than zero."
+        if case .ingredient(let itemID) = value.source {
+            guard let unitID = value.unitID else { return "Choose a unit for this portion." }
+            guard let quantity = value.quantity else { return "Enter a quantity for this portion." }
+            do {
+                _ = try IngredientResolver(items: items, units: units).resolve(
+                    RecipieIngredientDraft(itemID: itemID, unitID: unitID, quantity: quantity)
+                )
+            } catch {
+                return error.localizedDescription
             }
         }
         return nil
@@ -65,16 +70,15 @@ struct MealComponentEdit: View {
             }
             if isIngredient {
                 Section {
-                    Button {
+                    QuantityFields(
+                        unit: unit,
+                        quantity: quantity,
+                        unitPlaceholder: "Choose",
+                        quantityIdentifier: "mealComponentQuantity"
+                    ) {
                         router.showUnitPicker(selectedID: value.unitID ?? UUID()) { id in
                             value.unitID = id
                         }
-                    } label: {
-                        Text("Unit").badge(unit?.name ?? "Choose")
-                    }
-                    if let unit {
-                        UnitInput(label: "Quantity", unit: .constant(unit), value: quantity)
-                            .accessibilityIdentifier("mealComponentQuantity")
                     }
                 } header: {
                     Text("Portion per person")
@@ -105,7 +109,9 @@ struct MealComponentRow: View {
 
     private var name: String {
         switch component.source {
-        case .recipe(let id): recipies.first { $0.id == id }?.name ?? "Missing recipe"
+        case .recipe(let id):
+            (recipies.first { $0.id == id }?.name ?? "Missing recipe")
+                + (component.ingredientOverrides.isEmpty ? "" : "*")
         case .readymeal(let id): items.first { $0.id == id }?.name ?? "Missing ready meal"
         case .ingredient(let id): items.first { $0.id == id }?.name ?? "Missing ingredient"
         }

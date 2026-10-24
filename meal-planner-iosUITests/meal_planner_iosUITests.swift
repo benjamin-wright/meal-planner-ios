@@ -5,8 +5,6 @@ final class meal_planner_iosUITests: MealPlannerUITestCase {
     func testClearPlanRequiresConfirmationAndLeavesShoppingList() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        resetSampleData(in: app)
-        defer { resetSampleData(in: app) }
         app.tabBars.buttons["Planner"].tap()
 
         let clear = app.navigationBars["Planner"].buttons["Clear Plan"]
@@ -40,10 +38,4 @@ final class meal_planner_iosUITests: MealPlannerUITestCase {
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
     }
 
-    @MainActor
-    func testLaunchPerformance() throws {
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
-    }
 }

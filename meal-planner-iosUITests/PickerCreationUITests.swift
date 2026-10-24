@@ -49,10 +49,9 @@ final class PickerCreationUITests: MealPlannerUITestCase {
     func testCreatedRecipeAndReadyMealAreAddedToTheirChosenCourses() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        let suffix = UUID().uuidString.lowercased()
-        let mealName = "picker meal \(suffix)"
-        let recipeName = "picker recipe \(suffix)"
-        let readyMealName = "picker ready meal \(suffix)"
+        let mealName = "picker meal"
+        let recipeName = "picker recipe"
+        let readyMealName = "picker ready meal"
         openNewSavedMeal(mealName, in: app)
 
         openDishCreation("Recipe", course: "Starter", in: app)
@@ -78,9 +77,8 @@ final class PickerCreationUITests: MealPlannerUITestCase {
     func testCreatedIngredientAutomaticallyOpensItsPortionEditor() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        let suffix = UUID().uuidString.lowercased()
-        let ingredientName = "picker ingredient \(suffix)"
-        openNewSavedMeal("picker ingredient meal \(suffix)", in: app)
+        let ingredientName = "picker ingredient"
+        openNewSavedMeal("picker ingredient meal", in: app)
 
         openDishCreation("Ingredient", course: "Side", in: app)
         enterName(ingredientName, placeholder: "item name", in: app)
@@ -118,9 +116,8 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         XCTAssertTrue(app.segmentedControls.buttons["Lunch"].isSelected)
         app.navigationBars["Meal"].buttons["Add"].tap()
 
-        let suffix = UUID().uuidString.lowercased()
-        let mealName = "planner picker meal \(suffix)"
-        let recipeName = "planner picker recipe \(suffix)"
+        let mealName = "planner picker meal"
+        let recipeName = "planner picker recipe"
         enterName(mealName, placeholder: "meal name", in: app)
         openDishCreation("Recipe", course: "Main", in: app)
         enterName(recipeName, placeholder: "recipe name", in: app)

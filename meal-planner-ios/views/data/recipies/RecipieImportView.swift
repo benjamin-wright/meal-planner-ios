@@ -16,6 +16,7 @@ struct RecipieImportView: View {
     @State private var showCamera = false
     @State private var initialSourcePresented = false
     let initialSource: RecipieImportSource
+    let catalogue: [RecipieIngredientCatalogEntry]
     let onImport: (ExtractedRecipie) -> Void
 
     var body: some View {
@@ -32,7 +33,7 @@ struct RecipieImportView: View {
                     ProgressView { Text(progress) }
                     Button("Stop Processing") { model.cancel() }
                 } else {
-                    Button("Extract Recipe") { model.extract() }
+                    Button("Extract Recipe") { model.extract(catalogue: catalogue) }
                         .buttonStyle(.borderedProminent)
                         .disabled(model.pages.isEmpty)
                         .accessibilityIdentifier("extractRecipe")

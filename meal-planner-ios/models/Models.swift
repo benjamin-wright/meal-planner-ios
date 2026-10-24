@@ -11,7 +11,15 @@ import SwiftData
 @MainActor
 class Models {
     static let shared = Models()
-    static let testing = Models(testing: true)
+    static let testing = Models(configuration: ModelConfiguration(
+        "Preview", schema: schema, isStoredInMemoryOnly: true
+    ))
+
+    static let schema = Schema([
+        Category.self, Unit.self, AppSettings.self, Item.self, Recipie.self,
+        MealComponent.self, Meal.self, PlannedMeal.self, PlannedMiscEntry.self,
+        ShoppingListEntry.self,
+    ])
     
     let modelContainer: ModelContainer
     
@@ -40,33 +48,24 @@ class Models {
             try Models.clear(AppSettings.self, context)
             try Models.clear(Unit.self, context)
             
-            Models.initialiseData(context)
+            try Models.initialiseData(context)
             try context.save()
         } catch {
             fatalError("Could not clear existing data: \(error)")
         }
     }
 
-    private init(testing: Bool = false) {
-        let schema = Schema([
-            Category.self,
-            Unit.self,
-            AppSettings.self,
-            Item.self,
-            Recipie.self,
-            MealComponent.self,
-            Meal.self,
-            PlannedMeal.self,
-            PlannedMiscEntry.self,
-            ShoppingListEntry.self,
-        ])
-        let modelConfiguration = ModelConfiguration("MealPlanner", schema: schema, isStoredInMemoryOnly: testing)
-
+    init(
+        configuration: ModelConfiguration? = nil,
+        additionalSeed: (ModelContext) throws -> Void = { _ in }
+    ) {
         do {
-            modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let configuration = configuration ?? ModelConfiguration("MealPlanner", schema: Self.schema)
+            modelContainer = try ModelContainer(for: Self.schema, configurations: [configuration])
             let settings = try modelContainer.mainContext.fetch(FetchDescriptor<AppSettings>())
             if settings.count < 1 {
-                Models.initialiseData(context)
+                try Models.initialiseData(context)
+                try additionalSeed(context)
                 try context.save()
             }
         } catch {
@@ -74,7 +73,7 @@ class Models {
         }
     }
 
-    private static func initialiseData(_ context: ModelContext) {
+    private static func initialiseData(_ context: ModelContext) throws {
         let countUnit = Unit(name: "count", type: .count, magnitudes: [])
         let loavesUnit = Unit(name: "loaves", type: .count, magnitudes: [
             Magnitude(
@@ -137,7 +136,7 @@ class Models {
         context.insert(householdCategory)
         context.insert(drugCategory)
         
-        try? context.save()
+        try context.save()
         
         let carrots = Item(name: "carrots", category: vegetableCategory, kind: .ingredient)
         let onions = Item(name: "onions", category: vegetableCategory, kind: .ingredient)
@@ -177,7 +176,7 @@ class Models {
         context.insert(pastaPot)
         context.insert(fruitPot)
         
-        try? context.save()
+        try context.save()
         
         let carrotSoup = Recipie(
             name: "carrot soup",
@@ -362,7 +361,7 @@ class Models {
             sortOrder: 1
         ))
         
-        try? context.save()
-        try? ShoppingListStore(context: context).regenerate()
+        try context.save()
+        try ShoppingListStore(context: context).regenerate()
     }
 }

@@ -11,9 +11,9 @@ import SwiftData
 struct CategoryEdit: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
+    private let onCreate: ((UUID) -> Void)?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: CategoryDraft
@@ -21,8 +21,9 @@ struct CategoryEdit: View {
     @State private var saveError: String?
     @Query(sort: \Category.order) private var categories: [Category]
 
-    init(id: UUID? = nil) {
+    init(id: UUID? = nil, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
+        self.onCreate = onCreate
         self._draft = State(initialValue: CategoryDraft())
     }
 
@@ -46,8 +47,11 @@ struct CategoryEdit: View {
     private func save() {
         do {
             let savedID = try CategoryStore(context: context).save(draft, id: id)
-            if !isEditing, router.completeCreation(id: savedID) { return }
-            dismiss()
+            if !isEditing, let onCreate {
+                onCreate(savedID)
+            } else {
+                dismiss()
+            }
         } catch {
             saveError = error.localizedDescription
         }

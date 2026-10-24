@@ -77,10 +77,4 @@ extension Category {
         FetchDescriptor(predicate: #Predicate { $0.id == id })
     }
 
-    /// Creates and returns a blank category with the next available order index.
-    /// Does NOT insert into the context — caller must do that when confirmed.
-    static func makeNew(in context: ModelContext) -> Category {
-        let existing = (try? context.fetch(Category.orderedDescriptor)) ?? []
-        return Category(name: "", order: existing.count)
-    }
 }

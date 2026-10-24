@@ -9,40 +9,35 @@ import SwiftUI
 import SwiftData
 
 struct ItemPicker: View {
-    @Environment(\.dismiss) var dismiss
     @Environment(FlowRouter.self) private var router
 
     let items: [Item]
-    @Binding var selectedID: UUID
+    let selectedID: UUID?
+    var kindFilter: ItemKind? = nil
     @State var filter: ItemFilter = ItemFilter()
+    let onSelect: (UUID) -> Void
     @State private var isSearchPresented = false
 
     var filteredItems: [Item] {
-        items.filter(filter.filter)
+        items.filter { item in
+            (kindFilter == nil || item.itemKind == kindFilter) && filter.filter(item: item)
+        }
     }
 
     var body: some View {
         VStack {
-            HStack {
-                FilterButton(image: .system("carrot.fill"), selected: $filter.ingredients)
-                FilterButton(image: .system("microwave.fill"), aspect: 1.5, selected: $filter.readymeals)
-                FilterButton(image: .system("bag.fill"), selected: $filter.misc)
-            }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+            if kindFilter == nil {
+                HStack {
+                    FilterButton(image: .system("carrot.fill"), selected: $filter.ingredients)
+                    FilterButton(image: .system("microwave.fill"), aspect: 1.5, selected: $filter.readymeals)
+                    FilterButton(image: .system("bag.fill"), selected: $filter.misc)
+                }.padding(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+            }
             GlassList {
                 ForEach(filteredItems) { item in
-                    Button {
+                    SelectionRow(title: item.name, isSelected: item.id == selectedID) {
                         isSearchPresented = false
-                        router.selectItem(item.id)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text(item.name)
-                            Spacer()
-                            if item.id == selectedID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
+                        onSelect(item.id)
                     }
                 }
             }
@@ -52,10 +47,7 @@ struct ItemPicker: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
                     isSearchPresented = false
-                    router.showCreation(.newItem) { id in
-                        router.selectItem(id)
-                        router.path = Array(router.path.dropLast())
-                    }
+                    router.showCreation(.item(kind: kindFilter), onCreate: onSelect)
                 }
             }
         }
@@ -72,7 +64,8 @@ struct ItemPicker: View {
             FlowContainer {
                 ItemPicker(
                     items: items,
-                    selectedID: $selectedID
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 }
                 )
             }
         }

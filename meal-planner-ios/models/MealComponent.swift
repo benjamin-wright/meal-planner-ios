@@ -22,19 +22,22 @@ struct MealComponentDraft: Identifiable, Hashable {
     /// Direct ingredient quantity per person; recipes and ready meals use their own yield.
     var quantity: Double?
     var unitID: UUID?
+    var ingredientOverrides: [RecipeIngredientOverride]
 
     init(
         id: UUID = UUID(),
         source: DishID,
         course: CourseType = .main,
         quantity: Double? = nil,
-        unitID: UUID? = nil
+        unitID: UUID? = nil,
+        ingredientOverrides: [RecipeIngredientOverride] = []
     ) {
         self.id = id
         self.source = source
         self.course = course
         self.quantity = quantity
         self.unitID = unitID
+        self.ingredientOverrides = ingredientOverrides
     }
 
     init(component: MealComponent) {
@@ -43,7 +46,8 @@ struct MealComponentDraft: Identifiable, Hashable {
             source: component.source ?? component.kindEnum.source(id: component.id),
             course: component.courseEnum,
             quantity: component.quantity,
-            unitID: component.unit?.id
+            unitID: component.unit?.id,
+            ingredientOverrides: component.ingredientOverrides ?? []
         )
     }
 
@@ -57,11 +61,28 @@ struct MealComponentDraft: Identifiable, Hashable {
     }
 
     var hasValidPortion: Bool {
+        guard Set(ingredientOverrides.map(\.id)).count == ingredientOverrides.count,
+              ingredientOverrides.allSatisfy({ DomainValidation.isPositiveFinite($0.quantity) }) else { return false }
         switch source {
         case .ingredient:
-            return quantity.map { $0 > 0 && $0.isFinite } == true && unitID != nil
-        case .recipe, .readymeal:
+            return ingredientOverrides.isEmpty && quantity.map(DomainValidation.isPositiveFinite) == true && unitID != nil
+        case .readymeal:
+            return ingredientOverrides.isEmpty && quantity == nil && unitID == nil
+        case .recipe:
             return quantity == nil && unitID == nil
+        }
+    }
+
+    func ingredients(for recipe: Recipie) -> [RecipieIngredientDraft] {
+        IngredientResolver.applying(ingredientOverrides, to: recipe.ingredients.map(RecipieIngredientDraft.init))
+    }
+
+    mutating func updateIngredient(_ ingredient: RecipieIngredientDraft, in recipe: Recipie) {
+        ingredientOverrides.removeAll { $0.id == ingredient.id }
+        guard let original = recipe.ingredients.first(where: { $0.id == ingredient.id }) else { return }
+        if ingredient.itemID != original.item.id || ingredient.unitID != original.unit.id
+            || ingredient.quantity != original.quantity {
+            ingredientOverrides.append(RecipeIngredientOverride(ingredient: ingredient))
         }
     }
 }
@@ -79,6 +100,7 @@ final class MealComponent {
     var unit: Unit?
     var meal: Meal?
     var plannedMeal: PlannedMeal?
+    var ingredientOverrides: [RecipeIngredientOverride]? = nil
 
     var kindEnum: MealComponentKind {
         MealComponentKind(rawValue: kind) ?? .ingredient
@@ -104,7 +126,10 @@ final class MealComponent {
         }
     }
 
-    var displayName: String { recipe?.name ?? item?.name ?? "Missing dish" }
+    var displayName: String {
+        let name = recipe?.name ?? item?.name ?? "Missing dish"
+        return name + (ingredientOverrides?.isEmpty == false ? "*" : "")
+    }
 
     init(
         id: UUID = UUID(),
@@ -156,6 +181,7 @@ final class MealComponent {
             quantity: component.quantity,
             unit: component.unit
         )
+        ingredientOverrides = component.ingredientOverrides
     }
 }
 
@@ -165,6 +191,7 @@ enum MealComponentPersistence {
         case missingSource
         case missingUnit
         case ownershipConflict
+        case invalidOverride
 
         var errorDescription: String? {
             switch self {
@@ -174,6 +201,8 @@ enum MealComponentPersistence {
                 return "Choose a valid unit for every ingredient portion."
             case .ownershipConflict:
                 return "A dish belongs to another meal. Add a new dish instead."
+            case .invalidOverride:
+                return "Recipe substitutions need an existing ingredient, an ingredient item, a valid unit, and a finite quantity greater than zero."
             }
         }
     }
@@ -197,6 +226,7 @@ enum MealComponentPersistence {
         let items = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) })
         let units = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Unit>()).map { ($0.id, $0) })
         let allComponents = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<MealComponent>()).map { ($0.id, $0) })
+        let ingredientResolver = IngredientResolver(items: Array(items.values), units: Array(units.values))
         let ownedIDs = Set(existingComponents.map(\.id))
 
         return try drafts.map { draft in
@@ -210,6 +240,11 @@ enum MealComponentPersistence {
             switch draft.source {
             case .recipe(let id):
                 guard let recipe = recipes[id] else { throw Error.missingSource }
+                guard draft.hasValidPortion else { throw Error.invalidOverride }
+                do {
+                    _ = try ingredientResolver.resolve(recipe.ingredients.map(RecipieIngredientDraft.init),
+                                                       overrides: draft.ingredientOverrides)
+                } catch { throw Error.invalidOverride }
                 return Selection(draft: draft, kind: .recipe, recipe: recipe, item: nil, unit: nil)
             case .readymeal(let id):
                 guard let item = items[id], item.kind == ItemKind.readymeal.rawValue else { throw Error.missingSource }
@@ -217,8 +252,7 @@ enum MealComponentPersistence {
             case .ingredient(let id):
                 guard let item = items[id], item.kind == ItemKind.ingredient.rawValue else { throw Error.missingSource }
                 guard let unitID = draft.unitID, let unit = units[unitID],
-                      UnitType(rawValue: unit.type) != nil,
-                      unit.base > 0, unit.base.isFinite else { throw Error.missingUnit }
+                      unit.definition?.isValid == true else { throw Error.missingUnit }
                 return Selection(draft: draft, kind: .ingredient, recipe: nil, item: item, unit: unit)
             }
         }
@@ -247,6 +281,7 @@ enum MealComponentPersistence {
             row.sortOrder = index
             row.quantity = selection.draft.quantity
             row.unit = selection.unit
+            row.ingredientOverrides = selection.draft.ingredientOverrides.isEmpty ? nil : selection.draft.ingredientOverrides
             row.meal = meal
             row.plannedMeal = plannedMeal
             return row

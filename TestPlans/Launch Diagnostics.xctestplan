@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "id": "49DA2056-840F-49CE-8269-06CE7BD368B8",
+      "name": "Launch Diagnostics",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "targetForVariableExpansion": {
+      "containerPath": "container:meal-planner-ios.xcodeproj",
+      "identifier": "021272DE2E709C0D003A6B2F",
+      "name": "meal-planner-ios"
+    },
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:meal-planner-ios.xcodeproj",
+        "identifier": "021272F72E709C0D003A6B2F",
+        "name": "meal-planner-iosUITests"
+      },
+      "parallelizable": false,
+      "selectedTests": [
+        "meal_planner_iosUITestsLaunchTests"
+      ]
+    }
+  ],
+  "version": 1
+}
