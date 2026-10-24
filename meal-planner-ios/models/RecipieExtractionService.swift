@@ -11,10 +11,10 @@ enum RecipieImportError: LocalizedError {
         case .unavailable: String(localized: "Recipe import is unavailable. Check that Apple Intelligence is enabled and ready, then try again.")
         case .unreadableImage: String(localized: "A photo could not be opened. Please choose it again or use another photo.")
         case .noText(let page): String(localized: "No readable text was found on photo \(page). Try a clearer photo or remove it.")
-        case .noRecipe: String(localized: "No recipe was found. Choose photos showing the recipe's ingredients and instructions.")
-        case .tooMuchText: String(localized: "There is too much text to process at once. Crop the photos to the recipe or use fewer pages.")
+        case .noRecipe: String(localized: "No recipe was found. Choose pages showing the recipe's ingredients and instructions.")
+        case .tooMuchText: String(localized: "There is too much text to process at once. Use fewer pages or shorter recipe text.")
         case .tooManyPages: String(localized: "Choose up to six photos of one recipe. No photos have been added.")
-        case .extractionFailed: String(localized: "The recipe could not be extracted. Try again with clearer photos or fewer pages.")
+        case .extractionFailed: String(localized: "The recipe could not be extracted. Try again with clearer text or fewer pages.")
         }
     }
 }
@@ -129,7 +129,7 @@ struct FoundationRecipieExtractor: RecipieExtracting {
                                               instructions: String, prompt: String) async throws -> Content {
         try Task.checkCancellation()
         guard SystemLanguageModel.default.availability == .available else { throw RecipieImportError.unavailable }
-        guard text.count <= 6_000 else { throw RecipieImportError.tooMuchText }
+        guard text.count <= RecipieImportPipeline.maximumTextCharacters else { throw RecipieImportError.tooMuchText }
         let session = LanguageModelSession(instructions: instructions)
         let response = try await session.respond(to: prompt + text, generating: type, options: options)
         try Task.checkCancellation()
@@ -170,6 +170,7 @@ struct FoundationRecipieExtractor: RecipieExtracting {
 /// OCR stage shared by the app and playground. Images must already be prepared.
 enum RecipieImportPipeline {
     static let maximumPages = 6
+    static let maximumTextCharacters = 6_000
 
     static func recognize(pages: [Data], recognizer: any RecipieTextRecognizing = VisionRecipieTextRecognizer(),
                           progress: (Int) -> Void = { _ in }) async throws -> String {

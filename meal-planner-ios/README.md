@@ -110,7 +110,25 @@ Tap **Hide Keyboard** above the keyboard to finish editing and reveal the rest
 of the screen. The control is shared by forms, recipe steps, catalogue searches
 and the Shopping List Add sheet.
 
-## Recipe photo import
+## Recipe import
+
+The recipe editor's import menu offers **Scan Recipe**, **Choose Photos**, and
+**Import PDF** when Apple Intelligence is available. PDF import opens the system
+file picker for one document containing one recipe. Review the page thumbnails,
+use **Edit** to remove unwanted pages, then choose **Extract Recipe**.
+
+PDFs use their embedded text directly; there is no OCR fallback. Pages without
+selectable text are flagged, and extraction stops until those pages are removed.
+Keep at most six pages and 6,000 characters of combined input text. Longer PDFs
+can be opened for page selection; exceeding either extraction limit shows an
+error instead of truncating the recipe. Original PDF page numbers remain visible
+after removing pages.
+
+The extracted text follows the same on-device recipe extraction, ingredient
+matching, and review as photos. Review the existing recipe fields before **Add**
+or **Save**. The original PDF is not retained with the recipe. Choosing another
+PDF replaces the pending document's pages; unreadable or locked files show an
+error without discarding the previous preview.
 
 Ingredient-only photos are supported: absent cooking instructions produce no
 steps, and ingredient rows are never meant to become a method. Imported names

@@ -1,10 +1,11 @@
 import AVFoundation
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 import VisionKit
 
 enum RecipieImportSource: String, Identifiable {
-    case camera, photos
+    case camera, photos, pdf
     var id: Self { self }
 }
 
@@ -14,15 +15,27 @@ struct RecipieImportView: View {
     @State private var selection: [PhotosPickerItem] = []
     @State private var showPhotos = false
     @State private var showCamera = false
+    @State private var showPDF = false
     @State private var initialSourcePresented = false
     let initialSource: RecipieImportSource
     let catalogue: [RecipieIngredientCatalogEntry]
     let onImport: (ExtractedRecipie) -> Void
 
+    private var isPDF: Bool { initialSource == .pdf }
+    private var hasPages: Bool { isPDF ? !model.pdfPages.isEmpty : !model.pages.isEmpty }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                if model.pages.isEmpty {
+                if isPDF {
+                    if model.pdfPages.isEmpty {
+                        ContentUnavailableView("Choose a Recipe PDF", systemImage: "doc",
+                                               description: Text("Choose one PDF with selectable text. Keep up to six pages of one recipe."))
+                    } else {
+                        RecipiePDFPages(pages: $model.pdfPages, fileName: model.pdfFileName)
+                            .disabled(model.isBusy)
+                    }
+                } else if model.pages.isEmpty {
                     ContentUnavailableView("Add Recipe Photos", systemImage: "doc.viewfinder",
                                            description: Text("Scan or choose up to six photos of one recipe."))
                 } else {
@@ -33,9 +46,12 @@ struct RecipieImportView: View {
                     ProgressView { Text(progress) }
                     Button("Stop Processing") { model.cancel() }
                 } else {
-                    Button("Extract Recipe") { model.extract(catalogue: catalogue) }
+                    Button("Extract Recipe") {
+                        if isPDF { model.extractPDF(catalogue: catalogue) }
+                        else { model.extract(catalogue: catalogue) }
+                    }
                         .buttonStyle(.borderedProminent)
-                        .disabled(model.pages.isEmpty)
+                        .disabled(!hasPages)
                         .accessibilityIdentifier("extractRecipe")
                 }
             }
@@ -47,16 +63,22 @@ struct RecipieImportView: View {
                     Button("Cancel") { model.cancel(); dismiss() }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    EditButton().disabled(model.pages.isEmpty || model.isBusy)
-                    Menu {
-                        if VNDocumentCameraViewController.isSupported {
-                            Button("Scan Recipe", systemImage: "camera") { openCamera() }
+                    EditButton().disabled(!hasPages || model.isBusy)
+                    if isPDF {
+                        Button("Choose PDF", systemImage: "doc.badge.plus") { showPDF = true }
+                            .disabled(model.isBusy)
+                            .accessibilityIdentifier("chooseRecipePDF")
+                    } else {
+                        Menu {
+                            if VNDocumentCameraViewController.isSupported {
+                                Button("Scan Recipe", systemImage: "camera") { openCamera() }
+                            }
+                            Button("Choose Photos", systemImage: "photo.on.rectangle") { showPhotos = true }
+                        } label: {
+                            Label("Add Photos", systemImage: "plus")
                         }
-                        Button("Choose Photos", systemImage: "photo.on.rectangle") { showPhotos = true }
-                    } label: {
-                        Label("Add Photos", systemImage: "plus")
+                        .disabled(model.isBusy || model.pages.count >= RecipieImportModel.maximumPages)
                     }
-                    .disabled(model.isBusy || model.pages.count >= RecipieImportModel.maximumPages)
                 }
             }
             .photosPicker(isPresented: $showPhotos, selection: $selection,
@@ -65,6 +87,12 @@ struct RecipieImportView: View {
             .onChange(of: selection) { _, photos in
                 model.load(photos)
                 selection = []
+            }
+            .fileImporter(isPresented: $showPDF, allowedContentTypes: [.pdf]) { result in
+                switch result {
+                case .success(let url): model.loadPDF(from: url)
+                case .failure(let error): model.error = error.localizedDescription
+                }
             }
             .fullScreenCover(isPresented: $showCamera) {
                 RecipieDocumentCamera(maximumPages: RecipieImportModel.maximumPages - model.pages.count) { result in
@@ -94,7 +122,11 @@ struct RecipieImportView: View {
             .task {
                 guard !initialSourcePresented else { return }
                 initialSourcePresented = true
-                if initialSource == .photos { showPhotos = true } else { openCamera() }
+                switch initialSource {
+                case .photos: showPhotos = true
+                case .camera: openCamera()
+                case .pdf: showPDF = true
+                }
             }
             .onDisappear { model.cancel() }
             .interactiveDismissDisabled(model.isBusy)
@@ -115,6 +147,63 @@ struct RecipieImportView: View {
                 model.error = String(localized: "Camera access is unavailable. Choose existing photos, or enable camera access for this app in Settings.")
             }
         }
+    }
+}
+
+private struct RecipiePDFPages: View {
+    @Binding var pages: [RecipiePDFPage]
+    let fileName: String?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(pages, id: \.pageNumber) { page in
+                    HStack(spacing: 16) {
+                        if let thumbnail = UIImage(data: page.thumbnailData) {
+                            Image(uiImage: thumbnail)
+                                .resizable().scaledToFit().frame(width: 100, height: 140)
+                                .accessibilityHidden(true)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Page \(page.pageNumber)")
+                            if page.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Label("No selectable text. Remove this page to continue.", systemImage: "exclamationmark.triangle")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("recipePDFPage\(page.pageNumber)")
+                }
+                .onDelete { pages.remove(atOffsets: $0) }
+            } header: {
+                if let fileName { Text(fileName).textCase(nil) }
+            } footer: {
+                Text("Keep up to six pages of one recipe, with no more than 6,000 characters of text. Use Edit to remove unwanted pages. Scanned pages without selectable text cannot be imported.")
+            }
+        }
+    }
+}
+
+#Preview("PDF Page Selection") {
+    @Previewable @State var pages: [RecipiePDFPage] = {
+        let bounds = CGRect(x: 0, y: 0, width: 300, height: 400)
+        let data = UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in
+            context.beginPage()
+            ("Carrot soup\nServes 2\nIngredients\n200 g carrots\n500 ml milk" as NSString)
+                .draw(in: bounds.insetBy(dx: 20, dy: 20), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 18), .foregroundColor: UIColor.black
+                ])
+            context.beginPage()
+        }
+        return (try? RecipiePDFImport.read(data: data)) ?? []
+    }()
+    NavigationStack {
+        RecipiePDFPages(pages: $pages, fileName: "Carrot soup.pdf")
+            .navigationTitle("Import Recipe")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { EditButton() }
     }
 }
 

@@ -194,6 +194,8 @@ struct RecipieEdit: View {
                             Button("Scan Recipe", systemImage: "camera") { importSource = .camera }
                         }
                         Button("Choose Photos", systemImage: "photo.on.rectangle") { importSource = .photos }
+                        Button("Import PDF", systemImage: "doc") { importSource = .pdf }
+                            .accessibilityIdentifier("importRecipePDF")
                     } label: {
                         Label("Import Recipe", systemImage: "camera")
                     }

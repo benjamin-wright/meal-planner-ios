@@ -15,6 +15,8 @@ struct RecipieImportPage: Identifiable {
 final class RecipieImportModel {
     static let maximumPages = RecipieImportPipeline.maximumPages
     var pages: [RecipieImportPage] = []
+    var pdfPages: [RecipiePDFPage] = []
+    private(set) var pdfFileName: String?
     private(set) var progress: LocalizedStringResource?
     var error: String?
     var result: ExtractedRecipie?
@@ -54,6 +56,29 @@ final class RecipieImportModel {
         start(progress: "Loading photos…") { try await self.prepare(images) }
     }
 
+    @discardableResult
+    func loadPDF(from url: URL) -> Task<Void, Never>? {
+        guard !isBusy else { return nil }
+        let id = UUID()
+        operationID = id
+        progress = "Loading PDF…"
+        error = nil
+        result = nil
+        operation = Task {
+            defer { finish(id) }
+            do {
+                let loadedPages = try await RecipiePDFImport.load(from: url)
+                try Task.checkCancellation()
+                guard operationID == id else { return }
+                pdfPages = loadedPages
+                pdfFileName = url.lastPathComponent
+            } catch is CancellationError { } catch {
+                if operationID == id { self.error = error.localizedDescription }
+            }
+        }
+        return operation
+    }
+
     private func prepare(_ images: [Data]) async throws -> [RecipieImportPage] {
         guard pages.count + images.count <= Self.maximumPages else { throw RecipieImportError.tooManyPages }
         var prepared: [RecipieImportPage] = []
@@ -90,27 +115,47 @@ final class RecipieImportModel {
     @discardableResult
     func extract(catalogue: [RecipieIngredientCatalogEntry] = []) -> Task<Void, Never>? {
         guard !pages.isEmpty, !isBusy else { return nil }
+        let sourcePages = pages
+        return startExtraction(catalogue: catalogue, progress: "Reading photos…") {
+            try await RecipieImportPipeline.recognize(pages: sourcePages.map(\.data), recognizer: self.recognizer) { page in
+                if !Task.isCancelled {
+                    self.progress = "Reading photo \(page) of \(sourcePages.count)…"
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    func extractPDF(catalogue: [RecipieIngredientCatalogEntry] = []) -> Task<Void, Never>? {
+        guard !pdfPages.isEmpty, !isBusy else { return nil }
+        let sourcePages = pdfPages
+        return startExtraction(catalogue: catalogue, progress: "Reading PDF…") {
+            try RecipiePDFImport.text(from: sourcePages)
+        }
+    }
+
+    private func startExtraction(catalogue: [RecipieIngredientCatalogEntry],
+                                 progress: LocalizedStringResource,
+                                 readText: @escaping @MainActor () async throws -> String) -> Task<Void, Never>? {
         let id = UUID()
         operationID = id
-        progress = "Reading photos…"
+        self.progress = progress
         error = nil
-        let sourcePages = pages
+        result = nil
         operation = Task {
             defer { finish(id) }
             do {
-                let text = try await RecipieImportPipeline.recognize(pages: sourcePages.map(\.data), recognizer: recognizer) { page in
-                    if operationID == id { progress = "Reading photo \(page) of \(sourcePages.count)…" }
-                }
+                let text = try await readText()
                 try Task.checkCancellation()
                 guard operationID == id else { return }
-                progress = "Extracting recipe…"
+                self.progress = "Extracting recipe…"
                 let extracted = try await extractor.extract(from: text)
                 try Task.checkCancellation()
                 guard operationID == id else { return }
                 let matched = try await RecipieIngredientMatching.matching(
                     extracted, catalogue: catalogue, selector: ingredientSelector
                 ) { current, total in
-                    if operationID == id { progress = "Matching ingredient \(current) of \(total)…" }
+                    if operationID == id { self.progress = "Matching ingredient \(current) of \(total)…" }
                 }
                 try Task.checkCancellation()
                 guard operationID == id else { return }
