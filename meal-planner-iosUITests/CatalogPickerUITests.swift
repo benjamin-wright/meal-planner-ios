@@ -72,9 +72,8 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
         row("Item", in: app).tap()
         app.navigationBars["Item"].buttons["Add"].tap()
 
-        let suffix = UUID().uuidString.lowercased()
-        let itemName = "picker item \(suffix)"
-        let categoryName = "picker category \(suffix)"
+        let itemName = "Mixed Case Item"
+        let categoryName = "Mixed Case Category"
         let field = app.textFields["item name"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
@@ -101,9 +100,9 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
         app.tabBars.buttons["List"].tap()
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         app.segmentedControls.buttons["Quick Note"].tap()
-        let noteName = "picker note \(UUID().uuidString.lowercased())"
-        let categoryName = "note category \(UUID().uuidString.lowercased())"
-        let unitName = "note count \(UUID().uuidString.lowercased())"
+        let noteName = "picker note"
+        let categoryName = "note category"
+        let unitName = "note count"
         let field = app.textFields["e.g. birthday candles"]
         field.tap()
         field.typeText(noteName + "\n")
@@ -141,7 +140,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
             XCTAssertFalse(row(excluded, in: app).exists, type)
             XCTAssertFalse(row("count", in: app).exists, type)
             XCTAssertFalse(app.segmentedControls.buttons["All"].exists, type)
-            let name = "picker \(type.lowercased()) \(UUID().uuidString.lowercased())"
+            let name = "picker \(type.lowercased())"
             createUnit(name, type: type, in: app)
             XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), type)
             assertSelection(type, is: name, in: app)
@@ -149,27 +148,17 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testRecipeCatalogueAndEditorDoNotHideBehindMealOrCourseFilters() {
+    func testRecipeAuthoringSupportsMultilineStepsReorderingAndPersistence() {
         let app = XCUIApplication()
         launchInPortrait(app)
         openRecipeCatalogue(in: app)
         XCTAssertFalse(app.segmentedControls.firstMatch.exists)
         XCTAssertTrue(app.buttons["recipeFilters"].exists)
-
         openNewRecipe(in: app)
         XCTAssertFalse(app.segmentedControls.buttons["Breakfast"].exists)
         XCTAssertFalse(app.segmentedControls.buttons["Main"].exists)
-        XCTAssertTrue(app.textFields["recipe name"].exists)
-    }
 
-    @MainActor
-    func testRecipeStepsCanBeReorderedAndSaved() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
-        openRecipeCatalogue(in: app)
-        openNewRecipe(in: app)
-
-        let recipeName = "reordered steps \(UUID().uuidString.lowercased())"
+        let recipeName = "reordered steps"
         let name = app.textFields["recipe name"]
         name.tap()
         name.typeText(recipeName + "\n")
@@ -186,7 +175,10 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
         scrollTo(firstStep, in: app)
         XCTAssertTrue(firstStep.waitForExistence(timeout: 5))
         firstStep.tap()
-        firstStep.typeText("Chop onions.")
+        let multilineStep = "Chop onions.\nKeep the pieces small."
+        firstStep.typeText(multilineStep)
+        XCTAssertEqual(firstStep.value as? String, multilineStep)
+        XCTAssertGreaterThan(firstStep.frame.height, 44)
         app.buttons["hideKeyboard"].tap()
         scrollTo(secondStep, in: app)
         secondStep.tap()
@@ -206,7 +198,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
         scrollTo(firstStep, in: app)
         XCTAssertEqual(firstStep.value as? String, "Add oil.")
         scrollTo(secondStep, in: app)
-        XCTAssertEqual(secondStep.value as? String, "Chop onions.")
+        XCTAssertEqual(secondStep.value as? String, multilineStep)
         app.navigationBars["Recipe"].buttons["Done"].tap()
         app.buttons["saveRecipe"].tap()
         XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
@@ -221,25 +213,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
         scrollTo(firstStep, in: app)
         XCTAssertEqual(firstStep.value as? String, "Add oil.")
         scrollTo(secondStep, in: app)
-        XCTAssertEqual(secondStep.value as? String, "Chop onions.")
+        XCTAssertEqual(secondStep.value as? String, multilineStep)
     }
 
-    @MainActor
-    func testRecipeStepsAllowMultilineReview() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
-        openRecipeCatalogue(in: app)
-        openNewRecipe(in: app)
-
-        let addStep = app.buttons["addRecipeStep"]
-        scrollTo(addStep, in: app)
-        addStep.tap()
-
-        let step = app.descendants(matching: .any)["recipeStep0"]
-        XCTAssertTrue(step.waitForExistence(timeout: 5))
-        step.tap()
-        step.typeText("Chop onions.\nAdd oil.")
-        XCTAssertTrue((step.value as? String)?.contains("\n") == true)
-        XCTAssertGreaterThan(step.frame.height, 44)
-    }
 }

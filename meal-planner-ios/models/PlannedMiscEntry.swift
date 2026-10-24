@@ -107,11 +107,12 @@ final class PlannedMiscStore {
     ) throws {
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedNote.isEmpty else { throw Error.emptyNote }
-        guard quantity > 0 && quantity.isFinite else { throw Error.invalidQuantity }
+        guard DomainValidation.isPositiveFinite(quantity) else { throw Error.invalidQuantity }
         guard let category = try context.fetch(Category.descriptor(id: categoryID)).first else {
             throw Error.missingCategory
         }
-        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first else {
+        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first,
+              unit.definition?.isValid == true else {
             throw Error.missingUnit
         }
         let entry = try entry(id: id)
@@ -123,11 +124,12 @@ final class PlannedMiscStore {
     }
 
     func saveItem(_ itemID: UUID, unitID: UUID, quantity: Double, id: UUID? = nil) throws {
-        guard quantity > 0 && quantity.isFinite else { throw Error.invalidQuantity }
+        guard DomainValidation.isPositiveFinite(quantity) else { throw Error.invalidQuantity }
         guard let item = try context.fetch(Item.descriptor(id: itemID)).first else {
             throw Error.missingItem
         }
-        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first else {
+        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first,
+              unit.definition?.isValid == true else {
             throw Error.missingUnit
         }
         let entry = try entry(id: id)

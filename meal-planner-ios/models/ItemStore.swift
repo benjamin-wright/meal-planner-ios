@@ -25,7 +25,7 @@ final class ItemStore {
             case .missingCategory:
                 return "The selected category no longer exists."
             case .itemInUse:
-                return "This item is used in a meal. Remove it from its meals before changing its kind."
+                return "This item is used in a recipe, meal, or substitution. Remove those references before changing its kind."
             case .usedInRecipe(let name):
                 return "\"\(name)\" is used in a recipe. Remove it from its recipes before deleting it."
             case .usedInSubstitution(let name):
@@ -74,10 +74,11 @@ final class ItemStore {
             guard let existing = try context.fetch(Item.descriptor(id: id)).first else {
                 throw Error.notFound
             }
-            let usedInSubstitution = try context.fetch(FetchDescriptor<MealComponent>())
-                .contains { $0.ingredientOverrides?.contains { $0.itemID == id } == true }
-            if draft.kind.rawValue != existing.kind && (!existing.mealComponents.isEmpty || usedInSubstitution) {
-                throw Error.itemInUse
+            if draft.kind.rawValue != existing.kind {
+                let dependencies = try IngredientDependencies(context: context)
+                if !existing.mealComponents.isEmpty || dependencies.preventsItemKindChange(id, to: draft.kind) {
+                    throw Error.itemInUse
+                }
             }
             item = existing
         } else {
@@ -97,13 +98,11 @@ final class ItemStore {
         let selectedIDs = Set(ids)
         let items = try context.fetch(FetchDescriptor<Item>())
         let itemsToDelete = items.filter { selectedIDs.contains($0.id) }
-        let referencedItemIDs = Set(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.item.id })
-        if let referencedItem = itemsToDelete.first(where: { referencedItemIDs.contains($0.id) }) {
+        let dependencies = try IngredientDependencies(context: context)
+        if let referencedItem = itemsToDelete.first(where: { dependencies.recipeItemIDs.contains($0.id) }) {
             throw Error.usedInRecipe(referencedItem.name)
         }
-        let substitutionItemIDs = Set(try context.fetch(FetchDescriptor<MealComponent>())
-            .flatMap { ($0.ingredientOverrides ?? []).map(\.itemID) })
-        if let item = itemsToDelete.first(where: { substitutionItemIDs.contains($0.id) }) {
+        if let item = itemsToDelete.first(where: { dependencies.substitutionItemIDs.contains($0.id) }) {
             throw Error.usedInSubstitution(item.name)
         }
         itemsToDelete.forEach(context.delete)

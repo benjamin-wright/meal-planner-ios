@@ -45,6 +45,11 @@
 			path = "meal-planner-iosUITests";
 			sourceTree = "<group>";
 		};
+		A1C04F67352C4F53A827798D /* TestPlans */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TestPlans;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +83,7 @@
 				021272E12E709C0D003A6B2F /* meal-planner-ios */,
 				021272F12E709C0D003A6B2F /* meal-planner-iosTests */,
 				021272FB2E709C0D003A6B2F /* meal-planner-iosUITests */,
+				A1C04F67352C4F53A827798D /* TestPlans */,
 				021272E02E709C0D003A6B2F /* Products */,
 			);
 			sourceTree = "<group>";

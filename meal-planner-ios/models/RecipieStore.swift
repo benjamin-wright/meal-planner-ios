@@ -12,6 +12,8 @@ final class RecipieStore {
         case notFound
         case invalidDraft([RecipieDraft.ValidationError])
         case missingIngredientReference
+        case invalidIngredient(IngredientResolver.Error)
+        case ingredientOwnershipConflict
         case unresolvedImport
 
         var errorDescription: String? {
@@ -22,6 +24,10 @@ final class RecipieStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .missingIngredientReference:
                 return "An ingredient item or unit no longer exists."
+            case .invalidIngredient(let error):
+                return error.localizedDescription
+            case .ingredientOwnershipConflict:
+                return "An ingredient belongs to another recipe. Add a new ingredient instead."
             case .unresolvedImport:
                 return "Review each imported ingredient's item, unit and quantity before saving."
             }
@@ -65,6 +71,15 @@ final class RecipieStore {
 
         let itemsByID = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) })
         let unitsByID = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Unit>()).map { ($0.id, $0) })
+        let resolver = IngredientResolver(items: Array(itemsByID.values), units: Array(unitsByID.values))
+        do {
+            _ = try resolver.resolve(draft.ingredients)
+        } catch let error as IngredientResolver.Error {
+            switch error {
+            case .missingItem, .missingUnit: throw Error.missingIngredientReference
+            default: throw Error.invalidIngredient(error)
+            }
+        }
         let resolvedIngredients = try draft.ingredients.map { ingredientDraft in
             guard let item = itemsByID[ingredientDraft.itemID],
                   let unit = unitsByID[ingredientDraft.unitID] else {
@@ -73,16 +88,24 @@ final class RecipieStore {
             return (ingredientDraft, item, unit)
         }
 
-        let recipie: Recipie
+        let existingRecipie: Recipie?
         if let id {
             guard let existing = try context.fetch(Recipie.descriptor(id: id)).first else {
                 throw Error.notFound
             }
-            recipie = existing
+            existingRecipie = existing
         } else {
-            recipie = Recipie()
-            context.insert(recipie)
+            existingRecipie = nil
         }
+
+        let existingIngredientIDs = Set(existingRecipie?.ingredients.map(\.id) ?? [])
+        let otherIngredientIDs = Set(try context.fetch(FetchDescriptor<RecipieIngredient>()).map(\.id))
+            .subtracting(existingIngredientIDs)
+        guard !draft.ingredients.contains(where: { otherIngredientIDs.contains($0.id) }) else {
+            throw Error.ingredientOwnershipConflict
+        }
+        let recipie = existingRecipie ?? Recipie()
+        if existingRecipie == nil { context.insert(recipie) }
 
         let oldIngredientsByID = Dictionary(uniqueKeysWithValues: recipie.ingredients.map { ($0.id, $0) })
 
@@ -114,6 +137,9 @@ final class RecipieStore {
         recipie.ingredients = ingredients
 
         let retainedIDs = Set(draft.ingredients.map(\.id))
+        // Substitutions belong to source ingredient rows, so remove only those
+        // whose source was deleted or replaced (including by a recipe import).
+        IngredientDependencies.retainSubstitutions(in: recipie, ingredientIDs: retainedIDs)
         oldIngredientsByID.values
             .filter { !retainedIDs.contains($0.id) }
             .forEach(context.delete)

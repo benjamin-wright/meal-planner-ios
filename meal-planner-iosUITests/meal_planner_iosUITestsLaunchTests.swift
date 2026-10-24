@@ -8,11 +8,21 @@ final class meal_planner_iosUITestsLaunchTests: MealPlannerUITestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
-        app.launch()
+        launch(app)
 
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Launch Screen"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    @MainActor
+    func testLaunchPerformance() throws {
+        let app = XCUIApplication()
+        launch(app)
+        app.terminate()
+        measure(metrics: [XCTApplicationLaunchMetric()]) {
+            app.launch()
+        }
     }
 }

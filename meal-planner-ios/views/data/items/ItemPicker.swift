@@ -9,13 +9,13 @@ import SwiftUI
 import SwiftData
 
 struct ItemPicker: View {
-    @Environment(\.dismiss) var dismiss
     @Environment(FlowRouter.self) private var router
 
     let items: [Item]
-    @Binding var selectedID: UUID
+    let selectedID: UUID?
     var kindFilter: ItemKind? = nil
     @State var filter: ItemFilter = ItemFilter()
+    let onSelect: (UUID) -> Void
     @State private var isSearchPresented = false
 
     var filteredItems: [Item] {
@@ -35,19 +35,9 @@ struct ItemPicker: View {
             }
             GlassList {
                 ForEach(filteredItems) { item in
-                    Button {
+                    SelectionRow(title: item.name, isSelected: item.id == selectedID) {
                         isSearchPresented = false
-                        router.selectItem(item.id)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text(item.name)
-                            Spacer()
-                            if item.id == selectedID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
+                        onSelect(item.id)
                     }
                 }
             }
@@ -57,10 +47,7 @@ struct ItemPicker: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
                     isSearchPresented = false
-                    router.showCreation(kindFilter.map { .newItemOfKind($0) } ?? .newItem) { id in
-                        router.selectItem(id)
-                        router.path = Array(router.path.dropLast())
-                    }
+                    router.showCreation(.item(kind: kindFilter), onCreate: onSelect)
                 }
             }
         }
@@ -77,7 +64,8 @@ struct ItemPicker: View {
             FlowContainer {
                 ItemPicker(
                     items: items,
-                    selectedID: $selectedID
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 }
                 )
             }
         }

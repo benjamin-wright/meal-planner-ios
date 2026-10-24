@@ -17,6 +17,7 @@ struct RecipieEdit: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private let id: UUID?
+    private let onCreate: ((UUID) -> Void)?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: RecipieDraft
@@ -32,8 +33,9 @@ struct RecipieEdit: View {
     @State private var importReviewMessage: String?
     @State private var importAvailable = false
 
-    init(id: UUID? = nil) {
+    init(id: UUID? = nil, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
+        self.onCreate = onCreate
         self._draft = State(initialValue: RecipieDraft())
     }
 
@@ -59,8 +61,11 @@ struct RecipieEdit: View {
     private func save() {
         do {
             let savedID = try RecipieStore(context: context).save(draft, id: id)
-            if !isEditing, router.completeCreation(id: savedID) { return }
-            dismiss()
+            if !isEditing, let onCreate {
+                onCreate(savedID)
+            } else {
+                dismiss()
+            }
         } catch {
             saveError = error.localizedDescription
         }
@@ -108,19 +113,22 @@ struct RecipieEdit: View {
                 } label: {
                     let item = items.first(where: { $0.id == ingredient.itemID })
                     let unit = units.first(where: { $0.id == ingredient.unitID })
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(item?.name ?? "Unknown item"): \(unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)")")
-                        if let sourceText = ingredient.sourceText, !sourceText.isEmpty {
-                            Text(sourceText).font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
+                    ItemQuantityRow(
+                        name: item?.name ?? "Unknown item",
+                        quantity: unit?.toString(forValue: ingredient.quantity) ?? "\(ingredient.quantity)",
+                        detail: ingredient.sourceText
+                    )
                 }
+                .foregroundStyle(.primary)
             }
             .onDelete { offsets in draft.ingredients.remove(atOffsets: offsets) }
-            if let item = items.first, let unit = Unit.defaultForNewObject(in: units) {
+            if let unit = Unit.defaultForNewObject(in: units) {
                 Button {
                     router.showRecipieIngredient(
-                        RecipieIngredientDraft(itemID: item.id, unitID: unit.id, quantity: 1),
+                        RecipieIngredientDraft(
+                            itemID: items.first(where: { $0.itemKind == .ingredient })?.id ?? UUID(),
+                            unitID: unit.id, quantity: 1
+                        ),
                         isEditing: false
                     ) { ingredient in
                         self.draft.ingredients.append(ingredient)
@@ -213,7 +221,9 @@ struct RecipieEdit: View {
             importAvailable = availability == .available
         }
         .sheet(item: $importSource, onDismiss: finishImport) { source in
-            RecipieImportView(initialSource: source) { extracted in pendingImport = extracted }
+            RecipieImportView(initialSource: source, catalogue: RecipieIngredientMatching.catalogue(from: items)) {
+                extracted in pendingImport = extracted
+            }
         }
         .confirmationDialog("Replace Recipe Fields?", isPresented: $showReplaceConfirmation, titleVisibility: .visible) {
             Button("Use Extracted Recipe", role: .destructive) { applyImport() }

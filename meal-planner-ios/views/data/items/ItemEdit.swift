@@ -14,6 +14,7 @@ struct ItemEdit: View {
     @Environment(FlowRouter.self) private var router
     
     private let id: UUID?
+    private let onCreate: ((UUID) -> Void)?
     private let initialKind: ItemKind
     private let allowsKindChange: Bool
     private var isEditing: Bool { id != nil }
@@ -24,8 +25,9 @@ struct ItemEdit: View {
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
     
-    init(id: UUID? = nil, kind: ItemKind = .ingredient, allowsKindChange: Bool = true) {
+    init(id: UUID? = nil, kind: ItemKind = .ingredient, allowsKindChange: Bool = true, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
+        self.onCreate = onCreate
         self.initialKind = kind
         self.allowsKindChange = allowsKindChange
         self._draft = State(initialValue: nil)
@@ -58,8 +60,11 @@ struct ItemEdit: View {
         guard let draft else { return }
         do {
             let savedID = try ItemStore(context: context).save(draft, id: id)
-            if !isEditing, router.completeCreation(id: savedID) { return }
-            dismiss()
+            if !isEditing, let onCreate {
+                onCreate(savedID)
+            } else {
+                dismiss()
+            }
         } catch {
             saveError = error.localizedDescription
         }

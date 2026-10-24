@@ -63,70 +63,7 @@ struct ShoppingListEntrySnapshot {
 
 @MainActor
 final class ShoppingListStore {
-    enum Error: LocalizedError {
-        case missingSettings
-        case missingCountUnit
-        case invalidRecipe(String)
-        case invalidRecipeIngredient(String)
-        case invalidMealIngredient(String)
-        case invalidMealIngredientItem(String)
-        case missingMealComponentReference
-        case incompleteMiscEntry(String)
-        case incompatibleUnits
-        case emptyName
-        case missingItem
-        case missingCategory
-        case missingUnit
-        case invalidQuantity
-
-        var errorDescription: String? {
-            switch self {
-            case .missingSettings:
-                return "Choose preferred weight and volume units in Settings first."
-            case .missingCountUnit:
-                return "Add a count unit before generating ready meals."
-            case .invalidRecipe(let name):
-                return "\(name) must serve at least one person before the list can be generated."
-            case .invalidRecipeIngredient(let name):
-                return "\(name) contains an ingredient quantity that must be finite and greater than zero."
-            case .invalidMealIngredient(let name):
-                return "The portion of \(name) must be a valid quantity greater than zero."
-            case .invalidMealIngredientItem(let name):
-                return "\(name) must be an ingredient before it can be added directly to a meal."
-            case .missingMealComponentReference:
-                return "A recipe, item, or unit used in a planned meal no longer exists."
-            case .incompleteMiscEntry(let name):
-                return "\(name) needs a category, unit, and positive quantity."
-            case .incompatibleUnits:
-                return "A unit could not be converted to the preferred unit."
-            case .emptyName:
-                return "Enter a name for the shopping-list entry."
-            case .missingItem:
-                return "The selected item no longer exists."
-            case .missingCategory:
-                return "The selected category no longer exists."
-            case .missingUnit:
-                return "The selected unit no longer exists."
-            case .invalidQuantity:
-                return "Quantity must be greater than zero."
-            }
-        }
-    }
-
-    private struct AggregationKey: Hashable {
-        let itemID: UUID
-        let unitType: UnitType
-        let countUnitID: UUID?
-    }
-
-    private struct PendingEntry {
-        var name: String
-        var quantity: Double
-        var itemID: UUID?
-        var categoryID: UUID
-        var categoryOrder: Int
-        var unitID: UUID
-    }
+    typealias Error = ShoppingListError
 
     private let context: ModelContext
     private let saveRegeneratedList: (ModelContext) throws -> Void
@@ -140,155 +77,43 @@ final class ShoppingListStore {
         guard let settings = try context.fetch(FetchDescriptor<AppSettings>()).first else {
             throw Error.missingSettings
         }
-
-        let units = try context.fetch(FetchDescriptor<Unit>())
-        let countUnit = Unit.defaultForNewObject(in: units.filter { $0.unitType == .count })
+        let units = try context.fetch(FetchDescriptor<Unit>()).compactMap(\.definition)
+        let items = try context.fetch(FetchDescriptor<Item>())
+        let recipes = try context.fetch(FetchDescriptor<Recipie>())
         let meals = try context.fetch(FetchDescriptor<PlannedMeal>())
-        let miscEntries = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
-        let itemsByID = Dictionary(
-            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) }
-        )
-        let recipesByID = Dictionary(
-            uniqueKeysWithValues: try context.fetch(FetchDescriptor<Recipie>()).map { ($0.id, $0) }
-        )
-        let unitsByID = Dictionary(uniqueKeysWithValues: units.map { ($0.id, $0) })
-        var aggregated: [AggregationKey: PendingEntry] = [:]
-        var standalone: [PendingEntry] = []
-
-        func add(item: Item, unit sourceUnit: Unit, quantity: Double) throws {
-            guard quantity > 0, quantity.isFinite else { throw Error.invalidQuantity }
-
-            let outputUnit: Unit
-            let outputQuantity: Double
-            switch sourceUnit.unitType {
-            case .weight:
-                outputUnit = settings.preferredWeight
-                guard let converted = sourceUnit.convert(quantity, to: outputUnit) else {
-                    throw Error.incompatibleUnits
-                }
-                outputQuantity = converted
-            case .volume:
-                outputUnit = settings.preferredVolume
-                guard let converted = sourceUnit.convert(quantity, to: outputUnit) else {
-                    throw Error.incompatibleUnits
-                }
-                outputQuantity = converted
-            case .count:
-                outputUnit = sourceUnit
-                outputQuantity = quantity
-            }
-            guard outputQuantity > 0, outputQuantity.isFinite else {
-                throw Error.invalidQuantity
-            }
-
-            let key = AggregationKey(
-                itemID: item.id,
-                unitType: sourceUnit.unitType,
-                countUnitID: sourceUnit.unitType == .count ? sourceUnit.id : nil
-            )
-            if aggregated[key] != nil {
-                let total = aggregated[key]!.quantity + outputQuantity
-                guard total.isFinite else { throw Error.invalidQuantity }
-                aggregated[key]!.quantity = total
-            } else {
-                aggregated[key] = PendingEntry(
-                    name: item.name,
-                    quantity: outputQuantity,
-                    itemID: item.id,
-                    categoryID: item.category.id,
-                    categoryOrder: item.category.order,
-                    unitID: outputUnit.id
-                )
-            }
-        }
-
-        for meal in meals {
-            for component in meal.components {
-                switch component.source {
-                case .recipe(let id):
-                    guard let recipie = recipesByID[id] else { throw Error.missingMealComponentReference }
-                    guard recipie.serves > 0 else { throw Error.invalidRecipe(recipie.name) }
-                    let scale = Double(meal.servings) / Double(recipie.serves)
-                    let draft = MealComponentDraft(component: component)
-                    guard draft.hasValidPortion else { throw Error.invalidRecipeIngredient(recipie.name) }
-                    let ingredientIDs = Set(recipie.ingredients.map(\.id))
-                    guard draft.ingredientOverrides.allSatisfy({ ingredientIDs.contains($0.id) }) else {
-                        throw Error.missingMealComponentReference
-                    }
-                    for ingredient in draft.ingredients(for: recipie) {
-                        guard ingredient.quantity > 0, ingredient.quantity.isFinite else {
-                            throw Error.invalidRecipeIngredient(recipie.name)
-                        }
-                        guard let item = itemsByID[ingredient.itemID],
-                              let unit = unitsByID[ingredient.unitID],
-                              UnitType(rawValue: unit.type) != nil, unit.base > 0, unit.base.isFinite else {
-                            throw Error.missingMealComponentReference
-                        }
-                        if draft.ingredientOverrides.contains(where: { $0.id == ingredient.id }),
-                           item.itemKind != .ingredient {
-                            throw Error.missingMealComponentReference
-                        }
-                        try add(item: item, unit: unit, quantity: ingredient.quantity * scale)
-                    }
-                case .readymeal(let id):
-                    guard let readymeal = itemsByID[id], readymeal.itemKind == .readymeal else {
-                        throw Error.missingMealComponentReference
-                    }
-                    guard let countUnit else { throw Error.missingCountUnit }
-                    let serves = max(readymeal.readymealData?.serves ?? 1, 1)
-                    let quantity = ceil(Double(meal.servings) / Double(serves))
-                    try add(item: readymeal, unit: countUnit, quantity: quantity)
-                case .ingredient(let id):
-                    guard let item = itemsByID[id],
-                          let unitID = component.unit?.id,
-                          let unit = unitsByID[unitID],
-                          UnitType(rawValue: unit.type) != nil,
-                          unit.base > 0, unit.base.isFinite else {
-                        throw Error.missingMealComponentReference
-                    }
-                    guard item.itemKind == .ingredient else { throw Error.invalidMealIngredientItem(item.name) }
-                    guard let portion = component.quantity, portion > 0, portion.isFinite else {
-                        throw Error.invalidMealIngredient(item.name)
-                    }
-                    let quantity = portion * Double(meal.servings)
-                    guard quantity > 0, quantity.isFinite else { throw Error.invalidMealIngredient(item.name) }
-                    try add(item: item, unit: unit, quantity: quantity)
-                case nil:
-                    throw Error.missingMealComponentReference
-                }
-            }
-        }
-
-        for entry in miscEntries.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            guard let category = entry.category,
-                  let unit = entry.unit,
-                  entry.quantity > 0,
-                  entry.quantity.isFinite else {
-                throw Error.incompleteMiscEntry(entry.displayName.isEmpty ? "A miscellaneous entry" : entry.displayName)
-            }
-            if let item = entry.item {
-                try add(item: item, unit: unit, quantity: entry.quantity)
-            } else {
-                standalone.append(PendingEntry(
-                    name: entry.displayName,
-                    quantity: entry.quantity,
-                    itemID: nil,
-                    categoryID: category.id,
-                    categoryOrder: category.order,
-                    unitID: unit.id
+        let misc = try context.fetch(FetchDescriptor<PlannedMiscEntry>())
+        let input = ShoppingListInput(
+            units: Dictionary(uniqueKeysWithValues: units.map { ($0.id, $0) }),
+            items: Dictionary(uniqueKeysWithValues: items.compactMap { item -> (UUID, ShoppingListInput.Item)? in
+                guard let kind = ItemKind(rawValue: item.kind) else { return nil }
+                return (item.id, ShoppingListInput.Item(
+                    name: item.name, kind: kind,
+                    category: .init(id: item.category.id, order: item.category.order),
+                    servings: item.readymealData?.serves
                 ))
-            }
-        }
-
-        let pending = (Array(aggregated.values) + standalone).sorted {
-            if $0.categoryOrder != $1.categoryOrder { return $0.categoryOrder < $1.categoryOrder }
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-
-        try replace(with: pending)
+            }),
+            recipes: Dictionary(uniqueKeysWithValues: recipes.map {
+                ($0.id, ShoppingListInput.Recipe(name: $0.name, servings: $0.serves,
+                                                 ingredients: $0.ingredients.map(RecipieIngredientDraft.init)))
+            }),
+            meals: try meals.map { meal in
+                .init(servings: meal.servings, components: try meal.components.map { component in
+                    guard component.source != nil else { throw Error.missingMealComponentReference }
+                    return MealComponentDraft(component: component)
+                })
+            },
+            miscellaneous: misc.sorted { $0.sortOrder < $1.sortOrder }.map {
+                .init(name: $0.displayName, itemID: $0.item?.id,
+                      category: $0.category.map { .init(id: $0.id, order: $0.order) },
+                      unitID: $0.unit?.id, quantity: $0.quantity)
+            },
+            preferredWeightID: settings.preferredWeight.id,
+            preferredVolumeID: settings.preferredVolume.id
+        )
+        try replace(with: ShoppingListCalculator.generate(from: input))
     }
 
-    private func replace(with pending: [PendingEntry]) throws {
+    private func replace(with pending: [GeneratedShoppingEntry]) throws {
         // Snapshot shared inputs first, then mutate only this context so a failed
         // replacement can be rolled back without discarding pending editor changes.
         let replacementContext = ModelContext(context.container)
@@ -323,20 +148,22 @@ final class ShoppingListStore {
     }
 
     func addItem(itemID: UUID, unitID: UUID, quantity: Double) throws {
-        guard quantity > 0, quantity.isFinite else { throw Error.invalidQuantity }
+        guard DomainValidation.isPositiveFinite(quantity) else { throw Error.invalidQuantity }
         guard let item = try context.fetch(Item.descriptor(id: itemID)).first else { throw Error.missingItem }
-        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first else { throw Error.missingUnit }
+        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first,
+              unit.definition?.isValid == true else { throw Error.missingUnit }
         try insert(name: item.name, item: item, category: item.category, unit: unit, quantity: quantity)
     }
 
     func addNote(_ name: String, categoryID: UUID, unitID: UUID, quantity: Double) throws {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { throw Error.emptyName }
-        guard quantity > 0, quantity.isFinite else { throw Error.invalidQuantity }
+        guard DomainValidation.isPositiveFinite(quantity) else { throw Error.invalidQuantity }
         guard let category = try context.fetch(Category.descriptor(id: categoryID)).first else {
             throw Error.missingCategory
         }
-        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first else { throw Error.missingUnit }
+        guard let unit = try context.fetch(Unit.descriptor(id: unitID)).first,
+              unit.definition?.isValid == true else { throw Error.missingUnit }
         try insert(name: trimmedName, category: category, unit: unit, quantity: quantity)
     }
 
@@ -351,6 +178,12 @@ final class ShoppingListStore {
         let checked = try context.fetch(FetchDescriptor<ShoppingListEntry>()).filter(\.isChecked)
         checked.forEach { $0.isChecked = false }
         try context.save()
+    }
+
+    func hasCheckedEntries() throws -> Bool {
+        var descriptor = FetchDescriptor<ShoppingListEntry>(predicate: #Predicate { $0.isChecked })
+        descriptor.fetchLimit = 1
+        return try !context.fetch(descriptor).isEmpty
     }
 
     func removeChecked() throws -> [ShoppingListEntrySnapshot] {

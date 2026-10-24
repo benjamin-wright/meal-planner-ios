@@ -35,7 +35,7 @@ struct MealComponentsEditor: View {
     var allowsRecipeEditing = false
     var onReorderingChanged: (Bool) -> Void = { _ in }
     var viewport: CGRect = .zero
-    var scrollBy: (CGFloat) -> Void = { _ in }
+    let scrollController: MealComponentScrollController
 
     @State private var draggedID: UUID?
     @State private var dragLocation = CGPoint.zero
@@ -98,6 +98,7 @@ struct MealComponentsEditor: View {
                     .id("mealCourse-\(course.label)")
                 }
             }
+            .background(MealComponentScrollProbe(controller: scrollController))
             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
             .overlay {
                 GeometryReader { geometry in
@@ -304,10 +305,10 @@ struct MealComponentsEditor: View {
     private func scrollTowardsEdge() {
         if scrollDirection > 0, let last = CourseType.allCases.last,
            let frame = frames[.course(last)] {
-            scrollBy(min(24, max(0, frame.maxY - viewport.maxY)))
+            scrollController.scroll(by: min(24, max(0, frame.maxY - viewport.maxY)))
         } else if scrollDirection < 0, let first = CourseType.allCases.first,
                   let frame = frames[.course(first)] {
-            scrollBy(-min(24, max(0, viewport.minY - frame.minY)))
+            scrollController.scroll(by: -min(24, max(0, viewport.minY - frame.minY)))
         }
     }
 

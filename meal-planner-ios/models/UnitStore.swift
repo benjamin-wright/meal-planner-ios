@@ -12,6 +12,7 @@ final class UnitStore {
         case notFound
         case invalidDraft([UnitDraft.ValidationError])
         case inUse(String)
+        case missingPreferredUnit(UnitType)
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ final class UnitStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .inUse(let name):
                 return "\(name) is used by settings, a recipe, a meal, a planner entry, or the shopping list and cannot be deleted."
+            case .missingPreferredUnit(let type):
+                return "Add another valid \(type.label.lowercased()) unit before changing this preferred unit's type."
             }
         }
     }
@@ -54,6 +57,8 @@ final class UnitStore {
             throw Error.invalidDraft(validationErrors)
         }
 
+        // Plan settings repairs before changing either the unit or its dependants.
+        let preferenceReplacements = try preferredUnitReplacements(for: id, newType: draft.type)
         let unit: Unit
         if let id {
             guard let existing = try context.fetch(Unit.descriptor(id: id)).first else {
@@ -68,6 +73,13 @@ final class UnitStore {
         unit.type = draft.type.rawValue
         unit.base = draft.type == .count ? 1 : draft.base
         unit.magnitudes = draft.magnitudes
+        for replacement in preferenceReplacements {
+            switch replacement.type {
+            case .weight: replacement.settings.preferredWeight = replacement.unit
+            case .volume: replacement.settings.preferredVolume = replacement.unit
+            case .count: break
+            }
+        }
         try context.save()
         return unit.id
     }
@@ -94,13 +106,37 @@ final class UnitStore {
             ids.insert(settings.preferredWeight.id)
             ids.insert(settings.preferredVolume.id)
         }
-        ids.formUnion(try context.fetch(FetchDescriptor<RecipieIngredient>()).map { $0.unit.id })
-        for component in try context.fetch(FetchDescriptor<MealComponent>()) {
-            if let id = component.unit?.id { ids.insert(id) }
-            ids.formUnion((component.ingredientOverrides ?? []).map(\.unitID))
-        }
+        ids.formUnion(try IngredientDependencies(context: context).unitIDs)
         ids.formUnion(try context.fetch(FetchDescriptor<PlannedMiscEntry>()).compactMap { $0.unit?.id })
         ids.formUnion(try context.fetch(FetchDescriptor<ShoppingListEntry>()).compactMap { $0.unit?.id })
         return ids
+    }
+
+    private struct PreferredUnitReplacement {
+        let settings: AppSettings
+        let type: UnitType
+        let unit: Unit
+    }
+
+    private func preferredUnitReplacements(for id: UUID?, newType: UnitType) throws -> [PreferredUnitReplacement] {
+        guard let id else { return [] }
+        let settings = try context.fetch(FetchDescriptor<AppSettings>())
+        let affected = settings.flatMap { setting in
+            [(UnitType.weight, setting.preferredWeight), (.volume, setting.preferredVolume)]
+                .filter { $0.1.id == id && $0.0 != newType }
+                .map { (setting, $0.0) }
+        }
+        guard !affected.isEmpty else { return [] }
+        let units = try context.fetch(FetchDescriptor<Unit>()).filter {
+            $0.id != id && $0.definition?.isValid == true
+        }.sorted {
+            $0.name == $1.name ? $0.id.uuidString < $1.id.uuidString : $0.name < $1.name
+        }
+        return try affected.map { setting, type in
+            guard let replacement = units.first(where: { $0.definition?.type == type }) else {
+                throw Error.missingPreferredUnit(type)
+            }
+            return PreferredUnitReplacement(settings: setting, type: type, unit: replacement)
+        }
     }
 }

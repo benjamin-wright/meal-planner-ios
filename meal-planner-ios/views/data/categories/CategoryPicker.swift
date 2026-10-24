@@ -9,51 +9,32 @@ import SwiftUI
 import SwiftData
 
 struct CategoryPicker: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let categories: [Category]
-    @Binding var selectedID: UUID
+    let selectedID: UUID?
 
+    let onSelect: (UUID) -> Void
     @State private var search = ""
 
     var filteredCategories: [Category] {
         categories.filter {
-            search.isEmpty || $0.name.contains(search)
+            search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
         }
     }
 
     var body: some View {
         GlassList {
             ForEach(filteredCategories) { category in
-                Button {
-                    router.selectCategory(category.id)
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(category.name)
-                        Spacer()
-                        if category.id == selectedID {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
-                        }
-                    }
+                SelectionRow(title: category.name, isSelected: category.id == selectedID) {
+                    onSelect(category.id)
                 }
             }
         }
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
-        .onChange(of: search) {
-            let lowercase = search.lowercased()
-            if lowercase != search {
-                search = lowercase
-            }
-        }
         .toolbar {
             Button("Add") {
-                router.showCreation(.newCategory) { id in
-                    router.selectCategory(id)
-                    router.path = Array(router.path.dropLast())
-                }
+                router.showCreation(.category, onCreate: onSelect)
             }
         }
         .navigationTitle("Category")
@@ -69,7 +50,8 @@ struct CategoryPicker: View {
             FlowContainer {
                 CategoryPicker(
                     categories: categories,
-                    selectedID: $selectedID
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 }
                 )
             }
         }

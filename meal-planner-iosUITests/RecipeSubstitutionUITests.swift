@@ -71,8 +71,6 @@ final class RecipeSubstitutionUITests: MealPlannerUITestCase {
     func testSubstitutionAndQuantityPersistWithAsterisksAndCanBeReset() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        resetSampleData(in: app)
-        defer { resetSampleData(in: app) }
         addSoupToMonday(in: app)
         openSoup(in: app)
 
@@ -99,6 +97,19 @@ final class RecipeSubstitutionUITests: MealPlannerUITestCase {
         savePlan("Add", in: app)
         XCTAssertTrue(self.plan(named: "carrot soup*", in: app).exists)
 
+        // A planned substitution must leave the editable catalogue recipe unchanged.
+        openRecipeCatalogue(in: app)
+        let recipeSearch = app.searchFields.firstMatch
+        recipeSearch.tap()
+        recipeSearch.typeText("carrot soup")
+        row("carrot soup", in: app).tap()
+        XCTAssertTrue(app.navigationBars["Recipe"].waitForExistence(timeout: 5))
+        let originalIngredient = row("carrots", in: app)
+        scrollTo(originalIngredient, in: app)
+        originalIngredient.tap()
+        XCTAssertTrue(app.navigationBars["Ingredient"].waitForExistence(timeout: 5))
+        expectQuantity("1", in: app)
+
         app.terminate()
         launchInPortrait(app)
         app.tabBars.buttons["Planner"].tap()
@@ -124,8 +135,6 @@ final class RecipeSubstitutionUITests: MealPlannerUITestCase {
     func testBackingOutOfRecipeOrPlanDiscardsStagedSubstitutions() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        resetSampleData(in: app)
-        defer { resetSampleData(in: app) }
         addSoupToMonday(in: app)
         savePlan("Add", in: app)
         let plan = self.plan(named: "carrot soup", in: app)

@@ -6,18 +6,25 @@ struct PlannedRecipeEdit: View {
     let recipe: Recipie
     let items: [Item]
     let units: [Unit]
+    let onSave: (MealComponentDraft) -> Void
 
-    init(component: MealComponentDraft, recipe: Recipie, items: [Item], units: [Unit]) {
+    init(component: MealComponentDraft, recipe: Recipie, items: [Item], units: [Unit], onSave: @escaping (MealComponentDraft) -> Void) {
         self._component = State(initialValue: component)
         self.recipe = recipe
         self.items = items
         self.units = units
+        self.onSave = onSave
     }
 
     private func edit(_ ingredient: RecipieIngredientDraft) {
         router.showRecipieIngredient(ingredient, isEditing: true) { updated in
             component.updateIngredient(updated, in: recipe)
         }
+    }
+
+    private var isValid: Bool {
+        component.hasValidPortion && recipe.serves > 0 &&
+            (try? IngredientResolver(items: items, units: units).resolve(component.ingredients(for: recipe))) != nil
     }
 
     var body: some View {
@@ -32,12 +39,10 @@ struct PlannedRecipeEdit: View {
             Section {
                 ForEach(component.ingredients(for: recipe)) { ingredient in
                     Button { edit(ingredient) } label: {
-                        HStack {
-                            Text(items.first { $0.id == ingredient.itemID }?.name ?? "Missing ingredient")
-                            Spacer()
-                            Text(units.first { $0.id == ingredient.unitID }?.toString(forValue: ingredient.quantity) ?? "Missing unit")
-                                .foregroundStyle(.secondary)
-                        }
+                        ItemQuantityRow(
+                            name: items.first { $0.id == ingredient.itemID }?.name ?? "Missing ingredient",
+                            quantity: units.first { $0.id == ingredient.unitID }?.toString(forValue: ingredient.quantity) ?? "Missing unit"
+                        )
                     }
                     .foregroundStyle(.primary)
                     .accessibilityIdentifier("plannedRecipeIngredient-\(ingredient.id)")
@@ -53,9 +58,9 @@ struct PlannedRecipeEdit: View {
                 }
             }
             Button("Save Changes") {
-                router.saveMealComponent(component)
+                onSave(component)
             }
-            .disabled(!component.hasValidPortion || recipe.serves < 1)
+            .disabled(!isValid)
             .accessibilityIdentifier("savePlannedRecipe")
         }
         .navigationTitle("Planned Recipe")

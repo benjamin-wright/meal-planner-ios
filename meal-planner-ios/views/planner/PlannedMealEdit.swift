@@ -14,8 +14,6 @@ struct PlannedMealEdit: View {
     @State private var isLoading = false
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
-    @State private var isReorderingComponents = false
-    @State private var componentScroller = MealComponentScrollController()
     @Query private var plannedMeals: [PlannedMeal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
@@ -96,52 +94,38 @@ struct PlannedMealEdit: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            GlassForm {
+        MealComponentsForm(
+            components: $draft.components, isEditing: editMode.isEditing,
+            recipies: recipies, items: items, units: units,
+            onAdd: addDish, onEditPortion: editComponent, allowsRecipeEditing: true,
+            details: {
                 Section {
                     if let validationError = validationErrors.first {
-                        Text(validationError.localizedDescription)
-                            .foregroundStyle(.red)
+                        Text(validationError.localizedDescription).foregroundStyle(.red)
                     }
                     IntegerInput(number: $draft.servings, label: "Servings", placeholder: "servings")
-                        .background(MealComponentScrollProbe(controller: componentScroller))
                     Button("Choose Saved Meal", action: chooseTemplate)
                 } header: {
                     GlassSectionHeader(title: "Details")
                 }
-                MealComponentsEditor(
-                    components: $draft.components,
-                    isEditing: editMode.isEditing,
-                    recipies: recipies,
-                    items: items,
-                    units: units,
-                    onAdd: addDish,
-                    onEditPortion: editComponent,
-                    allowsRecipeEditing: true,
-                    onReorderingChanged: { isReorderingComponents = $0 },
-                    viewport: geometry.frame(in: .global),
-                    scrollBy: { componentScroller.scroll(by: $0) }
-                )
+            },
+            actions: {
                 HStack(spacing: 12) {
                     Button(action: save) {
-                        Text(id == nil ? "Add" : "Save")
-                            .frame(maxWidth: .infinity)
+                        Text(id == nil ? "Add" : "Save").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderless)
-
                     Button(action: saveAsMeal) {
-                        Image(systemName: "square.and.arrow.down")
-                            .frame(width: 20, height: 20)
+                        Image(systemName: "square.and.arrow.down").frame(width: 20, height: 20)
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.circle)
                     .accessibilityLabel("Save as Meal")
                     .accessibilityHint("Opens a new saved meal with these dishes pre-filled")
                 }
-                .disabled(editMode.isEditing || !validationErrors.isEmpty)
+                .disabled(!validationErrors.isEmpty)
             }
-            .scrollDisabled(isReorderingComponents)
-        }
+        )
         .toolbar { EditButton() }
         .environment(\.editMode, $editMode)
         .navigationTitle(title)

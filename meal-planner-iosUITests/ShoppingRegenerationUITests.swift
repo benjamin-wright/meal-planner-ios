@@ -5,8 +5,6 @@ final class ShoppingRegenerationUITests: MealPlannerUITestCase {
     func testRegenerationRefreshesVisibleEntriesAndResetsCheckedState() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        resetSampleData(in: app)
-        defer { resetSampleData(in: app) }
 
         let entry = openShoppingList(in: app)
         entry.tap()

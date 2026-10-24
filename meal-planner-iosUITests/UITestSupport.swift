@@ -1,21 +1,33 @@
 import XCTest
 
 class MealPlannerUITestCase: XCTestCase {
+    enum Fixture: String {
+        case sample
+        case longMeal = "long-meal"
+    }
+
+    private var storeIdentifier = UUID().uuidString
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+        storeIdentifier = UUID().uuidString
     }
 
     @MainActor
-    func launchInPortrait(_ app: XCUIApplication) {
-        app.launch()
+    func launchInPortrait(_ app: XCUIApplication, fixture: Fixture? = nil) {
+        launch(app, fixture: fixture)
         XCUIDevice.shared.orientation = .portrait
     }
 
     @MainActor
-    func resetSampleData(in app: XCUIApplication) {
-        app.tabBars.buttons["Settings"].tap()
-        app.buttons["Reset"].tap()
-        app.buttons["Yes, delete it all!"].tap()
+    func launch(_ app: XCUIApplication, fixture: Fixture? = nil) {
+        app.launchEnvironment["MEAL_PLANNER_UI_TEST_STORE"] = storeIdentifier
+        if let fixture {
+            app.launchEnvironment["MEAL_PLANNER_UI_TEST_FIXTURE"] = fixture.rawValue
+        } else if app.launchEnvironment["MEAL_PLANNER_UI_TEST_FIXTURE"] == nil {
+            app.launchEnvironment["MEAL_PLANNER_UI_TEST_FIXTURE"] = Fixture.sample.rawValue
+        }
+        app.launch()
     }
 
     @MainActor

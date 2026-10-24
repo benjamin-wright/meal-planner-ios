@@ -10,18 +10,25 @@ struct ExtractedRecipie: Equatable, Encodable {
     var cookingMinutes: Int?
     var ingredients: [ExtractedRecipieIngredient]
     var steps: [String]
+    /// Catalogue choices keyed by the original extracted ingredient index.
+    var matchedItemIDs: [Int: UUID] = [:]
 }
 
 @Generable
 struct ExtractedRecipieMetadata: Equatable {
-    @Guide(description: "True only if the source contains a recipe, not just unrelated text.")
+    @Guide(description: "True for a recipe or an ingredient list for a dish, even when cooking instructions are absent. False for unrelated text.")
     var isRecipe: Bool
+    @Guide(description: "Short dish name, ideally 2–6 words and at most 60 characters. Keep the core source title, omitting taglines, ingredients lists, quantities and serving counts. If untitled, use a simple descriptive name supported by the ingredients, or null if unclear.")
     var name: String?
-    @Guide(description: "A description from the source, or nil. Do not invent a summary.")
+    @Guide(description: "One short sentence describing the dish, based on the source title and ingredients, or null. A brief synthesized description is fine; do not invent cooking methods, dietary claims, timings or servings.")
     var summary: String?
-    @Guide(description: "Explicit number of servings, or nil if missing or ambiguous.")
+    @Guide(description: "Exact quote of the serving statement, including its label, such as 'Serves 4' or 'Makes 6 portions'. Null when absent; never quote ingredient quantities or invent a statement.")
+    var servingsSourceText: String?
+    @Guide(description: "Explicit number of people or portions served, from 1 to 24. Use null if missing, ambiguous or outside this range. Never use ingredient amounts, weights such as 750g, millilitres, calories, temperatures, minutes or counts of individual ingredients as servings. Do not estimate or clamp.")
     var serves: Int?
-    @Guide(description: "Explicit cooking time in minutes, or nil. Do not substitute preparation time.")
+    @Guide(description: "Exact quote stating the cooking time and its label, or null when absent. Do not quote a preparation time or invent a statement.")
+    var cookingTimeSourceText: String?
+    @Guide(description: "Explicit cooking time in minutes, or null if absent. Never substitute preparation time or use 0 for missing time.")
     var cookingMinutes: Int?
 }
 
@@ -45,8 +52,62 @@ struct ExtractedRecipieIngredient: Equatable, Encodable {
 
 @Generable
 struct ExtractedRecipieSteps {
-    @Guide(description: "One complete instruction per entry, not one per OCR line. Join wrapped lines belonging to the same action; keep numbered or distinct actions separate and in source order. Preserve wording, temperatures, times and preparation details. Do not add instructions.")
+    @Guide(description: "Only explicit cooking instructions. Return an empty array when the source is just ingredients or has no method. Never copy ingredient rows into steps or turn chopped/diced/grated ingredient descriptions into instructions. Join wrapped lines belonging to one action; keep distinct actions separate, in order, with original wording, temperatures and times.")
     var steps: [String]
+}
+
+/// Automatic import limits only; people can still enter larger recipes manually.
+enum RecipieImportMetadataRules {
+    static func name(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let name = value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard !name.isEmpty else { return nil }
+        guard name.count > 60 else { return name }
+        let prefix = String(name.prefix(60))
+        // Avoid cutting the final word, unless the title is one unusually long word.
+        if name[name.index(name.startIndex, offsetBy: 60)] == " " { return prefix }
+        if let space = prefix.lastIndex(of: " ") { return String(prefix[..<space]) }
+        return prefix
+    }
+
+    static func servings(_ value: Int?) -> Int? {
+        guard let value, (1...24).contains(value) else { return nil }
+        return value
+    }
+
+    static func isSourceQuote(_ quote: String?, in source: String) -> Bool {
+        guard let quote else { return false }
+        let normalized = RecipieImportMapper.key(quote)
+        // Bare numbers are not evidence: the quote must include the original label/unit.
+        guard !normalized.isEmpty, normalized.contains(where: \.isLetter) else { return false }
+        let text = RecipieImportMapper.key(source)
+        var searchRange = text.startIndex..<text.endIndex
+        while let match = text.range(of: normalized, range: searchRange) {
+            let before = match.lowerBound == text.startIndex ? nil : text[text.index(before: match.lowerBound)]
+            let after = match.upperBound == text.endIndex ? nil : text[match.upperBound]
+            if before.map({ !$0.isLetter && !$0.isNumber }) ?? true,
+               after.map({ !$0.isLetter && !$0.isNumber }) ?? true { return true }
+            searchRange = text.index(after: match.lowerBound)..<text.endIndex
+        }
+        return false
+    }
+
+    static func validated(_ metadata: ExtractedRecipieMetadata, source: String) -> ExtractedRecipieMetadata {
+        var result = metadata
+        result.name = name(metadata.name)
+        result.serves = isSourceQuote(metadata.servingsSourceText, in: source) ? servings(metadata.serves) : nil
+        if let serves = result.serves, let quote = metadata.servingsSourceText {
+            let numbers = quote.split(whereSeparator: { !$0.isNumber })
+            // Reject ranges and conflicting numbers; spelled-out counts still use the model's interpretation.
+            if !numbers.isEmpty && (numbers.count != 1 || Int(numbers[0]) != serves) {
+                result.serves = nil
+            }
+        }
+        if !isSourceQuote(metadata.cookingTimeSourceText, in: source) {
+            result.cookingMinutes = nil
+        }
+        return result
+    }
 }
 
 struct ImportedRecipieIngredient: Identifiable, Hashable {
@@ -73,8 +134,10 @@ struct ImportedRecipieIngredient: Identifiable, Hashable {
     }
 
     func isResolved(items: [Item], units: [Unit]) -> Bool {
-        items.contains { $0.id == itemID && $0.itemKind == .ingredient }
-            && quantity(units: units) != nil
+        guard let itemID, let unitID, let quantity = quantity(units: units) else { return false }
+        return (try? IngredientResolver(items: items, units: units).resolve(
+            RecipieIngredientDraft(id: id, itemID: itemID, unitID: unitID, quantity: quantity)
+        )) != nil
     }
 }
 
@@ -117,50 +180,14 @@ enum RecipieImportMapper {
         return result.isFinite && result > 0 ? result : nil
     }
 
-    private static func matchingItem(for name: String, in items: [Item]) -> Item? {
-        let nameKey = key(name)
-        guard !nameKey.isEmpty, nameKey.count <= 80 else { return nil }
-        let nameCharacters = Array(nameKey)
-        var best: Item?
-        var bestScore = Int.max
-        var tied = false
-        for item in items where item.itemKind == .ingredient {
-            let itemKey = key(item.name)
-            guard itemKey.count <= 80 else { continue }
-            let score: Int
-            if itemKey == nameKey {
-                score = 0
-            } else if nameCharacters.count >= 5, itemKey.count >= 5,
-                      abs(nameCharacters.count - itemKey.count) <= (nameCharacters.count >= 9 ? 2 : 1) {
-                let other = Array(itemKey)
-                var previous = Array(0...other.count)
-                for (index, character) in nameCharacters.enumerated() {
-                    var current = [index + 1]
-                    for (column, otherCharacter) in other.enumerated() {
-                        current.append(min(previous[column + 1] + 1, current[column] + 1,
-                                           previous[column] + (character == otherCharacter ? 0 : 1)))
-                    }
-                    previous = current
-                }
-                score = previous[other.count]
-            } else {
-                continue
-            }
-            let maximumDistance = nameCharacters.count >= 9 ? 2 : (nameCharacters.count >= 5 ? 1 : 0)
-            guard score <= maximumDistance else { continue }
-            if score < bestScore {
-                best = item
-                bestScore = score
-                tied = false
-            } else if score == bestScore {
-                tied = true
-            }
+    static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit],
+                           matchedItemID: UUID? = nil) -> ImportedRecipieIngredient {
+        let catalogue = RecipieIngredientMatching.catalogue(from: items)
+        let automaticID = RecipieIngredientMatching.automaticMatch(for: extracted.name, in: catalogue)
+        let selected = catalogue.first { $0.itemID == matchedItemID }
+        let validatedID = selected.flatMap { candidate in
+            catalogue.filter { key($0.name) == key(candidate.name) }.count == 1 ? candidate.itemID : nil
         }
-        return tied ? nil : best
-    }
-
-    static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit]) -> ImportedRecipieIngredient {
-        let item = matchingItem(for: extracted.name, in: items)
         let quantityText = extracted.quantity.flatMap { amount in
             guard amount.isFinite, amount > 0 else { return nil as String? }
             return amount.formatted(.number.locale(Locale(identifier: "en_US_POSIX"))
@@ -169,7 +196,7 @@ enum RecipieImportMapper {
         let sourceUnit = extracted.unit.trimmingCharacters(in: .whitespacesAndNewlines)
         var result = ImportedRecipieIngredient(
             sourceText: extracted.sourceText, name: extracted.name,
-            quantityText: quantityText, itemID: item?.id
+            quantityText: quantityText, itemID: automaticID ?? validatedID
         )
         // Empty or ambiguous units require review; explicit counts use "count".
         guard !sourceUnit.isEmpty else { return result }
@@ -214,16 +241,19 @@ enum RecipieImportMapper {
     }
 
     static func apply(_ extracted: ExtractedRecipie, to draft: inout RecipieDraft, items: [Item], units: [Unit]) {
-        if let name = extracted.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+        if let name = RecipieImportMetadataRules.name(extracted.name) {
             draft.name = name
         }
         if let summary = extracted.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
             draft.summary = summary
         }
-        if let serves = extracted.serves, serves > 0 { draft.serves = serves }
+        if let serves = RecipieImportMetadataRules.servings(extracted.serves) { draft.serves = serves }
         if let time = extracted.cookingMinutes, time >= 0 { draft.time = time }
         if !extracted.ingredients.isEmpty {
-            draft.importedIngredients = extracted.ingredients.filter(isPlausibleIngredient).map { ingredient($0, items: items, units: units) }
+            draft.importedIngredients = extracted.ingredients.enumerated().compactMap { index, value in
+                guard isPlausibleIngredient(value) else { return nil }
+                return ingredient(value, items: items, units: units, matchedItemID: extracted.matchedItemIDs[index])
+            }
             draft.ingredients = []
         }
         let steps = extracted.steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -233,11 +263,11 @@ enum RecipieImportMapper {
     static func reviewMessage(for extracted: ExtractedRecipie) -> String {
         var missing: [String] = []
         if extracted.name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false { missing.append(String(localized: "name")) }
-        if extracted.serves == nil || extracted.serves! <= 0 { missing.append(String(localized: "servings")) }
+        if RecipieImportMetadataRules.servings(extracted.serves) == nil { missing.append(String(localized: "servings")) }
         if extracted.cookingMinutes == nil || extracted.cookingMinutes! < 0 { missing.append(String(localized: "cooking time")) }
         if extracted.ingredients.isEmpty { missing.append(String(localized: "ingredients")) }
         if extracted.steps.isEmpty { missing.append(String(localized: "steps")) }
         if missing.isEmpty { return String(localized: "Check the extracted recipe before saving.") }
-        return String(localized: "Check the extracted recipe before saving. Not found: \(missing.formatted()). Existing values were kept.")
+        return String(localized: "Check the extracted recipe before saving. Needs review: \(missing.formatted()). Existing values were kept.")
     }
 }

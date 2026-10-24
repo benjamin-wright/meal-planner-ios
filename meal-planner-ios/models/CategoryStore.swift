@@ -76,16 +76,13 @@ final class CategoryStore {
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let categories = try context.fetch(Category.orderedDescriptor)
-        let ingredients = try context.fetch(FetchDescriptor<RecipieIngredient>())
-        if let ingredient = ingredients.first(where: { selectedIDs.contains($0.item.category.id) }) {
-            throw Error.itemUsedInRecipe(category: ingredient.item.category.name, item: ingredient.item.name)
-        }
-        let substitutionItemIDs = Set(try context.fetch(FetchDescriptor<MealComponent>())
-            .flatMap { ($0.ingredientOverrides ?? []).map(\.itemID) })
+        let dependencies = try IngredientDependencies(context: context)
         let items = try context.fetch(FetchDescriptor<Item>())
-        if let item = items.first(where: {
-            selectedIDs.contains($0.category.id) && substitutionItemIDs.contains($0.id)
-        }) {
+            .filter { selectedIDs.contains($0.category.id) }
+        if let item = items.first(where: { dependencies.recipeItemIDs.contains($0.id) }) {
+            throw Error.itemUsedInRecipe(category: item.category.name, item: item.name)
+        }
+        if let item = items.first(where: { dependencies.substitutionItemIDs.contains($0.id) }) {
             throw Error.itemUsedInSubstitution(category: item.category.name, item: item.name)
         }
         categories.filter { selectedIDs.contains($0.id) }.forEach(context.delete)

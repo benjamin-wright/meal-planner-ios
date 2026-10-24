@@ -10,8 +10,6 @@ final class PlannerTemplateUITests: MealPlannerUITestCase {
     func testChoosingALunchTemplateKeepsMondayDinnerVisibleAfterSavingAndRelaunching() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        resetSampleData(in: app)
-        defer { resetSampleData(in: app) }
         app.tabBars.buttons["Planner"].tap()
         app.segmentedControls.buttons["Dinner"].tap()
 

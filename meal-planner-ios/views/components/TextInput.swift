@@ -10,17 +10,15 @@ import SwiftUI
 
 struct TextInput: View {
     @Binding var text: String
-    @State var label: String?
-    @State var placeholder: String
-    @State var alignment: TextAlignment = .leading
-    @State var multiline: Bool = false
+    var label: String?
+    var placeholder: String
+    var alignment: TextAlignment = .leading
+    var multiline: Bool = false
     
     var TextView: some View {
         TextField(placeholder, text: $text, axis: multiline ? .vertical : .horizontal)
             .textInputAutocapitalization(.never)
-            .onChange(of: text) {
-                text = text.lowercased()
-            }.multilineTextAlignment(alignment)
+            .multilineTextAlignment(alignment)
             .lineLimit(multiline ? 3...10 : 1...1)
             .fixedSize(horizontal: false, vertical: multiline)
             .submitLabel(multiline ? .return : .done)

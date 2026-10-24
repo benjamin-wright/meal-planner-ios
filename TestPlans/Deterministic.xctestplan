@@ -1,0 +1,46 @@
+{
+  "configurations": [
+    {
+      "id": "37BC0C53-84B2-43B6-A565-F7C9F61DB289",
+      "name": "Deterministic",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "targetForVariableExpansion": {
+      "containerPath": "container:meal-planner-ios.xcodeproj",
+      "identifier": "021272DE2E709C0D003A6B2F",
+      "name": "meal-planner-ios"
+    },
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "parallelizable": true,
+      "skippedTests": {
+        "suites": [
+          {
+            "name": "RecipeImportPlatformTests"
+          }
+        ]
+      },
+      "target": {
+        "containerPath": "container:meal-planner-ios.xcodeproj",
+        "identifier": "021272ED2E709C0D003A6B2F",
+        "name": "meal-planner-iosTests"
+      }
+    },
+    {
+      "parallelizable": true,
+      "skippedTests": [
+        "meal_planner_iosUITestsLaunchTests"
+      ],
+      "target": {
+        "containerPath": "container:meal-planner-ios.xcodeproj",
+        "identifier": "021272F72E709C0D003A6B2F",
+        "name": "meal-planner-iosUITests"
+      }
+    }
+  ],
+  "version": 1
+}

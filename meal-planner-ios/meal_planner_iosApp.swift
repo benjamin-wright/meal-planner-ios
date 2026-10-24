@@ -10,14 +10,21 @@ import SwiftData
 
 @main
 struct meal_planner_iosApp: App {
+    private let models: Models
+
     init() {
         GlassChrome.configure()
+        #if DEBUG
+        models = UITestConfiguration.models() ?? Models.shared
+        #else
+        models = Models.shared
+        #endif
     }
 
     var body: some Scene {
         WindowGroup {
             MealPlannerView()
         }
-        .modelContainer(Models.shared.modelContainer)
+        .modelContainer(models.modelContainer)
     }
 }

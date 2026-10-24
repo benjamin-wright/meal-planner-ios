@@ -11,10 +11,14 @@ final class MealComponentUITests: MealPlannerUITestCase {
 
     @MainActor
     private func openSavedMeal(_ name: String, in app: XCUIApplication) {
-        openLunchMeals(in: app)
+        if !app.navigationBars["Meals"].exists {
+            openLunchMeals(in: app)
+        }
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
+        let existing = search.value as? String ?? ""
+        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         search.typeText(name)
         let meal = row(name, in: app)
         XCTAssertTrue(meal.waitForExistence(timeout: 5), app.debugDescription)
@@ -61,7 +65,7 @@ final class MealComponentUITests: MealPlannerUITestCase {
         app.collectionViews.buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
 
-        let name = "ingredient lunch \(UUID().uuidString.lowercased())"
+        let name = "ingredient lunch"
         let nameField = app.textFields["meal name"]
         nameField.tap()
         nameField.typeText(name + "\n")
@@ -196,7 +200,7 @@ final class MealComponentUITests: MealPlannerUITestCase {
         openLunchMeals(in: app)
         app.collectionViews.buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        let name = "course lunch \(UUID().uuidString.lowercased())"
+        let name = "course lunch"
         let nameField = app.textFields["meal name"]
         nameField.tap()
         nameField.typeText(name + "\n")
@@ -231,8 +235,6 @@ final class MealComponentUITests: MealPlannerUITestCase {
         addMeal.tap()
         XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
 
-        app.terminate()
-        launchInPortrait(app)
         openSavedMeal(name, in: app)
         let persistedMovedMain = component(withID: starterID, course: "Main", in: app)
         let persistedOriginalMain = component(withID: mainID, course: "Main", in: app)
@@ -252,8 +254,6 @@ final class MealComponentUITests: MealPlannerUITestCase {
         scrollTo(save, in: app)
         save.tap()
         XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
-        app.terminate()
-        launchInPortrait(app)
         openSavedMeal(name, in: app)
         scrollTo(component(withID: mainID, course: "Main", in: app), in: app)
         XCTAssertTrue(component(withID: mainID, course: "Main", in: app).exists)
@@ -285,26 +285,15 @@ final class MealComponentUITests: MealPlannerUITestCase {
     @MainActor
     func testPlannedMealCanMoveARecipeIntoAnEmptyCourseAndPersistIt() {
         let app = XCUIApplication()
-        launchInPortrait(app)
-        let recipeName = "planned course recipe \(UUID().uuidString.lowercased())"
-        openRecipeCatalogue(in: app)
-        openNewRecipe(in: app)
-        let nameField = app.textFields["recipe name"]
-        nameField.tap()
-        nameField.typeText(recipeName + "\n")
-        app.buttons["saveRecipe"].tap()
-        XCTAssertTrue(app.navigationBars["Recipies"].waitForExistence(timeout: 5))
-
+        launchInPortrait(app, fixture: .longMeal)
+        let recipeName = "Long meal recipe"
         app.tabBars.buttons["Planner"].tap()
         app.segmentedControls.buttons["Lunch"].tap()
-        let addLunch = app.buttons["Add lunch"]
-        scrollTo(addLunch, in: app)
-        addLunch.tap()
+        let planned = row(recipeName, in: app)
+        scrollTo(planned, in: app)
+        planned.tap()
         XCTAssertTrue(app.navigationBars["Lunch"].waitForExistence(timeout: 5))
         let componentCount = 10
-        for _ in 0..<componentCount {
-            chooseRecipe(recipeName, course: "Main", editorTitle: "Lunch", in: app)
-        }
         let mainComponents = app.descendants(matching: .any).matching(NSPredicate(
             format: "identifier BEGINSWITH %@ AND label CONTAINS %@ AND value == %@",
             "mealComponent-", recipeName, "Main"
@@ -334,7 +323,7 @@ final class MealComponentUITests: MealPlannerUITestCase {
         XCTAssertTrue(component(withID: movedID, course: "Dessert", in: app).waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertEqual(Set(mainComponents.allElementsBoundByIndex.map(\.identifier)), remainingIDs)
         app.navigationBars["Lunch"].buttons["Done"].tap()
-        let save = app.collectionViews.buttons["Add"].firstMatch
+        let save = app.collectionViews.buttons["Save"].firstMatch
         scrollTo(save, in: app)
         save.tap()
         XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))

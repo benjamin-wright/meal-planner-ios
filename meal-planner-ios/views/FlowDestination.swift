@@ -1,8 +1,3 @@
-//
-//  FlowDestination.swift
-//  meal-planner-ios
-//
-
 import SwiftUI
 import SwiftData
 
@@ -16,14 +11,7 @@ struct FlowDestination: View {
     @Query private var recipies: [Recipie]
     @Query private var meals: [Meal]
 
-    private var isUnitCreationRestricted: Bool {
-        guard case .unitPicker(let typeFilter) = router.path.dropLast().last else { return false }
-        return typeFilter != nil
-    }
-
     var body: some View {
-        @Bindable var router = router
-
         switch route {
         case .units:
             UnitsView()
@@ -39,62 +27,52 @@ struct FlowDestination: View {
             PlannedMealEdit(mealType: mealType, day: day)
         case .editPlannedMeal(let id):
             PlannedMealEdit(id: id)
-        case .plannerMealPicker(let mealType):
-            MealPicker(
-                meals: meals,
-                selectedID: $router.selectedMealID,
-                initialMealType: mealType
-            )
         case .newPlannedMisc:
             PlannedMiscEdit()
         case .editPlannedMisc(let id):
             PlannedMiscEdit(id: id)
-        case .categoryPicker:
-            CategoryPicker(categories: categories, selectedID: $router.selectedCategoryID)
+        case .categoryPicker(let session):
+            CategoryPicker(categories: categories, selectedID: session.initialValue) {
+                router.complete(session, with: $0)
+            }
         case .newCategory:
             CategoryEdit()
         case .editCategory(let id):
             CategoryEdit(id: id)
-        case .itemPicker:
-            ItemPicker(items: items, selectedID: $router.selectedItemID, kindFilter: router.itemKindFilter)
+        case .itemPicker(let session, let kindFilter):
+            ItemPicker(items: items, selectedID: session.initialValue, kindFilter: kindFilter) {
+                router.complete(session, with: $0)
+            }
         case .newItem:
             ItemEdit()
-        case .newItemOfKind(let kind):
-            ItemEdit(kind: kind, allowsKindChange: false)
         case .editItem(let id):
             ItemEdit(id: id)
-        case .unitPicker(let typeFilter):
-            UnitPicker(units: units, selectedID: $router.selectedUnitID, typeFilter: typeFilter)
+        case .unitPicker(let session, let typeFilter):
+            UnitPicker(units: units, selectedID: session.initialValue, typeFilter: typeFilter) {
+                router.complete(session, with: $0)
+            }
         case .newUnit(let type):
-            UnitEdit(type: type, allowsTypeChange: !isUnitCreationRestricted)
+            UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
-        case .dishPicker(let course):
-            DishPicker(
-                recipies: recipies,
-                items: items,
-                units: units,
-                selectedID: $router.selectedDishID,
-                course: course
-            )
-        case .mealComponent:
-            if let component = router.mealComponent {
-                MealComponentEdit(
-                    value: component,
-                    isEditing: router.isEditingMealComponent,
-                    recipies: recipies,
-                    items: items,
-                    units: units,
-                    onSave: router.saveMealComponent
-                )
-            } else {
-                ContentUnavailableView("Dish Not Found", systemImage: "exclamationmark.triangle")
+        case .dishPicker(let session, let course):
+            DishPicker(recipies: recipies, items: items, units: units, course: course) {
+                router.complete(session, with: $0)
             }
-        case .plannedRecipe:
-            if let component = router.mealComponent,
+        case .mealComponent(let session, let isEditing):
+            if let component = session.initialValue {
+                MealComponentEdit(
+                    value: component, isEditing: isEditing,
+                    recipies: recipies, items: items, units: units
+                ) { router.complete(session, with: $0) }
+            }
+        case .plannedRecipe(let session):
+            if let component = session.initialValue,
                case .recipe(let id) = component.source,
                let recipe = recipies.first(where: { $0.id == id }) {
-                PlannedRecipeEdit(component: component, recipe: recipe, items: items, units: units)
+                PlannedRecipeEdit(component: component, recipe: recipe, items: items, units: units) {
+                    router.complete(session, with: $0)
+                }
             } else {
                 ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
             }
@@ -106,30 +84,22 @@ struct FlowDestination: View {
             } else {
                 ContentUnavailableView("Recipe Not Found", systemImage: "exclamationmark.triangle")
             }
-        case .recipieIngredient:
-            if let ingredient = router.recipieIngredient {
-                RecipieIngredientEdit(
-                    edit: router.isEditingRecipieIngredient,
-                    value: ingredient,
-                    items: items,
-                    units: units,
-                    requiresIngredient: router.path.contains(.plannedRecipe),
-                    action: router.saveRecipieIngredient
-                )
-            } else {
-                ContentUnavailableView("Ingredient Not Found", systemImage: "exclamationmark.triangle")
+        case .recipieIngredient(let session, let isEditing):
+            if let ingredient = session.initialValue {
+                RecipieIngredientEdit(edit: isEditing, value: ingredient, items: items, units: units) {
+                    router.complete(session, with: $0)
+                }
             }
-        case .importedRecipieIngredient:
-            if let ingredient = router.importedRecipieIngredient {
-                ImportedRecipieIngredientEdit(
-                    ingredient: ingredient, items: items, units: units,
-                    onSave: router.saveImportedRecipieIngredient
-                )
-            } else {
-                ContentUnavailableView("Ingredient Not Found", systemImage: "exclamationmark.triangle")
+        case .importedRecipieIngredient(let session):
+            if let ingredient = session.initialValue {
+                ImportedRecipieIngredientEdit(ingredient: ingredient, items: items, units: units) {
+                    router.complete(session, with: $0)
+                }
             }
-        case .mealPicker:
-            MealPicker(meals: meals, selectedID: $router.selectedMealID)
+        case .mealPicker(let session, let mealType):
+            MealPicker(meals: meals, selectedID: session.initialValue, initialMealType: mealType) {
+                router.complete(session, with: $0)
+            }
         case .newMeal(let mealType):
             MealEdit(mealType: mealType)
         case .newMealDraft(let draft):
@@ -140,6 +110,24 @@ struct FlowDestination: View {
             } else {
                 ContentUnavailableView("Meal Not Found", systemImage: "exclamationmark.triangle")
             }
+        case .creation(let screen, let session):
+            creation(screen) { router.complete(session, with: $0) }
+        }
+    }
+
+    @ViewBuilder
+    private func creation(_ screen: FlowRouter.CreationScreen, onCreate: @escaping (UUID) -> Void) -> some View {
+        switch screen {
+        case .category:
+            CategoryEdit(onCreate: onCreate)
+        case .item(let kind):
+            ItemEdit(kind: kind ?? .ingredient, allowsKindChange: kind == nil, onCreate: onCreate)
+        case .unit(let type, let allowsTypeChange):
+            UnitEdit(type: type, allowsTypeChange: allowsTypeChange, onCreate: onCreate)
+        case .recipe:
+            RecipieEdit(onCreate: onCreate)
+        case .meal(let mealType):
+            MealEdit(mealType: mealType, onCreate: onCreate)
         }
     }
 }

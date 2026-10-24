@@ -12,6 +12,8 @@ struct RecipieDraft {
         case nameTooShort
         case duplicateName
         case invalidIngredientQuantity
+        case invalidServings
+        case duplicateIngredient
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +23,10 @@ struct RecipieDraft {
                 return "A recipe with this name already exists."
             case .invalidIngredientQuantity:
                 return "Ingredient quantities must be finite and greater than zero."
+            case .invalidServings:
+                return "Recipes must serve at least one person."
+            case .duplicateIngredient:
+                return "Each recipe ingredient must have its own identifier."
             }
         }
     }
@@ -61,9 +67,11 @@ struct RecipieDraft {
         if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
             errors.append(.duplicateName)
         }
-        if ingredients.contains(where: { $0.quantity <= 0 || !$0.quantity.isFinite }) {
+        if ingredients.contains(where: { !DomainValidation.isPositiveFinite($0.quantity) }) {
             errors.append(.invalidIngredientQuantity)
         }
+        if serves < 1 { errors.append(.invalidServings) }
+        if Set(ingredients.map(\.id)).count != ingredients.count { errors.append(.duplicateIngredient) }
 
         return errors
     }

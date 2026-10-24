@@ -14,6 +14,7 @@ struct MealEdit: View {
     @Environment(FlowRouter.self) private var router
 
     private let id: UUID?
+    private let onCreate: ((UUID) -> Void)?
     private var isEditing: Bool { id != nil }
 
     @State private var draft: MealDraft
@@ -24,16 +25,16 @@ struct MealEdit: View {
     @Query private var items: [Item]
     @Query private var units: [Unit]
     @State private var editMode: EditMode = .inactive
-    @State private var isReorderingComponents = false
-    @State private var componentScroller = MealComponentScrollController()
 
-    init(id: UUID? = nil, mealType: MealType) {
+    init(id: UUID? = nil, mealType: MealType, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
+        self.onCreate = onCreate
         self._draft = State(initialValue: MealDraft(mealType: mealType))
     }
 
     init(draft: MealDraft) {
         self.id = nil
+        self.onCreate = nil
         self._draft = State(initialValue: draft)
     }
 
@@ -53,8 +54,11 @@ struct MealEdit: View {
     private func save() {
         do {
             let savedID = try MealStore(context: context).save(draft, id: id)
-            if !isEditing, router.completeCreation(id: savedID) { return }
-            dismiss()
+            if !isEditing, let onCreate {
+                onCreate(savedID)
+            } else {
+                dismiss()
+            }
         } catch {
             saveError = error.localizedDescription
         }
@@ -78,36 +82,24 @@ struct MealEdit: View {
             if isLoading {
                 ProgressView()
             } else {
-                GeometryReader { geometry in
-                    GlassForm {
+                MealComponentsForm(
+                    components: $draft.components, isEditing: editMode.isEditing,
+                    recipies: recipies, items: items, units: units,
+                    onAdd: newDish, onEditPortion: editComponent,
+                    details: {
                         Section("Details") {
                             TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
-                                .background(MealComponentScrollProbe(controller: componentScroller))
                             EnumPicker(label: "Meal", selection: $draft.mealType)
                             if let validationError = validationErrors.first {
-                                Text(validationError.localizedDescription)
-                                    .foregroundStyle(.red)
+                                Text(validationError.localizedDescription).foregroundStyle(.red)
                             }
                         }
-
-                        MealComponentsEditor(
-                            components: $draft.components,
-                            isEditing: editMode.isEditing,
-                            recipies: recipies,
-                            items: items,
-                            units: units,
-                            onAdd: newDish,
-                            onEditPortion: editComponent,
-                            onReorderingChanged: { isReorderingComponents = $0 },
-                            viewport: geometry.frame(in: .global),
-                            scrollBy: { componentScroller.scroll(by: $0) }
-                        )
-
+                    },
+                    actions: {
                         Button(isEditing ? "Save" : "Add", action: save)
-                            .disabled(editMode.isEditing || !validationErrors.isEmpty)
+                            .disabled(!validationErrors.isEmpty)
                     }
-                    .scrollDisabled(isReorderingComponents)
-                }
+                )
             }
         }
         .toolbar { EditButton() }

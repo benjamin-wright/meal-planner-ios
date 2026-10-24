@@ -22,13 +22,16 @@ final class RecipieImportModel {
     private var operationID: UUID?
     private let recognizer: any RecipieTextRecognizing
     private let extractor: any RecipieExtracting
+    private let ingredientSelector: any RecipieIngredientSelecting
 
     var isBusy: Bool { progress != nil }
 
     init(recognizer: any RecipieTextRecognizing = VisionRecipieTextRecognizer(),
-         extractor: any RecipieExtracting = FoundationRecipieExtractor()) {
+         extractor: any RecipieExtracting = FoundationRecipieExtractor(),
+         ingredientSelector: any RecipieIngredientSelecting = FoundationRecipieIngredientSelector()) {
         self.recognizer = recognizer
         self.extractor = extractor
+        self.ingredientSelector = ingredientSelector
     }
 
     func load(_ selection: [PhotosPickerItem]) {
@@ -85,7 +88,7 @@ final class RecipieImportModel {
     }
 
     @discardableResult
-    func extract() -> Task<Void, Never>? {
+    func extract(catalogue: [RecipieIngredientCatalogEntry] = []) -> Task<Void, Never>? {
         guard !pages.isEmpty, !isBusy else { return nil }
         let id = UUID()
         operationID = id
@@ -104,7 +107,14 @@ final class RecipieImportModel {
                 let extracted = try await extractor.extract(from: text)
                 try Task.checkCancellation()
                 guard operationID == id else { return }
-                result = extracted
+                let matched = try await RecipieIngredientMatching.matching(
+                    extracted, catalogue: catalogue, selector: ingredientSelector
+                ) { current, total in
+                    if operationID == id { progress = "Matching ingredient \(current) of \(total)…" }
+                }
+                try Task.checkCancellation()
+                guard operationID == id else { return }
+                result = matched
             } catch is CancellationError { } catch {
                 if operationID == id { self.error = error.localizedDescription }
             }

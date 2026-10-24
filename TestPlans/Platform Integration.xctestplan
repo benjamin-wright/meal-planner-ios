@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "DBA6AE90-A60B-45F6-AB8B-82E1EC0E1D91",
+      "name" : "Platform Integration",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:meal-planner-ios.xcodeproj",
+      "identifier" : "021272DE2E709C0D003A6B2F",
+      "name" : "meal-planner-ios"
+    },
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "selectedTests" : {
+        "suites" : [
+          {
+            "name" : "RecipeImportPlatformTests"
+          }
+        ]
+      },
+      "target" : {
+        "containerPath" : "container:meal-planner-ios.xcodeproj",
+        "identifier" : "021272ED2E709C0D003A6B2F",
+        "name" : "meal-planner-iosTests"
+      }
+    }
+  ],
+  "version" : 1
+}

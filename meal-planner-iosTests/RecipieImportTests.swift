@@ -1,5 +1,4 @@
 import Foundation
-import FoundationModels
 import ImageIO
 import SwiftData
 import Testing
@@ -12,25 +11,25 @@ struct RecipieImportTests {
         let router = FlowRouter()
         var ingredient = ImportedRecipieIngredient(sourceText: "2 onions", name: "onions", quantityText: "2")
         var saved: ImportedRecipieIngredient?
+        let editor = router.showImportedRecipieIngredient(ingredient) { saved = $0 }
+        let editorPath = router.path
+        #expect(editor.initialValue?.id == ingredient.id)
 
-        router.showImportedRecipieIngredient(ingredient) { saved = $0 }
-        #expect(router.path == [.importedRecipieIngredient])
-        #expect(router.importedRecipieIngredient?.id == ingredient.id)
-
-        router.showItemPicker(selectedID: UUID()) { ingredient.itemID = $0 }
-        router.path.append(.newItem)
+        let itemPicker = router.showItemPicker(selectedID: UUID(), kindFilter: .ingredient) { ingredient.itemID = $0 }
+        let itemCreation = router.showCreation(.item(kind: .ingredient)) { router.complete(itemPicker, with: $0) }
         let itemID = UUID()
-        router.selectItem(itemID)
+        #expect(router.complete(itemCreation, with: itemID))
         #expect(ingredient.itemID == itemID)
-        #expect(router.path == [.importedRecipieIngredient, .itemPicker, .newItem])
+        #expect(router.path == editorPath)
 
-        router.showUnitPicker(selectedID: UUID()) { ingredient.unitID = $0 }
+        let unitPicker = router.showUnitPicker(selectedID: UUID()) { ingredient.unitID = $0 }
         let unitID = UUID()
-        router.selectUnit(unitID)
-        router.saveImportedRecipieIngredient(ingredient)
+        #expect(router.complete(unitPicker, with: unitID))
+        #expect(router.complete(editor, with: ingredient))
         #expect(saved?.itemID == itemID)
         #expect(saved?.unitID == unitID)
         #expect(saved?.sourceText == "2 onions")
+        #expect(router.path.isEmpty)
     }
 
     @Test func quantitiesAcceptFractionsButRejectGuesses() {
@@ -287,25 +286,6 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func visionReadsARecipePhoto() async throws {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1200, height: 1000))
-        let image = renderer.image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 1200, height: 1000))
-            let text = "CARROT SOUP\nServes 2\nIngredients\n200 g carrots\n500 ml milk\nSteps\n1. Chop the carrots.\n2. Simmer with milk for 20 minutes."
-            (text as NSString).draw(in: CGRect(x: 80, y: 80, width: 1040, height: 840), withAttributes: [
-                .font: UIFont.systemFont(ofSize: 44), .foregroundColor: UIColor.black
-            ])
-        }
-        let data = try #require(image.pngData())
-        let prepared = try RecipieImportImage.prepare(data)
-        let text = try await VisionRecipieTextRecognizer().text(from: prepared)
-        #expect(text.localizedCaseInsensitiveContains("carrot soup"))
-        #expect(text.contains("500"))
-        #expect(text.localizedCaseInsensitiveContains("milk"))
-    }
-
-    @MainActor
     @Test func extractionPreservesPageOrderAndPublishesOnlyCompletedResult() async throws {
         let extractor = RecordingExtractor()
         let model = RecipieImportModel(recognizer: FixtureRecognizer(), extractor: extractor)
@@ -350,57 +330,33 @@ struct RecipieImportTests {
     }
 
     @MainActor
+    @Test(arguments: [false, true])
+    func importWaitsForIngredientMatchingAndDiscardsCancelledResults(cancel: Bool) async throws {
+        let selector = SuspendedIngredientSelector()
+        let cheddar = RecipieIngredientCatalogEntry(itemID: UUID(), name: "cheddar cheese")
+        let model = RecipieImportModel(recognizer: FixtureRecognizer(), extractor: CheddarExtractor(),
+                                      ingredientSelector: selector)
+        model.pages = [page("50 grams of cheddar")]
+        let operation = try #require(model.extract(catalogue: [cheddar]))
+        await selector.waitUntilStarted()
+        #expect(model.result == nil)
+        #expect(model.isBusy)
+        if cancel { model.cancel() }
+        await selector.complete(with: cheddar.itemID)
+        await operation.value
+        if cancel {
+            #expect(model.result == nil)
+        } else {
+            #expect(model.result?.matchedItemIDs[0] == cheddar.itemID)
+            #expect(model.result?.ingredients.first?.sourceText == "50 grams of cheddar")
+        }
+        #expect(model.error == nil)
+        #expect(!model.isBusy)
+    }
+
+    @MainActor
     private func page(_ text: String) -> RecipieImportPage {
         RecipieImportPage(data: Data(text.utf8), thumbnail: UIImage())
-    }
-
-    @Test(.enabled(if: SystemLanguageModel.default.availability == .available,
-                   "Requires Apple Intelligence on the simulator host"))
-    func foundationModelsExtractsRecipeText() async throws {
-        let result = try await FoundationRecipieExtractor().extract(from: """
-            Carrot soup
-            Serves 2
-            Cooking time: 20 minutes
-            Ingredients:
-            200 g carrots
-            500 ml milk
-            Method:
-            1. Chop the carrots.
-            2. Simmer the carrots in the milk for 20 minutes.
-            """
-        )
-        #expect(result.isRecipe)
-        #expect(result.serves == 2)
-        #expect(result.ingredients.count == 2)
-        #expect(result.ingredients.first(where: { $0.name.localizedCaseInsensitiveContains("carrot") })?.quantity == 200)
-        #expect(result.ingredients.first(where: { $0.name.localizedCaseInsensitiveContains("milk") })?.unit == "ml")
-        #expect(!result.steps.isEmpty)
-    }
-
-    @Test(.enabled(if: SystemLanguageModel.default.availability == .available,
-                   "Requires Apple Intelligence on the simulator host"))
-    func foundationModelsGroupsWrappedInstructionsIntoSteps() async throws {
-        let result = try await FoundationRecipieExtractor().extract(from: """
-            Carrot soup
-            Ingredients:
-            200 g carrots
-            500 ml milk
-            Method:
-            1. Chop the carrots
-            into small pieces so they
-            cook evenly.
-            2. Simmer the carrots in the milk
-            for 20 minutes, stirring
-            occasionally.
-            """
-        )
-        #expect(result.steps.count == 2)
-        if result.steps.count == 2 {
-            #expect(result.steps[0].localizedCaseInsensitiveContains("small pieces"))
-            #expect(result.steps[0].localizedCaseInsensitiveContains("evenly"))
-            #expect(result.steps[1].contains("20 minutes"))
-            #expect(result.steps[1].localizedCaseInsensitiveContains("occasionally"))
-        }
     }
 
     private func volumeUnit() -> meal_planner_ios.Unit {
@@ -413,6 +369,39 @@ struct RecipieImportTests {
     @MainActor
     private func makeContext() throws -> ModelContext {
         try makeTestContext([Category.self, Unit.self, Item.self, RecipieIngredient.self, Recipie.self])
+    }
+}
+
+private struct CheddarExtractor: RecipieExtracting {
+    func extract(from text: String) async throws -> ExtractedRecipie {
+        var result = fixtureRecipe()
+        result.ingredients = [ExtractedRecipieIngredient(sourceText: "50 grams of cheddar", name: "cheddar",
+                                                         quantity: 50, unit: "grams")]
+        return result
+    }
+}
+
+private actor SuspendedIngredientSelector: RecipieIngredientSelecting {
+    private var continuation: CheckedContinuation<UUID?, Never>?
+    private var started: CheckedContinuation<Void, Never>?
+
+    func select(for ingredient: ExtractedRecipieIngredient, recipeName: String?,
+                from candidates: [RecipieIngredientCandidate]) async throws -> UUID? {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            started?.resume()
+            started = nil
+        }
+    }
+
+    func waitUntilStarted() async {
+        if continuation != nil { return }
+        await withCheckedContinuation { started = $0 }
+    }
+
+    func complete(with itemID: UUID) {
+        continuation?.resume(returning: itemID)
+        continuation = nil
     }
 }
 

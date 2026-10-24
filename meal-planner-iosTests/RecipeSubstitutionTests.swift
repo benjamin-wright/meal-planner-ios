@@ -190,58 +190,51 @@ struct RecipeSubstitutionTests {
         let router = FlowRouter()
         let originalPath: [FlowRouter.Route] = [.editPlannedMeal(UUID())]
         router.path = originalPath
-        if entry == .dishPicker {
-            router.path.append(.dishPicker(course: .main))
-        }
-        let editorParentPath = router.path
-        var component = MealComponentDraft(source: .recipe(fixture.recipe.id))
         var savedComponents: [MealComponentDraft] = []
-        router.showMealComponent(
-            component, isEditing: true, dismissDishPickerOnSave: entry == .dishPicker,
-            allowsRecipeEditing: true
-        ) { savedComponents.append($0) }
-        #expect(router.path == editorParentPath + [.plannedRecipe])
-        #expect(router.mealComponent == component)
-        #expect(router.isEditingMealComponent)
+        let dishPicker = entry == .dishPicker
+            ? router.showDishPicker(course: .main) { savedComponents.append($0) }
+            : nil
+        var component = MealComponentDraft(source: .recipe(fixture.recipe.id))
+        let componentEditor = router.showMealComponent(component, isEditing: true, allowsRecipeEditing: true) {
+            if let dishPicker {
+                router.complete(dishPicker, with: $0)
+            } else {
+                savedComponents.append($0)
+            }
+        }
+        let componentEditorPath = router.path
+        #expect(componentEditor.initialValue == component)
         let ingredient = RecipieIngredientDraft(ingredient: fixture.firstIngredient)
         var ingredientSaves = 0
-        router.showRecipieIngredient(ingredient, isEditing: true) { updated in
+        let ingredientEditor = router.showRecipieIngredient(ingredient, isEditing: true) { updated in
             ingredientSaves += 1
             component.updateIngredient(updated, in: fixture.recipe)
         }
-        #expect(router.path == editorParentPath + [.plannedRecipe, .recipieIngredient])
-        #expect(router.recipieIngredient == ingredient)
-        #expect(router.isEditingRecipieIngredient)
+        #expect(ingredientEditor.initialValue == ingredient)
 
         var updatedIngredient = ingredient
-        router.showItemPicker(selectedID: ingredient.itemID, kindFilter: .ingredient) {
+        let itemPicker = router.showItemPicker(selectedID: ingredient.itemID, kindFilter: .ingredient) {
             updatedIngredient.itemID = $0
         }
-        #expect(router.itemKindFilter == .ingredient)
-        router.selectItem(fixture.substitute.id)
-        router.path.removeLast()
+        #expect(router.complete(itemPicker, with: fixture.substitute.id))
         updatedIngredient.quantity = 200
-        router.saveRecipieIngredient(updatedIngredient)
-        router.path.removeLast()
-        #expect(router.path == editorParentPath + [.plannedRecipe])
+        #expect(router.complete(ingredientEditor, with: updatedIngredient))
+        #expect(router.path == componentEditorPath)
         #expect(ingredientSaves == 1)
         #expect(savedComponents.isEmpty)
-        #expect(component.ingredientOverrides == [
-            RecipeIngredientOverride(ingredient: updatedIngredient)
-        ])
+        #expect(component.ingredientOverrides == [RecipeIngredientOverride(ingredient: updatedIngredient)])
 
-        router.saveMealComponent(component)
+        #expect(router.complete(componentEditor, with: component))
         #expect(savedComponents == [component])
         #expect(router.path == originalPath)
-        router.saveMealComponent(component)
+        #expect(!router.complete(componentEditor, with: component))
         #expect(savedComponents.count == 1)
-        #expect(router.path == originalPath)
         #expect(fixture.firstIngredient.item.id == fixture.original.id)
         #expect(fixture.firstIngredient.quantity == 100)
         #expect(!fixture.context.hasChanges)
     }
 
-    @Test func ordinaryItemPickerClearsThePreviousIngredientOnlyFilter() {
+    @Test func nestedItemPickersKeepIndependentSelectionsAndRestrictions() {
         let router = FlowRouter()
         let initialItemID = UUID()
         let ingredientID = UUID()
@@ -249,20 +242,22 @@ struct RecipeSubstitutionTests {
         var ingredientSelections: [UUID] = []
         var ordinarySelections: [UUID] = []
         router.path = [.newPlannedMisc]
-        router.showItemPicker(selectedID: initialItemID, kindFilter: .ingredient) {
+        let ingredientPicker = router.showItemPicker(selectedID: initialItemID, kindFilter: .ingredient) {
             ingredientSelections.append($0)
         }
-        #expect(router.itemKindFilter == .ingredient)
-        #expect(router.selectedItemID == initialItemID)
-        router.selectItem(ingredientID)
-        router.path.removeLast()
-        router.showItemPicker(selectedID: ordinaryItemID) { ordinarySelections.append($0) }
-        #expect(router.path == [.newPlannedMisc, .itemPicker])
-        #expect(router.itemKindFilter == nil)
-        #expect(router.selectedItemID == ordinaryItemID)
-        router.selectItem(ordinaryItemID)
-        #expect(ingredientSelections == [ingredientID])
+        let ingredientPickerPath = router.path
+        let ordinaryPicker = router.showItemPicker(selectedID: ordinaryItemID) { ordinarySelections.append($0) }
+        #expect(ingredientPicker.initialValue == initialItemID)
+        #expect(ordinaryPicker.initialValue == ordinaryItemID)
+        #expect(router.path.last == .itemPicker(ordinaryPicker, kindFilter: nil))
+        #expect(router.complete(ordinaryPicker, with: ordinaryItemID))
+        #expect(router.path == ingredientPickerPath)
+        #expect(router.path.last == .itemPicker(ingredientPicker, kindFilter: .ingredient))
+        #expect(ingredientSelections.isEmpty)
         #expect(ordinarySelections == [ordinaryItemID])
+        #expect(router.complete(ingredientPicker, with: ingredientID))
+        #expect(ingredientSelections == [ingredientID])
+        #expect(router.path == [.newPlannedMisc])
     }
 
     @Test func shoppingUsesEffectiveIngredientsScaledPerOccurrenceWithoutEditingTheCatalogue() throws {
@@ -440,7 +435,105 @@ struct RecipeSubstitutionTests {
         try expectOriginalList(fixture, in: ModelContext(context.container))
     }
 
-    @Test func deletedIngredientIDsAreRejectedEvenWhenTheRecipeStillExists() throws {
+    @Test func deletingRecipeIngredientsPreservesOtherSubstitutionsAndUsableMeals() throws {
+        let fixture = try Fixture()
+        let context = fixture.context
+        var modified = modifiedComponent(fixture)
+        let remaining = RecipieIngredientDraft(
+            id: fixture.secondIngredient.id, itemID: fixture.substitute.id,
+            unitID: fixture.kilograms.id, quantity: 0.4
+        )
+        modified.updateIngredient(remaining, in: fixture.recipe)
+        let onlyDeleted = modifiedComponent(fixture)
+
+        let otherIngredient = RecipieIngredient(item: fixture.original, unit: fixture.grams, quantity: 10)
+        let otherRecipe = Recipie(name: "Other recipe", ingredients: [otherIngredient])
+        context.insert(otherRecipe)
+        var other = MealComponentDraft(source: .recipe(otherRecipe.id))
+        other.updateIngredient(RecipieIngredientDraft(
+            id: otherIngredient.id, itemID: fixture.substitute.id,
+            unitID: fixture.grams.id, quantity: 20
+        ), in: otherRecipe)
+        let mealID = try MealStore(context: context).save(
+            mealDraft("Substituted meal", components: [modified, onlyDeleted, other]), id: nil
+        )
+        let plannedStore = PlannedMealStore(context: context)
+        try plannedStore.save(PlannedMealDraft(components: [modified, onlyDeleted].map {
+            MealComponentDraft(copying: $0)
+        }), id: nil, mealType: .lunch, day: nil)
+        let planID = try #require(context.fetch(FetchDescriptor<PlannedMeal>()).first).id
+        let deletedID = fixture.firstIngredient.id
+        var recipeDraft = RecipieDraft(recipie: fixture.recipe)
+        recipeDraft.ingredients.removeAll { $0.id == deletedID }
+        try RecipieStore(context: context).save(recipeDraft, id: fixture.recipe.id)
+
+        for verification in [context, ModelContext(context.container)] {
+            let meal = try #require(verification.fetch(Meal.descriptor(id: mealID)).first)
+            let plan = try #require(verification.fetch(PlannedMeal.descriptor(id: planID)).first)
+            for components in [meal.orderedComponents, plan.orderedComponents] {
+                #expect(components[0].ingredientOverrides == [RecipeIngredientOverride(ingredient: remaining)])
+                #expect(components[1].ingredientOverrides == nil)
+                #expect(components[0].displayName == "Vegetable stew*")
+                #expect(components[1].displayName == "Vegetable stew")
+            }
+            #expect(meal.orderedComponents[2].ingredientOverrides == other.ingredientOverrides)
+            #expect(try verification.fetch(FetchDescriptor<RecipieIngredient>()).allSatisfy { $0.id != deletedID })
+        }
+
+        let verification = ModelContext(context.container)
+        let mealStore = MealStore(context: verification)
+        try mealStore.save(mealStore.draft(id: mealID), id: mealID)
+        let verifiedPlanStore = PlannedMealStore(context: verification)
+        try verifiedPlanStore.save(verifiedPlanStore.draft(id: planID),
+                                   id: planID, mealType: .lunch, day: nil)
+        try ShoppingListStore(context: verification).regenerate()
+        let entries = try ModelContext(context.container).fetch(FetchDescriptor<ShoppingListEntry>())
+        #expect(entries.count == 2)
+        #expect(entries.first { $0.item?.id == fixture.substitute.id }?.quantity == 200)
+        #expect(entries.first { $0.item?.id == fixture.original.id }?.quantity == 25)
+        #expect(entries.allSatisfy { $0.unit?.id == fixture.grams.id })
+    }
+
+    @Test func replacingRecipeIngredientsByImportClearsObsoleteSubstitutionDependencies() throws {
+        let fixture = try Fixture()
+        let context = fixture.context
+        let mealID = try MealStore(context: context).save(
+            mealDraft("Substituted meal", components: [modifiedComponent(fixture)]), id: nil
+        )
+        let meal = try #require(context.fetch(Meal.descriptor(id: mealID)).first)
+        try PlannedMealStore(context: context).save(PlannedMealDraft(meal: meal),
+                                                   id: nil, mealType: .lunch, day: nil)
+        var draft = RecipieDraft(recipie: fixture.recipe)
+        let imported = ImportedRecipieIngredient(
+            sourceText: "80 g carrot", name: "Carrot", quantityText: "80",
+            itemID: fixture.original.id, unitID: fixture.grams.id
+        )
+        draft.importedIngredients = [imported]
+        try RecipieStore(context: context).save(draft, id: fixture.recipe.id)
+
+        let verification = ModelContext(context.container)
+        let recipe = try #require(verification.fetch(Recipie.descriptor(id: fixture.recipe.id)).first)
+        #expect(recipe.ingredients.map(\.id) == [imported.id])
+        let components = try verification.fetch(FetchDescriptor<MealComponent>())
+        #expect(components.count == 2)
+        #expect(components.allSatisfy { $0.ingredientOverrides == nil })
+        #expect(components.allSatisfy { $0.displayName == "Vegetable stew" })
+        let mealStore = MealStore(context: verification)
+        try mealStore.save(mealStore.draft(id: mealID), id: mealID)
+        let plan = try #require(verification.fetch(FetchDescriptor<PlannedMeal>()).first)
+        let plannedStore = PlannedMealStore(context: verification)
+        try plannedStore.save(plannedStore.draft(id: plan.id), id: plan.id, mealType: .lunch, day: nil)
+        try ItemStore(context: verification).delete(ids: [fixture.substitute.id])
+        try UnitStore(context: verification).delete(ids: [fixture.kilograms.id])
+        try ShoppingListStore(context: verification).regenerate()
+        let entries = try ModelContext(context.container).fetch(FetchDescriptor<ShoppingListEntry>())
+        #expect(entries.count == 1)
+        #expect(entries.first?.item?.id == fixture.original.id)
+        #expect(entries.first?.quantity == 40)
+        #expect(entries.first?.unit?.id == fixture.grams.id)
+    }
+
+    @Test func outOfBandIngredientDeletionIsStillRejected() throws {
         let fixture = try Fixture()
         let context = fixture.context
         let plannedStore = PlannedMealStore(context: context)

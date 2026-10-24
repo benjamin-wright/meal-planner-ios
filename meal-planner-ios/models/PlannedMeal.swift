@@ -118,6 +118,7 @@ final class PlannedMealStore {
     enum Error: LocalizedError {
         case notFound
         case invalidPlacement
+        case occupiedDinner(Day)
         case invalidDraft([PlannedMealDraft.ValidationError])
         case invalidComponent(MealComponentPersistence.Error)
 
@@ -127,6 +128,8 @@ final class PlannedMealStore {
                 return "This planned meal no longer exists."
             case .invalidPlacement:
                 return "Dinners need a day. Breakfasts and lunches must be planned without a day."
+            case .occupiedDinner(let day):
+                return "\(day.label) already has a dinner. Edit that dinner instead."
             case .invalidDraft(let errors):
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .invalidComponent(let error):
@@ -156,7 +159,13 @@ final class PlannedMealStore {
         day: Day?,
         sourceMealID: UUID? = nil
     ) throws {
-        guard (mealType == .dinner) == (day != nil) else { throw Error.invalidPlacement }
+        guard let placement = PlannerPlacement(mealType: mealType, day: day) else { throw Error.invalidPlacement }
+        if case .dinner(let day) = placement,
+           try context.fetch(FetchDescriptor<PlannedMeal>()).contains(where: {
+               $0.id != id && $0.mealTypeEnum == .dinner && $0.dayEnum == day
+           }) {
+            throw Error.occupiedDinner(day)
+        }
         let validationErrors = draft.validate()
         guard validationErrors.isEmpty else { throw Error.invalidDraft(validationErrors) }
 
@@ -213,45 +222,22 @@ final class PlannedMealStore {
         try context.save()
     }
 
-    func swapDinnerDays(_ firstID: UUID, _ secondID: UUID) throws {
-        guard firstID != secondID,
-              let first = try context.fetch(PlannedMeal.descriptor(id: firstID)).first,
-              let second = try context.fetch(PlannedMeal.descriptor(id: secondID)).first,
-              first.mealTypeEnum == .dinner,
-              second.mealTypeEnum == .dinner else { return }
-        let firstDay = first.day
-        first.day = second.day
-        second.day = firstDay
-        try context.save()
-    }
-
     /// Moves the dinner slot at `sourceDay` to `day`, shifting intervening slots.
     /// The source may be empty, in which case the empty slot itself is moved.
     func moveDinner(from sourceDay: Day, to day: Day) throws {
-        guard sourceDay != day,
-              let sourceIndex = Day.allCases.firstIndex(of: sourceDay),
-              let destinationIndex = Day.allCases.firstIndex(of: day) else { return }
-
+        guard sourceDay != day else { return }
         let dinners = try context.fetch(FetchDescriptor<PlannedMeal>())
             .filter { $0.mealTypeEnum == .dinner }
-
-        func dinner(for slot: Day) -> PlannedMeal? {
-            dinners.first { $0.dayEnum == slot }
+        var mealIDs: [Day: UUID] = [:]
+        for dinner in dinners {
+            guard let day = dinner.dayEnum else { throw Error.invalidPlacement }
+            guard mealIDs[day] == nil else { throw Error.occupiedDinner(day) }
+            mealIDs[day] = dinner.id
         }
-
-        let movingMeal = dinner(for: sourceDay)
-
-        if sourceIndex < destinationIndex {
-            for index in (sourceIndex + 1)...destinationIndex {
-                dinner(for: Day.allCases[index])?.dayEnum = Day.allCases[index - 1]
-            }
-        } else {
-            for index in stride(from: sourceIndex - 1, through: destinationIndex, by: -1) {
-                dinner(for: Day.allCases[index])?.dayEnum = Day.allCases[index + 1]
-            }
-        }
-
-        movingMeal?.dayEnum = day
+        var slots = DinnerSlots(meals: mealIDs)
+        slots.move(from: sourceDay, to: day)
+        let daysByMealID = Dictionary(uniqueKeysWithValues: slots.meals.map { ($0.value, $0.key) })
+        for dinner in dinners { dinner.dayEnum = daysByMealID[dinner.id] }
         try context.save()
     }
 }

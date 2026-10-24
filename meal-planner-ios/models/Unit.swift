@@ -106,13 +106,13 @@ struct UnitDraft {
         if name.count < 3 {
             errors.append(.nameTooShort)
         }
-        if base <= 0 {
+        if !DomainValidation.isPositiveFinite(base) {
             errors.append(.nonPositiveBase)
         }
         if magnitudes.isEmpty && type != .count {
             errors.append(.missingMagnitudes)
         } else if !magnitudes.allSatisfy({
-            $0.multiplier > 0
+            DomainValidation.isPositiveFinite($0.multiplier)
                 && !$0.singular.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !$0.plural.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }) {
@@ -144,49 +144,29 @@ final class Unit {
     }
     
     func toString(forValue value: Double) -> String {
-        let magnitude = self.selectMagnitude(forValue: value)
-        
-        return magnitude?.toString(forValue: value) ?? String(format: "%g", value)
+        definition?.toString(forValue: value) ?? String(format: "%g", value)
     }
 
     func convert(_ value: Double, to destination: Unit) -> Double? {
-        guard unitType == destination.unitType,
-              unitType != .count,
-              base > 0,
-              destination.base > 0,
-              value.isFinite else { return nil }
-        return value * base / destination.base
+        guard let definition, let destination = destination.definition else { return nil }
+        return definition.convert(value, to: destination)
     }
     
     func selectMagnitude(forValue value: Double) -> Magnitude? {
-        if magnitudes.count < 1 {
-            return nil
-        }
-        
-        var closestAdjusted = Double.greatestFiniteMagnitude
-        var bestMagnitude = self.magnitudes[0]
-        for magnitude in self.magnitudes {
-            let adjusted = value / magnitude.multiplier
-            if adjusted >= 1 && adjusted < closestAdjusted {
-                bestMagnitude = magnitude
-                closestAdjusted = adjusted
-            }
-        }
-        
-        return bestMagnitude
+        definition?.selectMagnitude(forValue: value)
     }
 }
 
 extension Unit {
+    var definition: UnitDefinition? {
+        guard let type = UnitType(rawValue: type) else { return nil }
+        return UnitDefinition(id: id, name: name, type: type, base: base, magnitudes: magnitudes)
+    }
+
     /// Prefer the standard count unit over custom count units when starting a new entry.
     static func defaultForNewObject(in units: [Unit]) -> Unit? {
-        let countUnits = units.filter { $0.unitType == .count }
-        return countUnits.first {
-            $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                .caseInsensitiveCompare("count") == .orderedSame
-        } ?? countUnits.first { $0.magnitudes.isEmpty }
-            ?? countUnits.first
-            ?? units.first
+        guard let selected = UnitDefinition.defaultForNewObject(in: units.compactMap(\.definition)) else { return nil }
+        return units.first { $0.id == selected.id }
     }
 
     static func descriptor(id: UUID) -> FetchDescriptor<Unit> {

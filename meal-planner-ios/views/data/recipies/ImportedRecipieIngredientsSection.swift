@@ -22,16 +22,19 @@ struct ImportedRecipieIngredientsSection: View {
                 Button {
                     review(ingredient)
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ingredient.sourceText)
-                            .foregroundStyle(.primary)
-                        if ingredient.isResolved(items: items, units: units) {
-                            let name = items.first { $0.id == ingredient.itemID }?.name ?? ingredient.name
-                            let unit = units.first { $0.id == ingredient.unitID }
-                            let quantity = ingredient.quantity(units: units) ?? 0
-                            Text("\(name): \(unit?.toString(forValue: quantity) ?? "")")
-                                .font(.caption).foregroundStyle(.secondary)
-                        } else {
+                    if ingredient.isResolved(items: items, units: units) {
+                        let name = items.first { $0.id == ingredient.itemID }?.name ?? ingredient.name
+                        let unit = units.first { $0.id == ingredient.unitID }
+                        let quantity = ingredient.quantity(units: units) ?? 0
+                        ItemQuantityRow(
+                            name: name, quantity: unit?.toString(forValue: quantity) ?? "",
+                            detail: ingredient.sourceText
+                        )
+                        .foregroundStyle(.primary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(ingredient.sourceText)
+                                .foregroundStyle(.primary)
                             Label("Review item, unit or quantity", systemImage: "exclamationmark.circle")
                                 .font(.caption).foregroundStyle(.orange)
                         }
@@ -54,7 +57,6 @@ struct ImportedRecipieIngredientsSection: View {
 }
 
 struct ImportedRecipieIngredientEdit: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
     @State private var ingredient: ImportedRecipieIngredient
     private let items: [Item]
@@ -76,7 +78,7 @@ struct ImportedRecipieIngredientEdit: View {
             }
             Section("Item") {
                 Button {
-                    router.showItemPicker(selectedID: ingredient.itemID ?? UUID()) { id in
+                    router.showItemPicker(selectedID: ingredient.itemID ?? UUID(), kindFilter: .ingredient) { id in
                         ingredient.itemID = id
                     }
                 } label: {
@@ -89,7 +91,6 @@ struct ImportedRecipieIngredientEdit: View {
                     ingredient.sourceText = items.first { $0.id == ingredient.itemID }?.name ?? ""
                 }
                 onSave(ingredient)
-                dismiss()
             }
             .disabled(!ingredient.isResolved(items: items, units: units))
         }

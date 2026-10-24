@@ -9,19 +9,19 @@ import SwiftUI
 import SwiftData
 
 struct UnitPicker: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let units: [Unit]
-    @Binding var selectedID: UUID
+    let selectedID: UUID?
     var typeFilter: UnitType? = nil
 
     @State private var type = -1
+    let onSelect: (UUID) -> Void
     @State private var search = ""
 
     var filteredUnits: [Unit] {
         units.filter {
-            (search.isEmpty || $0.name.contains(search))
+            (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search))
             &&
             (typeFilter == nil || $0.unitType == typeFilter)
             &&
@@ -46,34 +46,18 @@ struct UnitPicker: View {
             }
             GlassList {
                 ForEach(filteredUnits) { unit in
-                    Button {
-                        router.selectUnit(unit.id)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text(unit.name)
-                            Spacer()
-                            if unit.id == selectedID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
+                    SelectionRow(title: unit.name, isSelected: unit.id == selectedID) {
+                        onSelect(unit.id)
                     }
                 }
             }
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
-            .onChange(of: search) {
-                let lowercase = search.lowercased()
-                if lowercase != search {
-                    search = lowercase
-                }
-            }
             .toolbar {
                 Button("Add") {
-                    router.showCreation(.newUnit(typeFilter ?? UnitType(rawValue: type) ?? .weight)) { id in
-                        router.selectUnit(id)
-                        router.path = Array(router.path.dropLast())
-                    }
+                    router.showCreation(.unit(
+                        type: typeFilter ?? UnitType(rawValue: type) ?? .weight,
+                        allowsTypeChange: typeFilter == nil
+                    ), onCreate: onSelect)
                 }
             }
         }
@@ -90,7 +74,8 @@ struct UnitPicker: View {
             FlowContainer {
                 UnitPicker(
                     units: units,
-                    selectedID: $selectedID
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 }
                 )
             }
         }

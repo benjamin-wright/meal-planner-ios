@@ -62,10 +62,10 @@ struct MealComponentDraft: Identifiable, Hashable {
 
     var hasValidPortion: Bool {
         guard Set(ingredientOverrides.map(\.id)).count == ingredientOverrides.count,
-              ingredientOverrides.allSatisfy({ $0.quantity > 0 && $0.quantity.isFinite }) else { return false }
+              ingredientOverrides.allSatisfy({ DomainValidation.isPositiveFinite($0.quantity) }) else { return false }
         switch source {
         case .ingredient:
-            return ingredientOverrides.isEmpty && quantity.map { $0 > 0 && $0.isFinite } == true && unitID != nil
+            return ingredientOverrides.isEmpty && quantity.map(DomainValidation.isPositiveFinite) == true && unitID != nil
         case .readymeal:
             return ingredientOverrides.isEmpty && quantity == nil && unitID == nil
         case .recipe:
@@ -74,10 +74,7 @@ struct MealComponentDraft: Identifiable, Hashable {
     }
 
     func ingredients(for recipe: Recipie) -> [RecipieIngredientDraft] {
-        recipe.ingredients.map { ingredient in
-            ingredientOverrides.first { $0.id == ingredient.id }?.draft
-                ?? RecipieIngredientDraft(ingredient: ingredient)
-        }
+        IngredientResolver.applying(ingredientOverrides, to: recipe.ingredients.map(RecipieIngredientDraft.init))
     }
 
     mutating func updateIngredient(_ ingredient: RecipieIngredientDraft, in recipe: Recipie) {
@@ -229,6 +226,7 @@ enum MealComponentPersistence {
         let items = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Item>()).map { ($0.id, $0) })
         let units = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Unit>()).map { ($0.id, $0) })
         let allComponents = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<MealComponent>()).map { ($0.id, $0) })
+        let ingredientResolver = IngredientResolver(items: Array(items.values), units: Array(units.values))
         let ownedIDs = Set(existingComponents.map(\.id))
 
         return try drafts.map { draft in
@@ -242,13 +240,11 @@ enum MealComponentPersistence {
             switch draft.source {
             case .recipe(let id):
                 guard let recipe = recipes[id] else { throw Error.missingSource }
-                let ingredientIDs = Set(recipe.ingredients.map(\.id))
-                guard draft.hasValidPortion, draft.ingredientOverrides.allSatisfy({ override in
-                    guard ingredientIDs.contains(override.id),
-                          let item = items[override.itemID], item.itemKind == .ingredient,
-                          let unit = units[override.unitID] else { return false }
-                    return UnitType(rawValue: unit.type) != nil && unit.base > 0 && unit.base.isFinite
-                }) else { throw Error.invalidOverride }
+                guard draft.hasValidPortion else { throw Error.invalidOverride }
+                do {
+                    _ = try ingredientResolver.resolve(recipe.ingredients.map(RecipieIngredientDraft.init),
+                                                       overrides: draft.ingredientOverrides)
+                } catch { throw Error.invalidOverride }
                 return Selection(draft: draft, kind: .recipe, recipe: recipe, item: nil, unit: nil)
             case .readymeal(let id):
                 guard let item = items[id], item.kind == ItemKind.readymeal.rawValue else { throw Error.missingSource }
@@ -256,8 +252,7 @@ enum MealComponentPersistence {
             case .ingredient(let id):
                 guard let item = items[id], item.kind == ItemKind.ingredient.rawValue else { throw Error.missingSource }
                 guard let unitID = draft.unitID, let unit = units[unitID],
-                      UnitType(rawValue: unit.type) != nil,
-                      unit.base > 0, unit.base.isFinite else { throw Error.missingUnit }
+                      unit.definition?.isValid == true else { throw Error.missingUnit }
                 return Selection(draft: draft, kind: .ingredient, recipe: nil, item: item, unit: unit)
             }
         }

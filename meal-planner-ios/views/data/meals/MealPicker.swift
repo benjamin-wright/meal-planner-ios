@@ -9,17 +9,18 @@ import SwiftUI
 import SwiftData
 
 struct MealPicker: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let meals: [Meal]
-    @Binding var selectedID: UUID
+    let selectedID: UUID?
+    let onSelect: (UUID) -> Void
     @State private var search = ""
     @State private var mealType: MealType
 
-    init(meals: [Meal], selectedID: Binding<UUID>, initialMealType: MealType = .dinner) {
+    init(meals: [Meal], selectedID: UUID?, initialMealType: MealType = .dinner, onSelect: @escaping (UUID) -> Void) {
         self.meals = meals
-        self._selectedID = selectedID
+        self.selectedID = selectedID
+        self.onSelect = onSelect
         self._mealType = State(initialValue: initialMealType)
     }
 
@@ -38,20 +39,8 @@ struct MealPicker: View {
                 .padding(.bottom, 8)
             GlassList {
                 ForEach(filteredMeals) { meal in
-                    Button {
-                        router.selectMeal(meal.id)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(meal.name)
-                            }
-                            Spacer()
-                            if meal.id == selectedID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
+                    SelectionRow(title: meal.name, isSelected: meal.id == selectedID) {
+                        onSelect(meal.id)
                     }
                 }
             }
@@ -60,10 +49,7 @@ struct MealPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Add") {
-                    router.showCreation(.newMeal(mealType)) { id in
-                        router.selectMeal(id)
-                        router.path = Array(router.path.dropLast())
-                    }
+                    router.showCreation(.meal(mealType), onCreate: onSelect)
                 }
             }
         }
@@ -80,7 +66,8 @@ struct MealPicker: View {
             FlowContainer {
                 MealPicker(
                     meals: meals,
-                    selectedID: $selectedID
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 }
                 )
             }
         }

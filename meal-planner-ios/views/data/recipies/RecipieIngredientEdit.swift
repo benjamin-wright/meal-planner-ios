@@ -6,30 +6,29 @@
 import SwiftUI
 
 struct RecipieIngredientEdit: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(FlowRouter.self) private var router
 
     let edit: Bool
     @State private var value: RecipieIngredientDraft
     private let items: [Item]
     private let units: [Unit]
-    private let requiresIngredient: Bool
     private let action: (RecipieIngredientDraft) -> Void
 
-    init(edit: Bool, value: RecipieIngredientDraft, items: [Item], units: [Unit], requiresIngredient: Bool = false, action: @escaping (RecipieIngredientDraft) -> Void) {
+    init(edit: Bool, value: RecipieIngredientDraft, items: [Item], units: [Unit], action: @escaping (RecipieIngredientDraft) -> Void) {
         self.edit = edit
         self._value = State(initialValue: value)
         self.items = items
         self.units = units
-        self.requiresIngredient = requiresIngredient
         self.action = action
     }
 
-    private var isValid: Bool {
-        guard requiresIngredient else { return true }
-        return items.contains { $0.id == value.itemID && $0.itemKind == .ingredient }
-            && units.contains { $0.id == value.unitID && UnitType(rawValue: $0.type) != nil && $0.base > 0 && $0.base.isFinite }
-            && value.quantity > 0 && value.quantity.isFinite
+    private var validationMessage: String? {
+        do {
+            _ = try IngredientResolver(items: items, units: units).resolve(value)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     var body: some View {
@@ -41,36 +40,30 @@ struct RecipieIngredientEdit: View {
             }
             Section {
                 Button {
-                    router.showItemPicker(selectedID: value.itemID, kindFilter: requiresIngredient ? .ingredient : nil) { id in
+                    router.showItemPicker(selectedID: value.itemID, kindFilter: .ingredient) { id in
                         value.itemID = id
                     }
                 } label: {
                     Text("Item").badge(items.first(where: { $0.id == value.itemID })?.name ?? "")
                 }
-                Button {
+                QuantityFields(
+                    unit: units.first { $0.id == value.unitID },
+                    quantity: $value.quantity,
+                    unitPlaceholder: ""
+                ) {
                     router.showUnitPicker(selectedID: value.unitID) { id in
                         value.unitID = id
                     }
-                } label: {
-                    Text("Unit").badge(units.first(where: { $0.id == value.unitID })?.name ?? "")
-                }
-                if let unit = units.first(where: { $0.id == value.unitID }) {
-                    UnitInput(
-                        label: "Quantity",
-                        unit: .constant(unit),
-                        value: $value.quantity
-                    )
                 }
             }
-            if !isValid {
-                Text("Choose an ingredient item, a valid unit, and a quantity greater than zero.")
+            if let validationMessage {
+                Text(validationMessage)
                     .foregroundStyle(.red)
             }
             Button(edit ? "Save" : "Add") {
                 action(value)
-                dismiss()
             }
-            .disabled(!isValid)
+            .disabled(validationMessage != nil)
         }
         .navigationTitle("Ingredient")
     }
