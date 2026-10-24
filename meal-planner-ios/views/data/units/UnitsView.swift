@@ -9,12 +9,17 @@ import SwiftUI
 import SwiftData
 
 struct UnitsView: View {
+    @State private var type: UnitType = .count
+
     var body: some View {
-        TabbedStack(pages: [
-            TabPage(title: "Count", content: {AnyView(UnitsSubsetView(type: .count))}),
-            TabPage(title: "Weight", content: {AnyView(UnitsSubsetView(type: .weight))}),
-            TabPage(title: "Volume", content: {AnyView(UnitsSubsetView(type: .volume))}),
-        ]).navigationTitle("Units")
+        VStack {
+            EnumPicker(label: "Type", selection: $type)
+            UnitsSubsetView(type: type)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(.top, 16)
+        .padding(.horizontal, 16)
+        .navigationTitle("Units")
     }
 }
 

@@ -18,13 +18,11 @@ struct MealEdit: View {
     private var isEditing: Bool { id != nil }
 
     @State private var draft: MealDraft
-    @State private var isLoading = false
     @State private var saveError: String?
     @Query private var existingMeals: [Meal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
     @Query private var units: [Unit]
-    @State private var editMode: EditMode = .inactive
 
     init(id: UUID? = nil, mealType: MealType, onCreate: ((UUID) -> Void)? = nil) {
         self.id = id
@@ -64,8 +62,8 @@ struct MealEdit: View {
         }
     }
 
-    private func newDish(course: CourseType) {
-        router.showDishPicker(course: course) { component in
+    private func newDish() {
+        router.showDishPicker { component in
             draft.components.append(component)
         }
     }
@@ -78,34 +76,26 @@ struct MealEdit: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView()
-            } else {
-                MealComponentsForm(
-                    components: $draft.components, isEditing: editMode.isEditing,
-                    recipies: recipies, items: items, units: units,
-                    onAdd: newDish, onEditPortion: editComponent,
-                    details: {
-                        Section("Details") {
-                            TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
-                            EnumPicker(label: "Meal", selection: $draft.mealType)
-                            if let validationError = validationErrors.first {
-                                Text(validationError.localizedDescription).foregroundStyle(.red)
-                            }
-                        }
-                    },
-                    actions: {
-                        Button(isEditing ? "Save" : "Add", action: save)
-                            .disabled(!validationErrors.isEmpty)
+        MealComponentsForm(
+            components: $draft.components,
+            recipies: recipies, items: items, units: units,
+            onAdd: newDish, onEdit: editComponent,
+            details: {
+                Section("Details") {
+                    TextInput(text: $draft.name, label: "Name", placeholder: "meal name")
+                    EnumPicker(label: "Meal", selection: $draft.mealType)
+                    if let validationError = validationErrors.first {
+                        Text(validationError.localizedDescription).foregroundStyle(.red)
                     }
-                )
+                }
+            },
+            actions: {
+                Button(isEditing ? "Save" : "Add", action: save)
+                    .disabled(!validationErrors.isEmpty)
             }
-        }
-        .toolbar { EditButton() }
-        .environment(\.editMode, $editMode)
+        )
         .navigationTitle("Meal")
-        .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .onFirstAppear(perform: loadDraft)
         .alert("Meal", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

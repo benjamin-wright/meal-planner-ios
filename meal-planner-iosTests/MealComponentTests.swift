@@ -88,8 +88,8 @@ struct MealComponentTests {
         #expect(firstDraft.validate().isEmpty)
         #expect(firstDraft.components.first?.id != templatePortionID)
         #expect(firstDraft.components.first?.id != secondDraft.components.first?.id)
-        try plannedStore.save(firstDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: template.id)
-        try plannedStore.save(secondDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: template.id)
+        try plannedStore.save(firstDraft, id: nil, mealType: .lunch, day: nil)
+        try plannedStore.save(secondDraft, id: nil, mealType: .lunch, day: nil)
         let planned = try context.fetch(FetchDescriptor<PlannedMeal>()).sorted { $0.sortOrder < $1.sortOrder }
         let first = try #require(planned.first)
         let second = try #require(planned.last)
@@ -127,8 +127,7 @@ struct MealComponentTests {
         #expect(try context.fetch(FetchDescriptor<MealComponent>()).count == 4)
     }
 
-    @Test(arguments: [0.0, -1.0, Double.nan, Double.infinity, -Double.infinity])
-    func invalidPortionsDoNotMutateSavedOrPlannedMeals(quantity: Double) throws {
+    @Test func invalidPortionsDoNotMutateSavedOrPlannedMeals() throws {
         let fixture = try makeFixture()
         let context = fixture.context
         let mealStore = MealStore(context: context)
@@ -141,7 +140,7 @@ struct MealComponentTests {
         var plannedDraft = try plannedStore.draft(id: planned.id)
 
         let invalid = ingredientDraft(
-            itemID: fixture.apple.id, unitID: fixture.count.id, quantity: quantity
+            itemID: fixture.apple.id, unitID: fixture.count.id, quantity: .nan
         )
         draft.name = "Changed lunch"
         draft.components[0].quantity = 2
@@ -410,8 +409,7 @@ struct MealComponentTests {
         #expect(abs(milkVolume.quantity - 1.636522) < 0.000_001)
     }
 
-    @Test(arguments: [0.0, -1.0, Double.nan, Double.infinity, -Double.infinity])
-    func invalidStoredPortionsPreserveTheExistingShoppingList(quantity: Double) throws {
+    @Test func invalidPendingPortionsPreserveTheExistingShoppingList() throws {
         let fixture = try makeFixture()
         let context = fixture.context
         let existing = ShoppingListEntry(name: "Keep this entry", quantity: 7, isChecked: true)
@@ -419,7 +417,7 @@ struct MealComponentTests {
         try context.save()
         // Keep the invalid model pending: some stores cannot persist a NaN Double.
         context.insert(PlannedMeal(mealType: .lunch, components: [
-            MealComponent(ingredient: fixture.apple, unit: fixture.count, quantity: quantity)
+            MealComponent(ingredient: fixture.apple, unit: fixture.count, quantity: .nan)
         ]))
         #expect(throws: ShoppingListStore.Error.self) { try ShoppingListStore(context: context).regenerate() }
         #expect(existing.isChecked)

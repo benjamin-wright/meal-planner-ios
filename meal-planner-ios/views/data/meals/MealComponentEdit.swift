@@ -105,7 +105,6 @@ struct MealComponentRow: View {
     let recipies: [Recipie]
     let items: [Item]
     let units: [Unit]
-    var isEditing: Bool = false
 
     private var name: String {
         switch component.source {
@@ -131,22 +130,14 @@ struct MealComponentRow: View {
     }
 
     var body: some View {
-        if isEditing {
-            // Keep delete and reorder controls as separate accessibility elements.
-            Text(detail.map { "\(name): \($0)" } ?? name)
-                .lineLimit(2)
-                .accessibilityValue(component.course.label)
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name)
-                if let detail {
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            Text(name)
+            if let detail {
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityValue(component.course.label)
         }
+        .accessibilityElement(children: .combine)
     }
 }

@@ -81,7 +81,7 @@ struct PickerCreationTests {
         let picker = router.showPlannerMealPicker(mealType: .lunch) { selectedMealID = $0 }
         let mealCreation = router.showCreation(.meal(.lunch)) { router.complete(picker, with: $0) }
         let mealEditorPath = router.path
-        let dishPicker = router.showDishPicker(course: .main) { components.append($0) }
+        let dishPicker = router.showDishPicker { components.append($0) }
         let recipeCreation = router.showCreation(.recipe) {
             router.complete(dishPicker, with: MealComponentDraft(source: .recipe($0)))
         }

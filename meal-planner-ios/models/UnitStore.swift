@@ -12,7 +12,7 @@ final class UnitStore {
         case notFound
         case invalidDraft([UnitDraft.ValidationError])
         case inUse(String)
-        case missingPreferredUnit(UnitType)
+        case baseUnit(String)
 
         var errorDescription: String? {
             switch self {
@@ -22,8 +22,8 @@ final class UnitStore {
                 return errors.compactMap(\.errorDescription).joined(separator: " ")
             case .inUse(let name):
                 return "\(name) is used by settings, a recipe, a meal, a planner entry, or the shopping list and cannot be deleted."
-            case .missingPreferredUnit(let type):
-                return "Add another valid \(type.label.lowercased()) unit before changing this preferred unit's type."
+            case .baseUnit(let name):
+                return "\(name) is a base unit and cannot be changed or deleted. Add a custom unit instead."
             }
         }
     }
@@ -32,6 +32,25 @@ final class UnitStore {
 
     init(context: ModelContext) {
         self.context = context
+    }
+
+    /// Adopt unchanged sample units in existing stores, preserving their IDs and references.
+    /// Edited sample units remain custom units; missing bases are added alongside them.
+    static func ensureBaseUnits(in context: ModelContext, excluding excludedID: UUID? = nil) throws -> (count: Unit, weight: Unit, volume: Unit) {
+        let units = try context.fetch(FetchDescriptor<Unit>()).filter { $0.id != excludedID }
+        func base(_ type: UnitType) -> Unit {
+            if let unit = units.first(where: { $0.isBaseUnit && $0.unitType == type }) { return unit }
+            let definition = UnitDefinition.baseUnit(for: type)
+            if let existing = units.first(where: { $0.definition?.matchesBaseUnit(definition) == true }) {
+                existing.isBaseUnit = true
+                return existing
+            }
+            let unit = Unit(name: definition.name, type: type, base: definition.base,
+                            magnitudes: definition.magnitudes, isBaseUnit: true)
+            context.insert(unit)
+            return unit
+        }
+        return (base(.count), base(.weight), base(.volume))
     }
 
     func draft(id: UUID) throws -> UnitDraft {
@@ -57,18 +76,19 @@ final class UnitStore {
             throw Error.invalidDraft(validationErrors)
         }
 
-        // Plan settings repairs before changing either the unit or its dependants.
-        let preferenceReplacements = try preferredUnitReplacements(for: id, newType: draft.type)
         let unit: Unit
         if let id {
             guard let existing = try context.fetch(Unit.descriptor(id: id)).first else {
                 throw Error.notFound
             }
+            guard !existing.isBaseUnit else { throw Error.baseUnit(existing.name) }
             unit = existing
         } else {
             unit = Unit(name: draft.name, type: draft.type, base: draft.base, magnitudes: draft.magnitudes)
             context.insert(unit)
         }
+        // A preferred custom unit can change dimension; its old dimension falls back to the base.
+        let preferenceReplacements = try preferredUnitReplacements(for: id, newType: draft.type)
         unit.name = draft.name
         unit.type = draft.type.rawValue
         unit.base = draft.type == .count ? 1 : draft.base
@@ -87,6 +107,9 @@ final class UnitStore {
     func delete(ids: [UUID]) throws {
         let selectedIDs = Set(ids)
         let units = try context.fetch(FetchDescriptor<Unit>())
+        if let unit = units.first(where: { selectedIDs.contains($0.id) && $0.isBaseUnit }) {
+            throw Error.baseUnit(unit.name)
+        }
         let referencedIDs = try referencedUnitIDs()
 
         if let unit = units.first(where: { unit in
@@ -127,15 +150,9 @@ final class UnitStore {
                 .map { (setting, $0.0) }
         }
         guard !affected.isEmpty else { return [] }
-        let units = try context.fetch(FetchDescriptor<Unit>()).filter {
-            $0.id != id && $0.definition?.isValid == true
-        }.sorted {
-            $0.name == $1.name ? $0.id.uuidString < $1.id.uuidString : $0.name < $1.name
-        }
-        return try affected.map { setting, type in
-            guard let replacement = units.first(where: { $0.definition?.type == type }) else {
-                throw Error.missingPreferredUnit(type)
-            }
+        let bases = try Self.ensureBaseUnits(in: context, excluding: id)
+        return affected.map { setting, type in
+            let replacement = type == .weight ? bases.weight : bases.volume
             return PreferredUnitReplacement(settings: setting, type: type, unit: replacement)
         }
     }

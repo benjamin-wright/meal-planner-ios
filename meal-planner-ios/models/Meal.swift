@@ -118,7 +118,8 @@ final class Meal {
 
     var orderedComponents: [MealComponent] {
         components.sorted {
-            $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
+            if $0.courseEnum != $1.courseEnum { return $0.courseEnum.rawValue < $1.courseEnum.rawValue }
+            return $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
         }
     }
 

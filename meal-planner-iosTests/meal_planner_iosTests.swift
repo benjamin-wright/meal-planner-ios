@@ -213,34 +213,40 @@ struct meal_planner_iosTests {
     }
 
     @MainActor
-    @Test func plannedMealsKeepIndependentCopiesAndMoveBetweenDinnerDays() throws {
+    @Test func movingDinnerSwapsOnlyTheTwoDaysAndPreservesIndependentComponents() throws {
         let context = try makePlannerContext()
-        let recipie = Recipie(name: "Tomato soup")
-        context.insert(recipie)
+        context.autosaveEnabled = false
+        let recipe = Recipie(name: "Tomato soup")
+        context.insert(recipe)
         try context.save()
-
-        var firstDraft = PlannedMealDraft()
-        firstDraft.components = [MealComponentDraft(source: .recipe(recipie.id))]
         let store = PlannedMealStore(context: context)
-        try store.save(firstDraft, id: nil, mealType: .dinner, day: .saturday)
+        for day in [Day.saturday, .sunday, .monday] {
+            let draft = PlannedMealDraft(components: [MealComponentDraft(source: .recipe(recipe.id))],
+                                         servings: day.rawValue + 2)
+            try store.save(draft, id: nil, mealType: .dinner, day: day)
+        }
+        let meals = try context.fetch(FetchDescriptor<PlannedMeal>())
+        let saturday = try #require(meals.first { $0.dayEnum == .saturday })
+        let sunday = try #require(meals.first { $0.dayEnum == .sunday })
+        let monday = try #require(meals.first { $0.dayEnum == .monday })
+        let components = Dictionary(uniqueKeysWithValues: meals.map { ($0.id, $0.orderedComponents.map(\.id)) })
+        let servings = Dictionary(uniqueKeysWithValues: meals.map { ($0.id, $0.servings) })
+        #expect(Set(components.values.flatMap { $0 }).count == 3)
+        recipe.summary = "An unrelated pending edit"
 
-        let secondDraft = PlannedMealDraft(components: firstDraft.components.map { MealComponentDraft(copying: $0) })
-        try store.save(secondDraft, id: nil, mealType: .dinner, day: .sunday)
+        try store.moveDinner(id: saturday.id, to: .monday)
 
-        let plannedMeals = try context.fetch(FetchDescriptor<PlannedMeal>())
-        let saturday = try #require(plannedMeals.first { $0.dayEnum == .saturday })
-        let sunday = try #require(plannedMeals.first { $0.dayEnum == .sunday })
-        
-        #expect(saturday.components.map(\.source) == [.recipe(recipie.id)])
-        
-        try store.moveDinner(from: .saturday, to: .sunday)
-
-        #expect(saturday.dayEnum == .sunday)
-        #expect(sunday.dayEnum == .saturday)
-        let movedSaturday = try #require(
-            context.fetch(FetchDescriptor<PlannedMeal>()).first { $0.id == saturday.id }
-        )
-        #expect(movedSaturday.components.map(\.source) == [.recipe(recipie.id)])
+        let verification = ModelContext(context.container)
+        let reloaded = try verification.fetch(FetchDescriptor<PlannedMeal>())
+        #expect(reloaded.first { $0.id == saturday.id }?.dayEnum == .monday)
+        #expect(reloaded.first { $0.id == monday.id }?.dayEnum == .saturday)
+        #expect(reloaded.first { $0.id == sunday.id }?.dayEnum == .sunday)
+        for meal in reloaded {
+            #expect(meal.orderedComponents.map(\.id) == components[meal.id])
+            #expect(meal.orderedComponents.map(\.source) == [.recipe(recipe.id)])
+            #expect(meal.servings == servings[meal.id])
+        }
+        #expect(try verification.fetch(Recipie.descriptor(id: recipe.id)).first?.summary == "An unrelated pending edit")
     }
 
     @Test func plannedMealDerivesItsDisplayNameFromMainsAndSides() {
@@ -322,7 +328,7 @@ struct meal_planner_iosTests {
         context.insert(item)
         context.insert(recipe)
         context.insert(template)
-        context.insert(PlannedMeal(mealType: .lunch, sourceMealID: template.id, components: [MealComponent(recipe: recipe)]))
+        context.insert(PlannedMeal(mealType: .lunch, components: [MealComponent(recipe: recipe)]))
         context.insert(PlannedMeal(mealType: .dinner, day: .monday, components: [MealComponent(ingredient: item, unit: unit, quantity: 1)]))
         context.insert(PlannedMiscEntry(item: item, unit: unit))
         context.insert(PlannedMiscEntry(note: PlannedMiscNote(text: "Candles", category: category), unit: unit))
@@ -359,7 +365,7 @@ struct meal_planner_iosTests {
         let pints = Unit(name: "pints", type: .volume, base: 0.568261, magnitudes: [
             Magnitude(abbreviation: "pt", singular: "pint", plural: "pints", multiplier: 1)
         ])
-        let count = Unit(name: "count", type: .count, magnitudes: [])
+        let count = Unit(name: "count", type: .count, magnitudes: [], isBaseUnit: true)
         let cans = Unit(name: "cans", type: .count, magnitudes: [
             Magnitude(singular: "can", plural: "cans", multiplier: 1)
         ])
@@ -490,39 +496,63 @@ struct meal_planner_iosTests {
     }
 
     @MainActor
-    @Test func movingDinnerShiftsInterveningDays() throws {
+    @Test func movingDinnerToAnEmptyDayLeavesOtherMealsAloneAndRepeatingItIsANoOp() throws {
         let context = try makePlannerContext()
-        let saturday = PlannedMeal(mealType: .dinner, day: .saturday)
-        let sunday = PlannedMeal(mealType: .dinner, day: .sunday)
-        let monday = PlannedMeal(mealType: .dinner, day: .monday)
-        context.insert(saturday)
-        context.insert(sunday)
-        context.insert(monday)
+        context.autosaveEnabled = false
+        let recipe = Recipie(name: "Tomato soup")
+        let dinner = PlannedMeal(mealType: .dinner, day: .saturday,
+                                  components: [MealComponent(recipe: recipe)])
+        let other = PlannedMeal(mealType: .dinner, day: .sunday)
+        let lunch = PlannedMeal(mealType: .lunch)
+        [dinner, other, lunch].forEach(context.insert)
         try context.save()
+        let componentID = try #require(dinner.components.first?.id)
+        let store = PlannedMealStore(context: context)
 
-        try PlannedMealStore(context: context).moveDinner(from: .saturday, to: .monday)
+        try store.moveDinner(id: dinner.id, to: .tuesday)
 
-        #expect(saturday.dayEnum == .monday)
-        #expect(sunday.dayEnum == .saturday)
-        #expect(monday.dayEnum == .sunday)
+        let verification = ModelContext(context.container)
+        let reloaded = try verification.fetch(FetchDescriptor<PlannedMeal>())
+        #expect(reloaded.count == 3)
+        #expect(reloaded.first { $0.id == dinner.id }?.dayEnum == .tuesday)
+        #expect(reloaded.first { $0.id == dinner.id }?.components.first?.id == componentID)
+        #expect(reloaded.first { $0.id == other.id }?.dayEnum == .sunday)
+        #expect(reloaded.first { $0.id == lunch.id }?.dayEnum == nil)
+        #expect(reloaded.first { $0.id == lunch.id }?.mealTypeEnum == .lunch)
+        #expect(!reloaded.contains { $0.dayEnum == .saturday })
+
+        recipe.summary = "Keep this unsaved"
+        try store.moveDinner(id: dinner.id, to: .tuesday)
+        #expect(context.hasChanges)
+        #expect(recipe.summary == "Keep this unsaved")
+        #expect(try ModelContext(context.container).fetch(Recipie.descriptor(id: recipe.id)).first?.summary == "")
     }
 
     @MainActor
-    @Test(arguments: [false, true])
-    func movingEmptyDinnerSlotPersistsTheReorder(moveForward: Bool) throws {
+    @Test func movingDinnerRejectsMissingNonDinnerAndUndatedSourcesBeforeMutation() throws {
         let context = try makePlannerContext()
-        let source: Day = moveForward ? .saturday : .monday
-        let destination: Day = moveForward ? .monday : .saturday
-        let initialDays: [Day] = moveForward ? [.sunday, .monday] : [.saturday, .sunday]
-        let expectedDays: [Day] = moveForward ? [.saturday, .sunday] : [.sunday, .monday]
-        let meals = initialDays.map { PlannedMeal(mealType: .dinner, day: $0) }
-        meals.forEach(context.insert)
+        context.autosaveEnabled = false
+        let lunch = PlannedMeal(mealType: .lunch)
+        let undated = PlannedMeal(mealType: .dinner)
+        let dinner = PlannedMeal(mealType: .dinner, day: .monday)
+        [lunch, undated, dinner].forEach(context.insert)
         try context.save()
+        let store = PlannedMealStore(context: context)
 
-        try PlannedMealStore(context: context).moveDinner(from: source, to: destination)
-
-        #expect(meals.map(\.dayEnum) == expectedDays.map { Optional($0) })
-        #expect(try context.fetch(FetchDescriptor<PlannedMeal>()).allSatisfy { $0.dayEnum != destination })
+        #expect { try store.moveDinner(id: UUID(), to: .monday) } throws: { error in
+            guard let error = error as? PlannedMealStore.Error, case .notFound = error else { return false }
+            return true
+        }
+        for id in [lunch.id, undated.id] {
+            #expect { try store.moveDinner(id: id, to: .monday) } throws: { error in
+                guard let error = error as? PlannedMealStore.Error, case .invalidPlacement = error else { return false }
+                return true
+            }
+        }
+        #expect(!context.hasChanges)
+        let reloaded = try ModelContext(context.container).fetch(FetchDescriptor<PlannedMeal>())
+        #expect(reloaded.first { $0.id == dinner.id }?.dayEnum == .monday)
+        #expect(reloaded.filter { $0.dayEnum == nil }.count == 2)
     }
 
     private func makeRecipieContext() throws -> ModelContext {

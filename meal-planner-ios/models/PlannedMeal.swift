@@ -51,7 +51,6 @@ final class PlannedMeal {
     var mealType: Int
     var day: Int?
     var sortOrder: Int
-    var sourceMealID: UUID?
     var servings: Int = 2
     @Relationship(deleteRule: .cascade, inverse: \MealComponent.plannedMeal)
     var components: [MealComponent] = []
@@ -71,7 +70,6 @@ final class PlannedMeal {
         mealType: MealType,
         day: Day? = nil,
         sortOrder: Int = 0,
-        sourceMealID: UUID? = nil,
         servings: Int = 2,
         components: [MealComponent] = []
     ) {
@@ -79,7 +77,6 @@ final class PlannedMeal {
         self.mealType = mealType.rawValue
         self.day = day?.rawValue
         self.sortOrder = sortOrder
-        self.sourceMealID = sourceMealID
         self.servings = servings
         self.components = components
         components.enumerated().forEach { index, component in
@@ -90,14 +87,14 @@ final class PlannedMeal {
 
     var orderedComponents: [MealComponent] {
         components.sorted {
-            $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
+            if $0.courseEnum != $1.courseEnum { return $0.courseEnum.rawValue < $1.courseEnum.rawValue }
+            return $0.sortOrder == $1.sortOrder ? $0.id.uuidString < $1.id.uuidString : $0.sortOrder < $1.sortOrder
         }
     }
 
     var displayName: String {
         let ordered = orderedComponents
-        let mainAndSides = ordered.filter { $0.courseEnum == .main }
-            + ordered.filter { $0.courseEnum == .side }
+        let mainAndSides = ordered.filter { $0.courseEnum == .main || $0.courseEnum == .side }
         let displayed = mainAndSides.isEmpty ? ordered : mainAndSides
         guard !displayed.isEmpty else { return "No dishes" }
         let description = displayed.map(\.displayName).joined(separator: ", ")
@@ -156,8 +153,7 @@ final class PlannedMealStore {
         _ draft: PlannedMealDraft,
         id: UUID?,
         mealType: MealType,
-        day: Day?,
-        sourceMealID: UUID? = nil
+        day: Day?
     ) throws {
         guard let placement = PlannerPlacement(mealType: mealType, day: day) else { throw Error.invalidPlacement }
         if case .dinner(let day) = placement,
@@ -208,7 +204,6 @@ final class PlannedMealStore {
         )
         plannedMeal.mealTypeEnum = mealType
         plannedMeal.dayEnum = day
-        plannedMeal.sourceMealID = sourceMealID ?? plannedMeal.sourceMealID
         plannedMeal.servings = draft.servings
         removed.forEach(context.delete)
         try context.save()
@@ -222,22 +217,27 @@ final class PlannedMealStore {
         try context.save()
     }
 
-    /// Moves the dinner slot at `sourceDay` to `day`, shifting intervening slots.
-    /// The source may be empty, in which case the empty slot itself is moved.
-    func moveDinner(from sourceDay: Day, to day: Day) throws {
-        guard sourceDay != day else { return }
-        let dinners = try context.fetch(FetchDescriptor<PlannedMeal>())
-            .filter { $0.mealTypeEnum == .dinner }
-        var mealIDs: [Day: UUID] = [:]
-        for dinner in dinners {
-            guard let day = dinner.dayEnum else { throw Error.invalidPlacement }
-            guard mealIDs[day] == nil else { throw Error.occupiedDinner(day) }
-            mealIDs[day] = dinner.id
+    /// Moves one dinner, exchanging days when the destination already has a dinner.
+    func moveDinner(id: UUID, to day: Day) throws {
+        guard let source = try context.fetch(PlannedMeal.descriptor(id: id)).first else {
+            throw Error.notFound
         }
-        var slots = DinnerSlots(meals: mealIDs)
-        slots.move(from: sourceDay, to: day)
-        let daysByMealID = Dictionary(uniqueKeysWithValues: slots.meals.map { ($0.value, $0.key) })
-        for dinner in dinners { dinner.dayEnum = daysByMealID[dinner.id] }
-        try context.save()
+        guard source.mealType == MealType.dinner.rawValue, let sourceDay = source.dayEnum else {
+            throw Error.invalidPlacement
+        }
+        guard sourceDay != day else { return }
+        let destination = try context.fetch(FetchDescriptor<PlannedMeal>()).first {
+            $0.mealType == MealType.dinner.rawValue && $0.dayEnum == day
+        }
+        source.dayEnum = day
+        destination?.dayEnum = sourceDay
+        do {
+            try context.save()
+        } catch {
+            // Restore only this operation; unrelated pending editor changes remain intact.
+            source.dayEnum = sourceDay
+            destination?.dayEnum = day
+            throw error
+        }
     }
 }

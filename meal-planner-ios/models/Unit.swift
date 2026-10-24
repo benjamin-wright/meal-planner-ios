@@ -134,13 +134,15 @@ final class Unit {
     }
     var base: Double
     var magnitudes: [Magnitude]
+    var isBaseUnit: Bool = false
     
-    init(id: UUID? = UUID(), name: String, type: UnitType, base: Double = 1, magnitudes: [Magnitude]) {
+    init(id: UUID? = UUID(), name: String, type: UnitType, base: Double = 1, magnitudes: [Magnitude], isBaseUnit: Bool = false) {
         self.id = id ?? UUID()
         self.name = name
         self.type = type.rawValue
         self.base = base
         self.magnitudes = magnitudes
+        self.isBaseUnit = isBaseUnit
     }
     
     func toString(forValue value: Double) -> String {
@@ -160,7 +162,7 @@ final class Unit {
 extension Unit {
     var definition: UnitDefinition? {
         guard let type = UnitType(rawValue: type) else { return nil }
-        return UnitDefinition(id: id, name: name, type: type, base: base, magnitudes: magnitudes)
+        return UnitDefinition(id: id, name: name, type: type, base: base, magnitudes: magnitudes, isBaseUnit: isBaseUnit)
     }
 
     /// Prefer the standard count unit over custom count units when starting a new entry.

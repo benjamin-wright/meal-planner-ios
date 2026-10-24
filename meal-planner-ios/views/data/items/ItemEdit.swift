@@ -20,7 +20,6 @@ struct ItemEdit: View {
     private var isEditing: Bool { id != nil }
     
     @State private var draft: ItemDraft?
-    @State private var isLoading = false
     @State private var saveError: String?
     @Query(sort: \Item.category.order) private var items: [Item]
     @Query(sort: \Category.order) private var categories: [Category]
@@ -72,7 +71,7 @@ struct ItemEdit: View {
     
     var body: some View {
         Group {
-            if isLoading || draft == nil {
+            if draft == nil {
                 ProgressView()
             } else {
                 let draft = Binding(
@@ -117,7 +116,7 @@ struct ItemEdit: View {
                 .navigationTitle("Item")
             }
         }
-        .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .onFirstAppear(perform: loadDraft)
         .alert("Item", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

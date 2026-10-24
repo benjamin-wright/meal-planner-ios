@@ -2,6 +2,25 @@ import XCTest
 
 final class CatalogPickerUITests: MealPlannerUITestCase {
     @MainActor
+    func testCatalogueCreationAndSelectionAcrossShoppingSettingsAndRecipes() {
+        let app = XCUIApplication()
+        launchInPortrait(app)
+
+        XCTContext.runActivity(named: "Create a shopping item and its category") { _ in
+            createShoppingItemAndCategory(in: app)
+        }
+        XCTContext.runActivity(named: "Create a shopping note, category and count unit") { _ in
+            createShoppingNoteCategoryAndUnit(in: app)
+        }
+        XCTContext.runActivity(named: "Select new weight and volume units in Settings") { _ in
+            selectRestrictedUnitsInSettings(in: app)
+        }
+        XCTContext.runActivity(named: "Author, reorder and reopen multiline recipe steps") { _ in
+            authorRecipeSteps(in: app)
+        }
+    }
+
+    @MainActor
     private func assertShoppingEntry(_ name: String, in app: XCUIApplication) {
         let entry = row(name, in: app)
         for _ in 0..<6 {
@@ -64,9 +83,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testShoppingListCanCreateAnItemAndItsCategoryFromPickers() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
+    private func createShoppingItemAndCategory(in app: XCUIApplication) {
         app.tabBars.buttons["List"].tap()
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         row("Item", in: app).tap()
@@ -94,10 +111,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testShoppingListNoteAutomaticallySelectsCreatedCategoryAndCountUnit() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
-        app.tabBars.buttons["List"].tap()
+    private func createShoppingNoteCategoryAndUnit(in app: XCUIApplication) {
         app.navigationBars["Shopping List"].buttons["Add"].tap()
         app.segmentedControls.buttons["Quick Note"].tap()
         let noteName = "picker note"
@@ -127,9 +141,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testSettingsUseTypeRestrictedUnitPickers() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
+    private func selectRestrictedUnitsInSettings(in app: XCUIApplication) {
         app.tabBars.buttons["Settings"].tap()
         for (type, included, excluded) in [
             ("Weight", "grams", "litres"),
@@ -148,9 +160,7 @@ final class CatalogPickerUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testRecipeAuthoringSupportsMultilineStepsReorderingAndPersistence() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
+    private func authorRecipeSteps(in app: XCUIApplication) {
         openRecipeCatalogue(in: app)
         XCTAssertFalse(app.segmentedControls.firstMatch.exists)
         XCTAssertTrue(app.buttons["recipeFilters"].exists)

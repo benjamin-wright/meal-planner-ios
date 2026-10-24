@@ -8,16 +8,17 @@ can be a starter in one meal and a main in another. Breakfast, lunch, and dinner
 belong to the meal; recipe yield and cooking time, and ready-meal servings and
 reheating time, belong to the catalogue entry.
 
-Adding a main, side, starter, or dessert opens a searchable catalogue with a
-Recipes/Items switch. Recipes is selected initially and includes recipes and
-ready meals; Items contains ingredients. Selecting an ingredient opens a quantity
+**Add dish** opens a searchable catalogue with a course picker and a
+Recipes/Items switch. The course starts at Main. Recipes is selected initially and
+includes recipes and ready meals; Items contains ingredients. Selecting an ingredient opens a quantity
 and unit editor **per person**. For example, a light lunch can include half an
-apple, while a hiking lunch can include two apples. Tap an ingredient in a meal
-to edit its portion.
+apple, while a hiking lunch can include two apples. Open the dish menu and choose
+**Edit Portion** to change its quantity or unit.
 
-In Edit mode, drag the handle beside a dish to change its order or move it to
-another course, including an empty course. Use the remove button beside a dish
-to delete it. The order and courses are preserved when the meal is reopened.
+Dishes appear in Starter, Main, Side, Dessert order, with a course tag on each row.
+The dish menu lets you change its course or delete it; planned recipes also offer
+**Substitute Ingredients**. Dishes keep their relative order within each course.
+There is no separate reordering mode, and changes are saved with the meal.
 
 Components belong to the meal, so the ingredient catalogue needs no serving
 defaults. Planning a saved meal copies its components; changing that planned meal
@@ -27,6 +28,25 @@ in recipes.
 
 This alpha schema uses a fresh named `MealPlanner` store and starts with sample
 data. There is no migration from the previous database.
+
+Count, grams and litres are permanent base units. They cannot be changed or
+deleted; custom units remain editable. Existing stores adopt unchanged sample
+units and add any missing bases without changing custom units or their references.
+New quantities and ready-meal shopping entries use the base count unit. If a
+preferred custom weight or volume unit changes dimension, settings fall back to
+the corresponding base unit.
+
+## Planning dinners
+
+Each day keeps its own row and day badge. Drag a dinner's meal name onto another
+day. Dropping onto an empty day moves the dinner and leaves its
+old day empty; dropping onto an occupied day swaps the two dinners. Other days
+keep their meals.
+
+Open the dinner's ellipsis menu and choose **Edit** to change its details.
+The menu also offers **Delete** and the same movement actions under
+**Move to…**, with **Move to** or **Swap with** labels for each destination.
+Moves, swaps and deletions are saved immediately.
 
 ## Keyboard controls
 
@@ -48,8 +68,8 @@ flagged for review, rather than guessed or clamped. Ingredient weights such as
 found in the photo text; numeric serving counts must agree with that quote.
 Larger recipes can still be entered manually.
 
-Photo imports first match ingredient names using exact names and small spelling
-differences. For unresolved names, the app ranks up to 50 existing ingredients by
+Photo imports first match unique exact ingredient names. For all other names,
+including small spelling differences, the app ranks up to 50 existing ingredients by
 normalized edit similarity and word overlap, then asks the on-device model to
 choose an equivalent ingredient using those names, scores, the original line and
 recipe title. This allows “cheddar” to match “cheddar cheese”, and “beef” in
@@ -60,10 +80,12 @@ not confidence; the model can leave a line unmatched and must not substitute a
 different ingredient or prepared dish. Duplicate names, failed model requests and
 uncertain matches remain available for manual review. Original text, quantities
 and units are preserved, and nothing is saved until the import is reviewed.
+Accepted matches can be reviewed at a glance; opening each ingredient is optional.
 
 `models/RecipieIngredientMatching.swift` owns ranking, candidate selection and
-matching instructions. Each unresolved line uses a fresh model session; exact
-and close-spelling matches do not need an additional model request.
+matching instructions. Each unresolved line uses a fresh model session; unique
+exact matches do not need an additional model request. Similar spelling alone
+cannot accept a match: “oat milk” must not automatically become “goat milk”.
 
 ## Recipe import playground
 
@@ -139,7 +161,7 @@ removal and undo, with a controllable clock for tests.
 Each picker or staged editor has its own `FlowRouter.Session`, including its return
 destination and completion. Planned extras and direct shopping entries share
 `CatalogEntryDraft` and `CatalogEntryFields`, while their screens choose where to
-save. Both meal editors use `MealComponentsForm` to own scrolling and reordering.
+save. Both meal editors use `MealComponentsForm` for their details, dish list and save actions.
 
 The shared scheme has three explicit test plans:
 
@@ -148,15 +170,24 @@ The shared scheme has three explicit test plans:
   require Apple Intelligence and report as skipped when it is unavailable.
 - **Launch Diagnostics**: launch screenshots and launch performance measurements.
 
+The default plan keeps full deterministic verification in one pass. Select a
+specific suite for focused iterations. Platform Integration and Launch Diagnostics
+remain separate because they require platform services or measure startup.
+
 Each UI test receives its own temporary on-disk store. Relaunches within that test
 reuse the same store, so they still verify persistence. The standard fixture is the
-sample catalogue and plan; the long-meal fixture adds ten components for the scrolling
-and drag test without creating them through ten picker interactions. Fixture selection
-is confined to Debug app composition. Views, stores, timers and gestures run normally.
+sample catalogue and plan. A stale-shopping-list
+fixture verifies regeneration by replacing an old entry with the current plan's entries.
+Fixture selection is confined to Debug app composition. Views, stores, timers and gestures
+run normally; cancellation and deadline combinations are tested with the domain clock,
+while the UI checks automatic removal and Undo without racing the removal deadline.
 
 Use `MealPlannerUITestCase.launchInPortrait` (or `launch` when testing UI configurations)
 to preserve this isolation. Do not use the Settings Reset action as general test setup.
 Keep combinatorial rules in domain tests and persistence contracts in real SwiftData
-tests; use bounded UI journeys for navigation, editing, presentation and gestures.
+tests. Group related UI checks into journeys that share an app launch and setup, with
+named `XCTContext` activities marking their stages. Keep separate journeys when they
+need a different fixture or launch configuration; keep relaunches that verify persistence.
+The domain target uses one test runner rather than creating parallel simulator clones.
 Run parameterized suites as a whole when using Xcode automation: selecting individual
 methods can retain a single argument selection and omit the rest of the matrix.

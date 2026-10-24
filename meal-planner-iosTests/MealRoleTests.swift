@@ -19,12 +19,12 @@ struct MealRoleTests {
             MealComponentDraft(source: source, course: .side)
         ], in: context)
         try plannedStore.save(PlannedMealDraft(meal: first), id: nil, mealType: .dinner,
-                              day: .saturday, sourceMealID: first.id)
+                              day: .saturday)
         try plannedStore.save(PlannedMealDraft(meal: second), id: nil, mealType: .lunch,
-                              day: nil, sourceMealID: second.id)
+                              day: nil)
         let plans = try context.fetch(FetchDescriptor<PlannedMeal>())
-        let firstPlan = try #require(plans.first { $0.sourceMealID == first.id })
-        let secondPlan = try #require(plans.first { $0.sourceMealID == second.id })
+        let firstPlan = try #require(plans.first { $0.mealTypeEnum == .dinner && $0.dayEnum == .saturday })
+        let secondPlan = try #require(plans.first { $0.mealTypeEnum == .lunch && $0.dayEnum == nil })
 
         var firstDraft = try savedStore.draft(id: first.id)
         firstDraft.components[0].course = .main
@@ -67,7 +67,7 @@ struct MealRoleTests {
         let original = try saveMeal("Reusable lunch", type: .lunch,
                                     components: allSources(fixture), in: context)
         let planDraft = PlannedMealDraft(meal: original)
-        try plannedStore.save(planDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: original.id)
+        try plannedStore.save(planDraft, id: nil, mealType: .lunch, day: nil)
         let planned = try #require(context.fetch(FetchDescriptor<PlannedMeal>()).first)
         var copiedDraft = MealDraft(plannedMeal: try plannedStore.draft(id: planned.id), mealType: .breakfast)
         copiedDraft.name = "Copied breakfast"
@@ -102,7 +102,7 @@ struct MealRoleTests {
         let context = fixture.context
         let saved = try saveMeal("Mixed lunch", type: .lunch, components: allSources(fixture), in: context)
         try PlannedMealStore(context: context).save(PlannedMealDraft(meal: saved), id: nil,
-                                                    mealType: .lunch, day: nil, sourceMealID: saved.id)
+                                                    mealType: .lunch, day: nil)
         let planned = try #require(context.fetch(FetchDescriptor<PlannedMeal>()).first)
         let deletedSource = source(for: kind, in: fixture)
         let expectedIDs = Set((saved.components + planned.components)

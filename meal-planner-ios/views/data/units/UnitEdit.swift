@@ -18,7 +18,6 @@ struct UnitEdit: View {
     private var isEditing: Bool { id != nil }
 
     @State private var draft: UnitDraft
-    @State private var isLoading = false
     @State private var saveError: String?
     @State private var editMode: EditMode = .inactive
     
@@ -73,11 +72,7 @@ struct UnitEdit: View {
     }
     
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView()
-            } else {
-                GlassForm {
+        GlassForm {
             Section {
                 TextInput(text: $draft.name, label: "Name", placeholder: "unit name")
                 EnumPicker(label: "Type", selection: $draft.type, presentation: .automatic)
@@ -135,15 +130,13 @@ struct UnitEdit: View {
                 Text(isEditing ? "Save" : "Add")
             }.disabled(editMode.isEditing || !validationErrors.isEmpty)
             .accessibilityIdentifier("saveUnit")
-                }
-            }
         }
         .toolbar {
             EditButton()
         }
         .environment(\.editMode, $editMode)
         .navigationTitle("Unit")
-        .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .onFirstAppear(perform: loadDraft)
         .alert("Unit", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

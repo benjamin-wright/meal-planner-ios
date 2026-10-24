@@ -7,7 +7,7 @@ import SwiftData
 enum UITestConfiguration {
     private enum Fixture: String {
         case sample
-        case longMeal = "long-meal"
+        case staleShoppingList = "stale-shopping-list"
     }
 
     static func models(environment: [String: String] = ProcessInfo.processInfo.environment) -> Models? {
@@ -32,13 +32,14 @@ enum UITestConfiguration {
             url: directory.appendingPathComponent("MealPlanner.store"), cloudKitDatabase: .none
         )
         return Models(configuration: configuration) { context in
-            if fixture == .longMeal {
-                let recipe = Recipie(name: "Long meal recipe")
-                context.insert(recipe)
-                context.insert(PlannedMeal(
-                    mealType: .lunch, sortOrder: 1,
-                    components: (0..<10).map { _ in MealComponent(recipe: recipe, course: .main) }
-                ))
+            switch fixture {
+            case .sample:
+                break
+            case .staleShoppingList:
+                for entry in try context.fetch(FetchDescriptor<ShoppingListEntry>()) {
+                    context.delete(entry)
+                }
+                context.insert(ShoppingListEntry(name: "Previous shopping entry", quantity: 1))
             }
         }
     }

@@ -79,8 +79,10 @@ struct PlannerView: View {
 
 private struct DinnerPlannerView: View {
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
     @Query private var meals: [PlannedMeal]
     @State private var saveError: String?
+    @State private var targetedDay: Day?
 
     private func meal(for day: Day) -> PlannedMeal? {
         meals.first { $0.mealTypeEnum == .dinner && $0.dayEnum == day }
@@ -94,53 +96,90 @@ private struct DinnerPlannerView: View {
         }
     }
 
-    private func move(from: IndexSet, to: Int) {
-        guard let fromIndex = from.first,
-              Day.allCases.indices.contains(fromIndex) else { return }
-
-        // `to` is calculated after SwiftUI removes the source row.
-        let destinationIndex = to > fromIndex ? to - 1 : to
-        guard Day.allCases.indices.contains(destinationIndex) else { return }
-
+    @discardableResult
+    private func move(_ id: UUID, to day: Day) -> Bool {
         do {
-            let fromDay = Day.allCases[fromIndex]
-            let toDay = Day.allCases[destinationIndex]
-
-            try PlannedMealStore(context: context).moveDinner(from: fromDay, to: toDay)
+            try PlannedMealStore(context: context).moveDinner(id: id, to: day)
+            return true
         } catch {
             saveError = error.localizedDescription
+            return false
         }
     }
 
     var body: some View {
-        GlassList {
-            ForEach(Day.allCases, id: \.rawValue) { day in
-                if let meal = meal(for: day) {
-                    NavigationLink(value: FlowRouter.Route.editPlannedMeal(meal.id)) {
-                        HStack(spacing: 12) {
-                            DayBadge(day: day)
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Day.allCases, id: \.rawValue) { day in
+                    HStack(spacing: 12) {
+                        DayBadge(day: day)
+                        if let meal = meal(for: day) {
                             Text(meal.displayName)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .accessibilityIdentifier("plannedDinner-\(day.label)")
+                                .accessibilityHint("Drag to another day to move or swap meals.")
+                                .draggable(meal.id.uuidString) {
+                                    Text(meal.displayName)
+                                        .padding()
+                                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                }
+                            Menu {
+                                Button("Edit", systemImage: "pencil") {
+                                    router.path.append(.editPlannedMeal(meal.id))
+                                }
+                                Menu("Move to…") {
+                                    ForEach(Day.allCases.filter { $0 != day }, id: \.rawValue) { destination in
+                                        Button(self.meal(for: destination) == nil
+                                               ? "Move to \(destination.label)"
+                                               : "Swap with \(destination.label)") {
+                                            move(meal.id, to: destination)
+                                        }
+                                    }
+                                }
+                                Button("Delete", role: .destructive) { delete(meal) }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Actions for \(day.label) dinner")
+                            .accessibilityIdentifier("plannedDinnerActions-\(day.label)")
+                        } else {
+                            Button {
+                                router.path.append(.newPlannedMeal(mealType: .dinner, day: day))
+                            } label: {
+                                Text("Add dinner")
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Add dinner for \(day.label)")
                         }
                     }
-                    .swipeActions {
-                        Button(role: .destructive) { delete(meal) } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    .background(targetedDay == day ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("dinnerDay-\(day.label)")
+                    .dropDestination(for: String.self) { values, _ in
+                        guard values.count == 1, let id = UUID(uuidString: values[0]) else { return false }
+                        return move(id, to: day)
+                    } isTargeted: { targeted in
+                        if targeted { targetedDay = day }
+                        else if targetedDay == day { targetedDay = nil }
                     }
-                } else {
-                    NavigationLink(value: FlowRouter.Route.newPlannedMeal(mealType: .dinner, day: day)) {
-                        HStack(spacing: 12) {
-                            DayBadge(day: day)
-                            Text("Add dinner")
-                                .foregroundStyle(.tint)
-                        }
+                    if day != Day.allCases.last {
+                        Divider().padding(.leading, 64)
                     }
-                    .accessibilityLabel("Add dinner for \(day.label)")
                 }
-            }.onMove(perform: move)
-        }
-        .toolbar {
-            EditButton()
+            }
+            .glassSurface()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .alert("Dinner", isPresented: Binding(
             get: { saveError != nil },

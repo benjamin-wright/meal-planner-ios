@@ -76,14 +76,35 @@ struct DomainFoundationTests {
         case .readymeal: kinds[itemID] = .readymeal; error = .invalidItemKind
         case .misc: kinds[itemID] = .misc; error = .invalidItemKind
         case .missingUnit: ingredient.unitID = UUID(); error = .missingUnit
-        case .invalidBase: unit.base = .infinity; error = .invalidUnit
+        case .zeroBase: unit.base = 0; error = .invalidUnit
+        case .infiniteBase: unit.base = .infinity; error = .invalidUnit
         case .invalidQuantity: ingredient.quantity = .nan; error = .invalidQuantity
         }
         units[unitID] = unit
-        #expect(throws: error) { try IngredientResolver(itemKinds: kinds, units: units).resolve(ingredient) }
+        let resolver = IngredientResolver(itemKinds: kinds, units: units)
+        #expect(throws: error) { try resolver.resolve(ingredient) }
+        let original = RecipieIngredientDraft(id: ingredient.id, itemID: itemID, unitID: unitID, quantity: 100)
+        #expect(throws: error) {
+            try resolver.resolve([original], overrides: [RecipeIngredientOverride(ingredient: ingredient)])
+        }
     }
 
-    enum InvalidIngredient: CaseIterable { case missingItem, readymeal, misc, missingUnit, invalidBase, invalidQuantity }
+    enum InvalidIngredient: CaseIterable {
+        case missingItem, readymeal, misc, missingUnit, zeroBase, infiniteBase, invalidQuantity
+    }
+
+    @Test(arguments: [0.0, -1.0, Double.nan, Double.infinity, -Double.infinity])
+    func invalidOverrideQuantitiesAreRejected(quantity: Double) {
+        let itemID = UUID(), unitID = UUID()
+        let unit = UnitDefinition(id: unitID, name: "grams", type: .weight, base: 1, magnitudes: [])
+        let resolver = IngredientResolver(itemKinds: [itemID: .ingredient], units: [unitID: unit])
+        let original = RecipieIngredientDraft(itemID: itemID, unitID: unitID, quantity: 100)
+        var changed = original
+        changed.quantity = quantity
+        #expect(throws: IngredientResolver.Error.invalidQuantity) {
+            try resolver.resolve([original], overrides: [RecipeIngredientOverride(ingredient: changed)])
+        }
+    }
 
     @Test func unitValuesKeepCalculationFormattingAndDefaultSelectionTogether() {
         let grams = UnitDefinition(id: UUID(), name: "grams", type: .weight, base: 1, magnitudes: [
@@ -91,7 +112,7 @@ struct DomainFoundationTests {
             Magnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000)
         ])
         let kilos = UnitDefinition(id: UUID(), name: "kilograms", type: .weight, base: 1000, magnitudes: [])
-        let count = UnitDefinition(id: UUID(), name: "count", type: .count, base: 1, magnitudes: [])
+        let count = UnitDefinition.baseUnit(for: .count)
         let loaves = UnitDefinition(id: UUID(), name: "loaves", type: .count, base: 1, magnitudes: [])
         #expect(grams.convert(2500, to: kilos) == 2.5)
         #expect(kilos.convert(2.5, to: grams) == 2500)
@@ -99,31 +120,6 @@ struct DomainFoundationTests {
         #expect(count.convert(1, to: loaves) == nil)
         #expect(grams.toString(forValue: 2500) == "2.5kg")
         #expect(UnitDefinition.defaultForNewObject(in: [grams, loaves, count])?.id == count.id)
-    }
-
-    @Test(arguments: Day.allCases, Day.allCases)
-    func dinnerMovementPreservesEveryOccupancyCombination(source: Day, destination: Day) {
-        let ids = Day.allCases.map { _ in UUID() }
-        let sourceIndex = Day.allCases.firstIndex(of: source)!
-        let destinationIndex = Day.allCases.firstIndex(of: destination)!
-        for mask in 0..<(1 << Day.allCases.count) {
-            let initial = Dictionary(uniqueKeysWithValues: Day.allCases.enumerated().compactMap { index, day in
-                mask & (1 << index) == 0 ? nil : (day, ids[index])
-            })
-            var slots = DinnerSlots(meals: initial)
-            slots.move(from: source, to: destination)
-            #expect(slots.meals[destination] == initial[source])
-            #expect(Set(slots.meals.values) == Set(initial.values))
-            let remainingBefore = Day.allCases.filter { $0 != source }.map { initial[$0] }
-            let remainingAfter = Day.allCases.filter { $0 != destination }.map { slots.meals[$0] }
-            #expect(remainingAfter == remainingBefore)
-            for (index, day) in Day.allCases.enumerated()
-                where index < min(sourceIndex, destinationIndex) || index > max(sourceIndex, destinationIndex) {
-                #expect(slots.meals[day] == initial[day])
-            }
-            slots.move(from: destination, to: source)
-            #expect(slots.meals == initial)
-        }
     }
 
     @MainActor

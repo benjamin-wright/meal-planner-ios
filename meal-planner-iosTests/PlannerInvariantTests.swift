@@ -20,13 +20,12 @@ struct PlannerInvariantTests {
             try context.save()
 
             try store.save(PlannedMealDraft(meal: template), id: planned.id,
-                           mealType: .dinner, day: .monday, sourceMealID: template.id)
+                           mealType: .dinner, day: .monday)
 
             let persisted = try #require(ModelContext(context.container)
                 .fetch(PlannedMeal.descriptor(id: planned.id)).first)
             #expect(persisted.mealTypeEnum == .dinner)
             #expect(persisted.dayEnum == .monday)
-            #expect(persisted.sourceMealID == template.id)
             #expect(persisted.components.first?.courseEnum == .side)
             #expect(persisted.components.first?.id != template.components.first?.id)
             #expect(template.mealType == templateType)
@@ -45,13 +44,14 @@ struct PlannerInvariantTests {
             try context.save()
 
             try PlannedMealStore(context: context).save(PlannedMealDraft(meal: template), id: nil,
-                                                       mealType: mealType, day: nil, sourceMealID: template.id)
+                                                       mealType: mealType, day: nil)
 
             let persisted = try #require(ModelContext(context.container)
                 .fetch(FetchDescriptor<PlannedMeal>()).first)
             #expect(persisted.mealTypeEnum == mealType)
             #expect(persisted.dayEnum == nil)
-            #expect(persisted.sourceMealID == template.id)
+            #expect(persisted.components.first?.source == .readymeal(fixture.readymeal.id))
+            #expect(persisted.components.first?.id != template.components.first?.id)
         }
     }
 

@@ -80,6 +80,30 @@ struct ShoppingListCalculationTests {
         #expect(try ShoppingListCalculator.generate(from: fixture.input).first?.quantity == 2 * ceil(Double(servings) / 2))
     }
 
+    @Test func readyMealsUseBaseCountAndNeverFallBackToCustomCountUnits() throws {
+        var fixture = Fixture()
+        let loaves = UnitDefinition(id: UUID(), name: "loaves", type: .count, base: 1, magnitudes: [
+            Magnitude(singular: "loaf", plural: "loaves", multiplier: 1)
+        ])
+        fixture.input.units[loaves.id] = loaves
+        let item = UUID()
+        fixture.input.items[item] = .init(name: "Pasta pot", kind: .readymeal, category: fixture.category, servings: 1)
+        fixture.input.meals = [.init(servings: 2, components: [.init(source: .readymeal(item))])]
+
+        let entry = try #require(ShoppingListCalculator.generate(from: fixture.input).first)
+        #expect(entry.quantity == 2)
+        #expect(entry.unitID == fixture.count.id)
+        #expect(fixture.count.toString(forValue: entry.quantity) == "2")
+
+        fixture.input.units.removeValue(forKey: fixture.count.id)
+        #expect {
+            try ShoppingListCalculator.generate(from: fixture.input)
+        } throws: { error in
+            guard let error = error as? ShoppingListError, case .missingCountUnit = error else { return false }
+            return true
+        }
+    }
+
     @Test(arguments: [0, -1, Double.nan, Double.infinity, -Double.infinity])
     func invalidPortionsCannotProduceAList(quantity: Double) throws {
         var fixture = Fixture()
@@ -106,7 +130,7 @@ struct ShoppingListCalculationTests {
     private struct Fixture {
         let apple = UUID()
         let category = ShoppingListInput.Category(id: UUID(), order: 0)
-        let count = UnitDefinition(id: UUID(), name: "count", type: .count, base: 1, magnitudes: [])
+        let count = UnitDefinition.baseUnit(for: .count)
         let grams = UnitDefinition(id: UUID(), name: "grams", type: .weight, base: 1, magnitudes: [])
         let litres = UnitDefinition(id: UUID(), name: "litres", type: .volume, base: 1, magnitudes: [])
         var input: ShoppingListInput

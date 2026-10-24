@@ -21,7 +21,6 @@ struct RecipieEdit: View {
     private var isEditing: Bool { id != nil }
 
     @State private var draft: RecipieDraft
-    @State private var isLoading = false
     @State private var saveError: String?
     @Query private var existing: [Recipie]
     @Query private var units: [Unit]
@@ -155,39 +154,33 @@ struct RecipieEdit: View {
     }
 
     private var editorContent: some View {
-        Group {
-            if isLoading {
-                ProgressView()
-            } else {
-                VStack {
-                    GlassForm {
-                        Section {
-                            TextInput(text: $draft.name, label: "Name", placeholder: "recipe name")
-                            if let validationError = validationErrors.first {
-                                Text(validationError.localizedDescription)
-                                    .foregroundStyle(.red)
-                            }
-                        }
-                        if let importReviewMessage {
-                            Section("Import review") {
-                                Text(importReviewMessage).font(.callout)
-                            }
-                        }
-                        detailsSection
-                        if let imported = Binding($draft.importedIngredients) {
-                            ImportedRecipieIngredientsSection(ingredients: imported, items: items, units: units)
-                        } else {
-                            ingredientsSection
-                        }
-                        stepsSection
+        VStack {
+            GlassForm {
+                Section {
+                    TextInput(text: $draft.name, label: "Name", placeholder: "recipe name")
+                    if let validationError = validationErrors.first {
+                        Text(validationError.localizedDescription)
+                            .foregroundStyle(.red)
                     }
-                    Button(action: save) {
-                        Text(isEditing ? "Save" : "Add")
-                    }
-                    .disabled(editMode.isEditing || isInvalid)
-                    .accessibilityIdentifier("saveRecipe")
                 }
+                if let importReviewMessage {
+                    Section("Import review") {
+                        Text(importReviewMessage).font(.callout)
+                    }
+                }
+                detailsSection
+                if let imported = Binding($draft.importedIngredients) {
+                    ImportedRecipieIngredientsSection(ingredients: imported, items: items, units: units)
+                } else {
+                    ingredientsSection
+                }
+                stepsSection
             }
+            Button(action: save) {
+                Text(isEditing ? "Save" : "Add")
+            }
+            .disabled(editMode.isEditing || isInvalid)
+            .accessibilityIdentifier("saveRecipe")
         }
     }
 
@@ -204,7 +197,7 @@ struct RecipieEdit: View {
                     } label: {
                         Label("Import Recipe", systemImage: "camera")
                     }
-                    .disabled(isLoading || editMode.isEditing)
+                    .disabled(editMode.isEditing)
                     .accessibilityIdentifier("importRecipe")
                 }
                 EditButton()
@@ -212,7 +205,7 @@ struct RecipieEdit: View {
         }
         .environment(\.editMode, $editMode)
         .navigationTitle("Recipe")
-        .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .onFirstAppear(perform: loadDraft)
         .onAppear { importAvailable = SystemLanguageModel.default.availability == .available }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { importAvailable = SystemLanguageModel.default.availability == .available }

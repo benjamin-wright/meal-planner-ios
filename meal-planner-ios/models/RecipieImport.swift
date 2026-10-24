@@ -183,7 +183,7 @@ enum RecipieImportMapper {
     static func ingredient(_ extracted: ExtractedRecipieIngredient, items: [Item], units: [Unit],
                            matchedItemID: UUID? = nil) -> ImportedRecipieIngredient {
         let catalogue = RecipieIngredientMatching.catalogue(from: items)
-        let automaticID = RecipieIngredientMatching.automaticMatch(for: extracted.name, in: catalogue)
+        let exactID = RecipieIngredientMatching.exactMatch(for: extracted.name, in: catalogue)
         let selected = catalogue.first { $0.itemID == matchedItemID }
         let validatedID = selected.flatMap { candidate in
             catalogue.filter { key($0.name) == key(candidate.name) }.count == 1 ? candidate.itemID : nil
@@ -196,7 +196,7 @@ enum RecipieImportMapper {
         let sourceUnit = extracted.unit.trimmingCharacters(in: .whitespacesAndNewlines)
         var result = ImportedRecipieIngredient(
             sourceText: extracted.sourceText, name: extracted.name,
-            quantityText: quantityText, itemID: automaticID ?? validatedID
+            quantityText: quantityText, itemID: validatedID ?? exactID
         )
         // Empty or ambiguous units require review; explicit counts use "count".
         guard !sourceUnit.isEmpty else { return result }
@@ -211,9 +211,7 @@ enum RecipieImportMapper {
     private static func unitCandidates(for sourceUnit: String, in units: [Unit]) -> [(Unit, Magnitude?)] {
         let unitKey = key(sourceUnit)
         if ["count", "each"].contains(unitKey) {
-            let plain = units.filter { $0.unitType == .count && $0.magnitudes.isEmpty }
-            let named = plain.filter { ["count", "each"].contains(key($0.name)) }
-            return (named.isEmpty ? plain : named).map { ($0, nil) }
+            return units.filter { $0.isBaseUnit && $0.unitType == .count }.map { ($0, nil) }
         }
         var candidates: [(Unit, Magnitude?)] = []
         for unit in units {

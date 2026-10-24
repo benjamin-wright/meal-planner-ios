@@ -9,11 +9,8 @@ struct PlannedMealEdit: View {
     private let id: UUID?
     @State private var mealType: MealType
     @State private var day: Day?
-    @State private var sourceMealID: UUID?
     @State private var draft: PlannedMealDraft
-    @State private var isLoading = false
     @State private var saveError: String?
-    @State private var editMode: EditMode = .inactive
     @Query private var plannedMeals: [PlannedMeal]
     @Query private var recipies: [Recipie]
     @Query private var items: [Item]
@@ -23,7 +20,6 @@ struct PlannedMealEdit: View {
         self.id = id
         self._mealType = State(initialValue: mealType)
         self._day = State(initialValue: day)
-        self._sourceMealID = State(initialValue: nil)
         self._draft = State(initialValue: PlannedMealDraft())
     }
 
@@ -45,7 +41,6 @@ struct PlannedMealEdit: View {
             draft = try PlannedMealStore(context: context).draft(id: id)
             mealType = plannedMeal.mealTypeEnum
             day = plannedMeal.dayEnum
-            sourceMealID = plannedMeal.sourceMealID
         } catch {
             saveError = error.localizedDescription
         }
@@ -56,7 +51,6 @@ struct PlannedMealEdit: View {
             guard let template = try? context.fetch(Meal.descriptor(id: selectedID)).first else { return }
             // Templates supply dishes while the selected planner slot keeps its type and day.
             draft = PlannedMealDraft(meal: template)
-            sourceMealID = template.id
         }
     }
 
@@ -66,8 +60,7 @@ struct PlannedMealEdit: View {
                 draft,
                 id: id,
                 mealType: mealType,
-                day: day,
-                sourceMealID: sourceMealID
+                day: day
             )
             dismiss()
         } catch {
@@ -80,8 +73,8 @@ struct PlannedMealEdit: View {
         router.path.append(.newMealDraft(mealDraft))
     }
 
-    private func addDish(course: CourseType) {
-        router.showDishPicker(course: course) { component in
+    private func addDish() {
+        router.showDishPicker { component in
             draft.components.append(component)
         }
     }
@@ -95,9 +88,9 @@ struct PlannedMealEdit: View {
 
     var body: some View {
         MealComponentsForm(
-            components: $draft.components, isEditing: editMode.isEditing,
+            components: $draft.components,
             recipies: recipies, items: items, units: units,
-            onAdd: addDish, onEditPortion: editComponent, allowsRecipeEditing: true,
+            onAdd: addDish, onEdit: editComponent, allowsRecipeEditing: true,
             details: {
                 Section {
                     if let validationError = validationErrors.first {
@@ -126,10 +119,8 @@ struct PlannedMealEdit: View {
                 .disabled(!validationErrors.isEmpty)
             }
         )
-        .toolbar { EditButton() }
-        .environment(\.editMode, $editMode)
         .navigationTitle(title)
-        .onFirstAppear(perform: load, loading: $isLoading)
+        .onFirstAppear(perform: load)
         .alert("Planned Meal", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

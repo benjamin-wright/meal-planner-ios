@@ -66,15 +66,17 @@ class Models {
             if settings.count < 1 {
                 try Models.initialiseData(context)
                 try additionalSeed(context)
-                try context.save()
             }
+            _ = try UnitStore.ensureBaseUnits(in: context)
+            try context.save()
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }
 
     private static func initialiseData(_ context: ModelContext) throws {
-        let countUnit = Unit(name: "count", type: .count, magnitudes: [])
+        let baseUnits = try UnitStore.ensureBaseUnits(in: context)
+        let countUnit = baseUnits.count
         let loavesUnit = Unit(name: "loaves", type: .count, magnitudes: [
             Magnitude(
                 singular: "slice",
@@ -87,33 +89,14 @@ class Models {
                 multiplier: 1
             )
         ])
-        let gramsUnit = Unit(
-            name: "grams",
-            type: .weight,
-            base: 1,
-            magnitudes: [
-                Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1),
-                Magnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
-            ]
-        )
-        let litresUnit = Unit(
-            name: "litres",
-            type: .volume,
-            base: 1,
-            magnitudes: [
-                Magnitude(abbreviation: "ml", singular: "millilitre", plural: "millilitres", multiplier: 0.001),
-                Magnitude(abbreviation: "l", singular: "litre", plural: "litres", multiplier: 1),
-            ]
-        )
+        let gramsUnit = baseUnits.weight
+        let litresUnit = baseUnits.volume
         let settings = AppSettings(
             preferredVolume: litresUnit,
             preferredWeight: gramsUnit
         )
 
-        context.insert(countUnit)
         context.insert(loavesUnit)
-        context.insert(gramsUnit)
-        context.insert(litresUnit)
         context.insert(settings)
         
         let fruitCategory = Category(name: "fruit", order: 0)
@@ -318,28 +301,24 @@ class Models {
         let plannedBreakfast = PlannedMeal(
             mealType: .breakfast,
             sortOrder: 0,
-            sourceMealID: breakfast.id,
             servings: 2,
             components: breakfast.orderedComponents.map { MealComponent(copying: $0) }
         )
         let plannedLunch = PlannedMeal(
             mealType: .lunch,
             sortOrder: 0,
-            sourceMealID: salmonLunch.id,
             servings: 2,
             components: salmonLunch.orderedComponents.map { MealComponent(copying: $0) }
         )
         let saturdayDinner = PlannedMeal(
             mealType: .dinner,
             day: .saturday,
-            sourceMealID: roastChickenMeal.id,
             servings: 4,
             components: roastChickenMeal.orderedComponents.map { MealComponent(copying: $0) }
         )
         let sundayDinner = PlannedMeal(
             mealType: .dinner,
             day: .sunday,
-            sourceMealID: quickDinner.id,
             servings: 2,
             components: quickDinner.orderedComponents.map { MealComponent(copying: $0) }
         )

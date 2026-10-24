@@ -55,8 +55,8 @@ struct FlowDestination: View {
             UnitEdit(type: type)
         case .editUnit(let id, let type):
             UnitEdit(id: id, type: type)
-        case .dishPicker(let session, let course):
-            DishPicker(recipies: recipies, items: items, units: units, course: course) {
+        case .dishPicker(let session):
+            DishPicker(recipies: recipies, items: items, units: units) {
                 router.complete(session, with: $0)
             }
         case .mealComponent(let session, let isEditing):

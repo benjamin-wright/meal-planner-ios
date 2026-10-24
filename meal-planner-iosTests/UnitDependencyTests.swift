@@ -106,19 +106,91 @@ struct UnitDependencyTests {
     }
 
     @Test(arguments: [UnitReference.preferredWeight, .preferredVolume])
-    func aPreferredDimensionChangeRequiresAReplacementBeforeMutation(reference: UnitReference) throws {
+    func aPreferredDimensionChangeFallsBackToTheBaseUnit(reference: UnitReference) throws {
         let fixture = try makeFixture(reference: reference, includePreferredReplacement: false)
         var draft = UnitDraft(unit: fixture.unit)
-        draft.name = "Must not be saved"
         draft.type = fixture.unit.unitType == .weight ? .volume : .weight
-        #expect(throws: UnitStore.Error.self) {
-            try UnitStore(context: fixture.context).save(draft, id: fixture.unit.id)
-        }
-        #expect(fixture.unit.name == "Custom unit")
+        try UnitStore(context: fixture.context).save(draft, id: fixture.unit.id)
+
         #expect(!fixture.context.hasChanges)
-        let settings = try #require(fixture.context.fetch(FetchDescriptor<AppSettings>()).first)
+        let verification = ModelContext(fixture.context.container)
+        let settings = try #require(verification.fetch(FetchDescriptor<AppSettings>()).first)
         #expect(settings.preferredWeight.unitType == .weight)
         #expect(settings.preferredVolume.unitType == .volume)
+        let fallback = reference == .preferredWeight ? settings.preferredWeight : settings.preferredVolume
+        #expect(fallback.isBaseUnit)
+        #expect(fallback.base == 1)
+        #expect(try verification.fetch(FetchDescriptor<meal_planner_ios.Unit>()).filter(\.isBaseUnit).count == 3)
+    }
+
+    @Test func baseUnitSetupPreservesExistingReferencesAndEditedUnits() throws {
+        let context = try makeTestContext(autosaveEnabled: false)
+        let count = meal_planner_ios.Unit(name: "count", type: .count, magnitudes: [])
+        let weightDefinition = UnitDefinition.baseUnit(for: .weight)
+        let weight = meal_planner_ios.Unit(name: weightDefinition.name, type: .weight,
+                                           magnitudes: weightDefinition.magnitudes)
+        let volumeDefinition = UnitDefinition.baseUnit(for: .volume)
+        let editedVolume = meal_planner_ios.Unit(name: volumeDefinition.name, type: .volume, base: 2,
+                                                 magnitudes: volumeDefinition.magnitudes)
+        let item = Item(name: "Apples", category: .init(name: "Fruit", order: 0), kind: .ingredient)
+        context.insert(PlannedMiscEntry(item: item, quantity: 2, unit: count))
+        context.insert(AppSettings(preferredVolume: editedVolume, preferredWeight: weight))
+        try context.save()
+
+        let bases = try UnitStore.ensureBaseUnits(in: context)
+        try context.save()
+        #expect(bases.count.id == count.id)
+        #expect(bases.weight.id == weight.id)
+        #expect(bases.volume.id != editedVolume.id)
+        #expect(!editedVolume.isBaseUnit)
+        #expect(editedVolume.base == 2)
+
+        let verification = ModelContext(context.container)
+        let reopened = try UnitStore.ensureBaseUnits(in: verification)
+        #expect(!verification.hasChanges)
+        let reopenedIDs = [reopened.count.id, reopened.weight.id, reopened.volume.id]
+        let originalIDs = [bases.count.id, bases.weight.id, bases.volume.id]
+        #expect(reopenedIDs == originalIDs)
+        #expect(try verification.fetch(FetchDescriptor<meal_planner_ios.Unit>()).count == 4)
+        #expect(try verification.fetch(FetchDescriptor<PlannedMiscEntry>()).first?.unit?.id == count.id)
+        #expect(try verification.fetch(FetchDescriptor<AppSettings>()).first?.preferredVolume.id == editedVolume.id)
+    }
+
+    @Test(arguments: UnitType.allCases)
+    func baseUnitsCannotBeEditedOrDeleted(type: UnitType) throws {
+        let context = try makeTestContext(autosaveEnabled: false)
+        _ = try UnitStore.ensureBaseUnits(in: context)
+        let custom = meal_planner_ios.Unit(name: "Custom unit", type: .count, magnitudes: [])
+        context.insert(custom)
+        try context.save()
+        let base = try #require(context.fetch(FetchDescriptor<meal_planner_ios.Unit>()).first {
+            $0.isBaseUnit && $0.unitType == type
+        })
+        var draft = UnitDraft(unit: base)
+        draft.name = "Changed base"
+        let store = UnitStore(context: context)
+
+        #expect(throws: UnitStore.Error.self) { try store.save(draft, id: base.id) }
+        #expect(throws: UnitStore.Error.self) { try store.delete(ids: [custom.id, base.id]) }
+        #expect(!context.hasChanges)
+        let units = try ModelContext(context.container).fetch(FetchDescriptor<meal_planner_ios.Unit>())
+        #expect(units.count == 4)
+        #expect(units.first { $0.id == base.id }?.name == UnitDefinition.baseUnit(for: type).name)
+    }
+
+    @Test func initialSetupAndResetKeepAllThreeBaseUnits() throws {
+        let models = Models(configuration: ModelConfiguration(schema: Models.schema, isStoredInMemoryOnly: true))
+        for reset in [false, true] {
+            if reset { Models.reset(models.context) }
+            let bases = try models.context.fetch(FetchDescriptor<meal_planner_ios.Unit>()).filter(\.isBaseUnit)
+            #expect(Set(bases.map(\.unitType)) == Set(UnitType.allCases))
+            #expect(bases.count == 3)
+            let readyMeals = try models.context.fetch(FetchDescriptor<ShoppingListEntry>()).filter {
+                $0.item?.itemKind == .readymeal
+            }
+            #expect(!readyMeals.isEmpty)
+            #expect(readyMeals.allSatisfy { $0.unit?.isBaseUnit == true && $0.unit?.unitType == .count })
+        }
     }
 
     @Test(arguments: [UnitReference.preferredWeight, .preferredVolume])

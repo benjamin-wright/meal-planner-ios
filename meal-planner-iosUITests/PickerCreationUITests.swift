@@ -2,6 +2,30 @@ import XCTest
 
 final class PickerCreationUITests: MealPlannerUITestCase {
     @MainActor
+    func testNestedCreationAddsDishesAndPreservesParentDrafts() {
+        let app = XCUIApplication()
+        launchInPortrait(app)
+        let mealName = "picker meal"
+        openNewSavedMeal(mealName, in: app)
+
+        XCTContext.runActivity(named: "Create recipe and ready-meal dishes in one meal") { _ in
+            createRecipeAndReadyMeal(in: app, mealName: mealName)
+        }
+        XCTContext.runActivity(named: "Create an ingredient portion and save the same meal") { _ in
+            createIngredientPortion(in: app)
+            assertComponent("picker recipe", course: "Starter", in: app)
+            assertComponent("picker ready meal", course: "Side", in: app)
+            scrollTo(app.textFields["meal name"], in: app)
+            XCTAssertEqual(app.textFields["meal name"].value as? String, mealName)
+            saveForm(in: app)
+            XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+        }
+        XCTContext.runActivity(named: "Create a meal and its recipe from the planner picker") { _ in
+            createMealFromPlannerPicker(in: app)
+        }
+    }
+
+    @MainActor
     private func enterName(_ name: String, placeholder: String, in app: XCUIApplication) {
         let field = app.textFields[placeholder]
         XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
@@ -21,10 +45,7 @@ final class PickerCreationUITests: MealPlannerUITestCase {
 
     @MainActor
     private func openDishCreation(_ kind: String, course: String, in app: XCUIApplication) {
-        let addDish = app.buttons["Add \(course) dish"]
-        scrollTo(addDish, in: app)
-        addDish.tap()
-        XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5))
+        openDishPicker(course: course, in: app)
         app.navigationBars["Dish"].buttons["Add"].tap()
         app.buttons[kind].tap()
     }
@@ -46,13 +67,9 @@ final class PickerCreationUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testCreatedRecipeAndReadyMealAreAddedToTheirChosenCourses() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
-        let mealName = "picker meal"
+    private func createRecipeAndReadyMeal(in app: XCUIApplication, mealName: String) {
         let recipeName = "picker recipe"
         let readyMealName = "picker ready meal"
-        openNewSavedMeal(mealName, in: app)
 
         openDishCreation("Recipe", course: "Starter", in: app)
         enterName(recipeName, placeholder: "recipe name", in: app)
@@ -68,17 +85,11 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         assertComponent(recipeName, course: "Starter", in: app)
         scrollTo(app.textFields["meal name"], in: app)
         XCTAssertEqual(app.textFields["meal name"].value as? String, mealName)
-
-        saveForm(in: app)
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
     }
 
     @MainActor
-    func testCreatedIngredientAutomaticallyOpensItsPortionEditor() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
+    private func createIngredientPortion(in app: XCUIApplication) {
         let ingredientName = "picker ingredient"
-        openNewSavedMeal("picker ingredient meal", in: app)
 
         openDishCreation("Ingredient", course: "Side", in: app)
         enterName(ingredientName, placeholder: "item name", in: app)
@@ -97,14 +108,10 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
         assertComponent(ingredientName, course: "Side", in: app)
         XCTAssertTrue(component(ingredientName, course: "Side", in: app).label.contains("0.5 per person"))
-        saveForm(in: app)
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
     }
 
     @MainActor
-    func testMealCreatedFromPlannerPickerImmediatelySuppliesItsDishes() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
+    private func createMealFromPlannerPicker(in app: XCUIApplication) {
         app.tabBars.buttons["Planner"].tap()
         app.segmentedControls.buttons["Lunch"].tap()
         let addLunch = app.buttons["Add lunch"]

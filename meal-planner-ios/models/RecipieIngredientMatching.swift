@@ -28,23 +28,14 @@ enum RecipieIngredientMatching {
         }
     }
 
-    /// Retains the importer's conservative exact/plural/typo matching.
-    static func automaticMatch(for name: String, in catalogue: [RecipieIngredientCatalogEntry]) -> UUID? {
+    /// Spelling similarity is only a shortlist signal; only unique exact names bypass semantic selection.
+    static func exactMatch(for name: String, in catalogue: [RecipieIngredientCatalogEntry]) -> UUID? {
         let key = RecipieImportMapper.key(name)
         guard !key.isEmpty, key.count <= 80 else { return nil }
-        let maximumDistance = key.count >= 9 ? 2 : (key.count >= 5 ? 1 : 0)
-        let matches = catalogue.compactMap { entry -> (UUID, Int)? in
-            let other = RecipieImportMapper.key(entry.name)
-            guard !other.isEmpty, other.count <= 80 else { return nil }
-            if other == key { return (entry.itemID, 0) }
-            guard key.count >= 5, other.count >= 5,
-                  abs(key.count - other.count) <= maximumDistance else { return nil }
-            let distance = editDistance(key, other)
-            return distance <= maximumDistance ? (entry.itemID, distance) : nil
+        let matches = catalogue.filter {
+            RecipieImportMapper.key($0.name) == key
         }
-        guard let best = matches.map(\.1).min() else { return nil }
-        let closest = matches.filter { $0.1 == best }
-        return closest.count == 1 ? closest[0].0 : nil
+        return matches.count == 1 ? matches[0].itemID : nil
     }
 
     static func candidates(for name: String, in catalogue: [RecipieIngredientCatalogEntry]) -> [RecipieIngredientCandidate] {
@@ -77,7 +68,7 @@ enum RecipieIngredientMatching {
         result.matchedItemIDs = [:]
         let unresolved = recipe.ingredients.enumerated().filter {
             RecipieImportMapper.isPlausibleIngredient($0.element) &&
-            automaticMatch(for: $0.element.name, in: catalogue) == nil
+            exactMatch(for: $0.element.name, in: catalogue) == nil
         }
         for (position, entry) in unresolved.enumerated() {
             try Task.checkCancellation()

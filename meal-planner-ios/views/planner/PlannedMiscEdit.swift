@@ -11,7 +11,6 @@ struct PlannedMiscEdit: View {
     @Query(sort: \Category.order) private var categories: [Category]
     @Query(sort: \Unit.name) private var units: [Unit]
     @State private var draft = CatalogEntryDraft()
-    @State private var isLoading = false
     @State private var saveError: String?
 
     init(id: UUID? = nil) { self.id = id }
@@ -60,7 +59,7 @@ struct PlannedMiscEdit: View {
             }
         }
         .navigationTitle("Misc Entry")
-        .onFirstAppear(perform: load, loading: $isLoading)
+        .onFirstAppear(perform: load)
         .alert("Misc Entry", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

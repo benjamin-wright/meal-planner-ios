@@ -17,7 +17,6 @@ struct CategoryEdit: View {
     private var isEditing: Bool { id != nil }
 
     @State private var draft: CategoryDraft
-    @State private var isLoading = false
     @State private var saveError: String?
     @Query(sort: \Category.order) private var categories: [Category]
 
@@ -58,26 +57,20 @@ struct CategoryEdit: View {
     }
 
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView()
-            } else {
-                GlassForm {
-                    Section {
-                        TextInput(text: $draft.name, label: "Name", placeholder: "category")
-                        if let validationError = validationErrors.first {
-                            Text(validationError.localizedDescription)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                    Button(action: save) {
-                        Text(isEditing ? "Save" : "Add")
-                    }.disabled(isInvalid)
+        GlassForm {
+            Section {
+                TextInput(text: $draft.name, label: "Name", placeholder: "category")
+                if let validationError = validationErrors.first {
+                    Text(validationError.localizedDescription)
+                        .foregroundStyle(.red)
                 }
-                .navigationTitle("Category")
             }
+            Button(action: save) {
+                Text(isEditing ? "Save" : "Add")
+            }.disabled(isInvalid)
         }
-        .onFirstAppear(perform: loadDraft, loading: $isLoading)
+        .navigationTitle("Category")
+        .onFirstAppear(perform: loadDraft)
         .alert("Category", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

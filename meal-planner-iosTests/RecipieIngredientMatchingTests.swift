@@ -30,28 +30,46 @@ struct RecipieIngredientMatchingTests {
         #expect(candidates == reordered)
     }
 
-    @Test func automaticMatchesPreserveExistingExactAndTypoRules() {
+    @Test func exactMatchesDoNotAcceptSimilarSpellings() {
         let apple = entry("apple")
         let milk = entry("Milk")
         let cheese = entry("Cheddar cheese")
         let catalogue = [apple, milk, cheese]
 
-        #expect(RecipieIngredientMatching.automaticMatch(for: " milk ", in: catalogue) == milk.itemID)
-        #expect(RecipieIngredientMatching.automaticMatch(for: "apples", in: catalogue) == apple.itemID)
-        #expect(RecipieIngredientMatching.automaticMatch(for: "applf", in: catalogue) == apple.itemID)
-        #expect(RecipieIngredientMatching.automaticMatch(for: "mil", in: catalogue) == nil)
-        #expect(RecipieIngredientMatching.automaticMatch(for: "cheddar", in: catalogue) == nil)
+        #expect(RecipieIngredientMatching.exactMatch(for: " milk ", in: catalogue) == milk.itemID)
+        #expect(RecipieIngredientMatching.exactMatch(for: "apples", in: catalogue) == nil)
+        #expect(RecipieIngredientMatching.exactMatch(for: "applf", in: catalogue) == nil)
+        #expect(RecipieIngredientMatching.exactMatch(for: "mil", in: catalogue) == nil)
+        #expect(RecipieIngredientMatching.exactMatch(for: "cheddar", in: catalogue) == nil)
     }
 
-    @Test func automaticMatchesDoNotAskTheSemanticSelector() async throws {
+    @Test func onlyExactMatchesSkipTheSemanticSelector() async throws {
         let catalogue = [entry("apple"), entry("milk")]
         let original = recipe([ingredient("milk"), ingredient("apples"), ingredient("applf")])
         let selector = RecordingIngredientSelector()
 
         let result = try await RecipieIngredientMatching.matching(original, catalogue: catalogue, selector: selector)
 
-        #expect(await selector.requests.isEmpty)
+        #expect(await selector.requests.map(\.ingredient.name) == ["apples", "applf"])
         #expect(result.ingredients == original.ingredients)
+    }
+
+    @MainActor
+    @Test func similarSpellingCannotOverrideASemanticRejection() async throws {
+        let category = Category(name: "Milk", order: 0)
+        let goatMilk = Item(name: "goat milk", category: category, kind: .ingredient)
+        let source = ingredient("oat milk")
+        let selector = RecordingIngredientSelector()
+        let result = try await RecipieIngredientMatching.matching(
+            recipe([source]), catalogue: RecipieIngredientMatching.catalogue(from: [goatMilk]), selector: selector
+        )
+
+        #expect(await selector.requests.first?.candidates.first?.itemID == goatMilk.id)
+        #expect(result.matchedItemIDs.isEmpty)
+        var draft = RecipieDraft()
+        RecipieImportMapper.apply(result, to: &draft, items: [goatMilk], units: [weightUnit()])
+        #expect(draft.importedIngredients?.first?.itemID == nil)
+        #expect(draft.importedIngredients?.first?.sourceText == source.sourceText)
     }
 
     @MainActor
@@ -86,6 +104,7 @@ struct RecipieIngredientMatchingTests {
         #expect(mapped.name == "cheddar")
         #expect(mapped.quantityText == "50")
         #expect(mapped.quantity(units: [grams]) == 50)
+        #expect(mapped.isResolved(items: [cheese, butter], units: [grams]))
     }
 
     @Test func recipeTitleProvidesContextForAnAmbiguousIngredient() async throws {
@@ -167,7 +186,7 @@ struct RecipieIngredientMatchingTests {
         let catalogue = [cheese, duplicate]
         let selector = RecordingIngredientSelector(selections: ["cheddar": cheese.itemID])
 
-        #expect(RecipieIngredientMatching.automaticMatch(for: "cheddar cheese", in: catalogue) == nil)
+        #expect(RecipieIngredientMatching.exactMatch(for: "cheddar cheese", in: catalogue) == nil)
         let result = try await RecipieIngredientMatching.matching(
             recipe([ingredient("cheddar")]), catalogue: catalogue, selector: selector
         )

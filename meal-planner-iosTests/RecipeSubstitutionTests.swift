@@ -125,8 +125,8 @@ struct RecipeSubstitutionTests {
         #expect(firstDraft.components[0].id != secondDraft.components[0].id)
         #expect(firstDraft.components[0].ingredientOverrides == expected)
         let plannedStore = PlannedMealStore(context: context)
-        try plannedStore.save(firstDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: templateID)
-        try plannedStore.save(secondDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: templateID)
+        try plannedStore.save(firstDraft, id: nil, mealType: .lunch, day: nil)
+        try plannedStore.save(secondDraft, id: nil, mealType: .lunch, day: nil)
         let plans = try context.fetch(FetchDescriptor<PlannedMeal>()).sorted { $0.sortOrder < $1.sortOrder }
         let first = try #require(plans.first)
         let second = try #require(plans.last)
@@ -146,7 +146,6 @@ struct RecipeSubstitutionTests {
         let savedSecond = try #require(verification.fetch(PlannedMeal.descriptor(id: second.id)).first)
         #expect(savedFirst.components.first?.ingredientOverrides?.first?.quantity == 0.5)
         #expect(savedSecond.components.first?.ingredientOverrides == expected)
-        #expect(savedFirst.sourceMealID == templateID)
         #expect(try verification.fetch(Meal.descriptor(id: templateID)).first?.components.first?
             .ingredientOverrides == expected)
         #expect(try verification.fetch(Meal.descriptor(id: copiedID)).first?.components.first?
@@ -192,7 +191,7 @@ struct RecipeSubstitutionTests {
         router.path = originalPath
         var savedComponents: [MealComponentDraft] = []
         let dishPicker = entry == .dishPicker
-            ? router.showDishPicker(course: .main) { savedComponents.append($0) }
+            ? router.showDishPicker { savedComponents.append($0) }
             : nil
         var component = MealComponentDraft(source: .recipe(fixture.recipe.id))
         let componentEditor = router.showMealComponent(component, isEditing: true, allowsRecipeEditing: true) {
@@ -323,7 +322,9 @@ struct RecipeSubstitutionTests {
         #expect(entries.first { $0.unit?.id == count.id }?.quantity == 1.5)
     }
 
-    @Test(arguments: InvalidOverride.allCases)
+    // Exhaustive ingredient rules are covered by DomainFoundationTests. These
+    // cases exercise missing references, model decoding and pre-save validation.
+    @Test(arguments: [InvalidOverride.missingItem, .invalidUnitType, .nanQuantity])
     func invalidOverridesCannotInsertOrMutateSavedOrPlannedMeals(invalid: InvalidOverride) throws {
         let fixture = try Fixture()
         let context = fixture.context
@@ -403,11 +404,12 @@ struct RecipeSubstitutionTests {
         #expect(try fixture.context.fetch(FetchDescriptor<MealComponent>()).isEmpty)
     }
 
-    @Test(arguments: InvalidOverride.allCases.map { (invalid: $0, state: OverrideState.pending) } + [
-        InvalidOverride.missingItem, .missingUnit, .staleIngredient, .duplicateIngredient,
-        .readymealItem, .miscellaneousItem, .invalidUnitType, .zeroUnitBase, .infiniteUnitBase,
-        .zeroQuantity, .negativeQuantity,
-    ].map { (invalid: $0, state: OverrideState.saved) })
+    @Test(arguments: [
+        (invalid: InvalidOverride.missingItem, state: OverrideState.saved),
+        (invalid: InvalidOverride.invalidUnitType, state: OverrideState.saved),
+        (invalid: InvalidOverride.zeroQuantity, state: OverrideState.saved),
+        (invalid: InvalidOverride.nanQuantity, state: OverrideState.pending),
+    ])
     func invalidShoppingOverridesPreserveTheListAndPendingEdits(
         invalid: InvalidOverride, state: OverrideState
     ) throws {
@@ -677,39 +679,23 @@ struct RecipeSubstitutionTests {
     }
     enum OverrideState: CaseIterable { case saved, pending }
 
-    enum InvalidOverride: CaseIterable {
-        case missingItem, missingUnit, staleIngredient, duplicateIngredient
-        case readymealItem, miscellaneousItem, invalidUnitType, zeroUnitBase, infiniteUnitBase
-        case zeroQuantity, negativeQuantity, nanQuantity, infiniteQuantity, negativeInfiniteQuantity
+    enum InvalidOverride {
+        case missingItem, invalidUnitType, zeroQuantity, nanQuantity
     }
 
     private func invalidComponent(_ invalid: InvalidOverride, fixture: Fixture) throws -> MealComponentDraft {
         var component = modifiedComponent(fixture)
         switch invalid {
         case .missingItem: component.ingredientOverrides[0].itemID = UUID()
-        case .missingUnit: component.ingredientOverrides[0].unitID = UUID()
-        case .staleIngredient: component.ingredientOverrides[0].id = UUID()
-        case .duplicateIngredient: component.ingredientOverrides.append(component.ingredientOverrides[0])
-        case .readymealItem, .miscellaneousItem:
-            let item = Item(name: "Invalid substitute", category: fixture.original.category,
-                            kind: invalid == .readymealItem ? .readymeal : .misc,
-                            readymealData: invalid == .readymealItem ? .default : nil)
-            fixture.context.insert(item)
-            try fixture.context.save()
-            component.ingredientOverrides[0].itemID = item.id
-        case .invalidUnitType, .zeroUnitBase, .infiniteUnitBase:
-            let base: Double = invalid == .zeroUnitBase ? 0 : (invalid == .infiniteUnitBase ? .infinity : 1)
+        case .invalidUnitType:
             let unit = meal_planner_ios.Unit(name: "Invalid unit", type: .weight,
-                                            base: base, magnitudes: [])
-            if invalid == .invalidUnitType { unit.type = -1 }
+                                            base: 1, magnitudes: [])
+            unit.type = -1
             fixture.context.insert(unit)
             try fixture.context.save()
             component.ingredientOverrides[0].unitID = unit.id
         case .zeroQuantity: component.ingredientOverrides[0].quantity = 0
-        case .negativeQuantity: component.ingredientOverrides[0].quantity = -1
         case .nanQuantity: component.ingredientOverrides[0].quantity = .nan
-        case .infiniteQuantity: component.ingredientOverrides[0].quantity = .infinity
-        case .negativeInfiniteQuantity: component.ingredientOverrides[0].quantity = -.infinity
         }
         return component
     }

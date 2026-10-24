@@ -8,9 +8,9 @@ struct DishPicker: View {
     let recipies: [Recipie]
     let items: [Item]
     let units: [Unit]
-    var course: CourseType = .main
     let onSelect: (MealComponentDraft) -> Void
 
+    @State private var course: CourseType = .main
     @State private var search = ""
     @State private var isSearchPresented = false
     @State private var catalogue: Catalogue = .recipes
@@ -91,6 +91,15 @@ struct DishPicker: View {
 
     var body: some View {
         VStack {
+            Picker("Course", selection: $course) {
+                ForEach(CourseType.allCases) { course in
+                    Text(course.label).tag(course)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("dishCoursePicker")
+            .accessibilityValue(course.label)
+            .padding(.horizontal)
             EnumPicker(label: "Catalogue", selection: $catalogue)
                 .padding(.horizontal)
             GlassList {

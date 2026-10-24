@@ -7,6 +7,34 @@ struct UnitDefinition: Identifiable, Hashable {
     var type: UnitType
     var base: Double
     var magnitudes: [Magnitude]
+    var isBaseUnit: Bool = false
+
+    static func baseUnit(for type: UnitType) -> UnitDefinition {
+        switch type {
+        case .count:
+            return .init(id: UUID(), name: "count", type: type, base: 1, magnitudes: [], isBaseUnit: true)
+        case .weight:
+            return .init(id: UUID(), name: "grams", type: type, base: 1, magnitudes: [
+                Magnitude(abbreviation: "g", singular: "gram", plural: "grams", multiplier: 1),
+                Magnitude(abbreviation: "kg", singular: "kilogram", plural: "kilograms", multiplier: 1000),
+            ], isBaseUnit: true)
+        case .volume:
+            return .init(id: UUID(), name: "litres", type: type, base: 1, magnitudes: [
+                Magnitude(abbreviation: "ml", singular: "millilitre", plural: "millilitres", multiplier: 0.001),
+                Magnitude(abbreviation: "l", singular: "litre", plural: "litres", multiplier: 1),
+            ], isBaseUnit: true)
+        }
+    }
+
+    /// Ignore generated identifiers when recognizing the original seeded definitions.
+    func matchesBaseUnit(_ other: UnitDefinition) -> Bool {
+        name == other.name && type == other.type && base == other.base
+            && magnitudes.count == other.magnitudes.count
+            && zip(magnitudes, other.magnitudes).allSatisfy { lhs, rhs in
+                lhs.abbreviation == rhs.abbreviation && lhs.singular == rhs.singular
+                    && lhs.plural == rhs.plural && lhs.multiplier == rhs.multiplier
+            }
+    }
 
     var isValid: Bool {
         DomainValidation.isPositiveFinite(base)
@@ -39,11 +67,6 @@ struct UnitDefinition: Identifiable, Hashable {
     }
 
     static func defaultForNewObject(in units: [UnitDefinition]) -> UnitDefinition? {
-        let valid = units.filter(\.isValid)
-        let count = valid.filter { $0.type == .count }
-        return count.first {
-            $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                .caseInsensitiveCompare("count") == .orderedSame
-        } ?? count.first { $0.magnitudes.isEmpty } ?? count.first ?? valid.first
+        units.first { $0.isBaseUnit && $0.type == .count && $0.isValid }
     }
 }

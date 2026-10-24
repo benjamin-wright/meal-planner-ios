@@ -28,10 +28,7 @@ final class MealComponentUITests: MealPlannerUITestCase {
 
     @MainActor
     private func chooseAppleSide(in app: XCUIApplication) {
-        let addSide = app.buttons["Add Side dish"]
-        scrollTo(addSide, in: app)
-        addSide.tap()
-        XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5))
+        openDishPicker(course: "Side", in: app)
         XCTAssertTrue(app.segmentedControls.buttons["Recipes"].isSelected)
         app.segmentedControls.buttons["Items"].tap()
         let search = app.searchFields.firstMatch
@@ -46,7 +43,7 @@ final class MealComponentUITests: MealPlannerUITestCase {
 
     @MainActor
     private func applePortion(in app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "mealComponent-")).firstMatch
+        component("apples", course: "Side", in: app)
     }
 
     @MainActor
@@ -58,70 +55,109 @@ final class MealComponentUITests: MealPlannerUITestCase {
     }
 
     @MainActor
-    func testIngredientPortionsCanBeCancelledEditedAndPersisted() {
+    func testSavedMealPortionsCoursesAndRemovalPersist() {
         let app = XCUIApplication()
         launchInPortrait(app)
-        openLunchMeals(in: app)
-        app.collectionViews.buttons["Add"].tap()
-        XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
+        let name = "component lunch"
 
-        let name = "ingredient lunch"
-        let nameField = app.textFields["meal name"]
-        nameField.tap()
-        nameField.typeText(name + "\n")
+        XCTContext.runActivity(named: "Create an ingredient portion and cancel a second portion") { _ in
+            openLunchMeals(in: app)
+            app.collectionViews.buttons["Add"].tap()
+            XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
+            let nameField = app.textFields["meal name"]
+            nameField.tap()
+            nameField.typeText(name + "\n")
 
-        chooseAppleSide(in: app)
-        setPortion("0.5", in: app)
-        scrollTo(app.buttons["saveMealComponent"], in: app)
-        app.buttons["saveMealComponent"].tap()
-        XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.navigationBars["Dish"].exists)
-        assertApplePortion("0.5", in: app)
+            chooseAppleSide(in: app)
+            setPortion("0.5", in: app)
+            scrollTo(app.buttons["saveMealComponent"], in: app)
+            app.buttons["saveMealComponent"].tap()
+            XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.navigationBars["Dish"].exists)
+            assertApplePortion("0.5", in: app)
 
-        chooseAppleSide(in: app)
-        XCTAssertEqual(app.textFields.firstMatch.value as? String, "1")
-        setPortion("99", in: app)
-        app.navigationBars["Ingredient Portion"].buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5))
-        app.navigationBars["Dish"].buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "mealComponent-")).count, 1)
-        assertApplePortion("0.5", in: app)
+            chooseAppleSide(in: app)
+            XCTAssertEqual(app.textFields.firstMatch.value as? String, "1")
+            setPortion("99", in: app)
+            app.navigationBars["Ingredient Portion"].buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5))
+            app.navigationBars["Dish"].buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
+            XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "mealComponent-")).count, 1)
+            assertApplePortion("0.5", in: app)
 
-        let addMeal = app.collectionViews.buttons["Add"].firstMatch
-        scrollTo(addMeal, in: app)
-        XCTAssertTrue(addMeal.isEnabled)
-        addMeal.tap()
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+            let addMeal = app.collectionViews.buttons["Add"].firstMatch
+            scrollTo(addMeal, in: app)
+            XCTAssertTrue(addMeal.isEnabled)
+            addMeal.tap()
+            XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+        }
 
-        app.terminate()
-        launchInPortrait(app)
-        openSavedMeal(name, in: app)
-        assertApplePortion("0.5", in: app)
-        applePortion(in: app).tap()
-        XCTAssertTrue(app.navigationBars["Ingredient Portion"].waitForExistence(timeout: 5))
-        setPortion("2", in: app)
-        scrollTo(app.buttons["saveMealComponent"], in: app)
-        app.buttons["saveMealComponent"].tap()
-        XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        assertApplePortion("2", in: app)
-        let saveMeal = app.collectionViews.buttons["Save"].firstMatch
-        scrollTo(saveMeal, in: app)
-        saveMeal.tap()
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+        XCTContext.runActivity(named: "Reopen the saved meal and edit its portion") { _ in
+            openSavedMeal(name, in: app)
+            assertApplePortion("0.5", in: app)
+            performDishAction("Edit Portion", on: applePortion(in: app), in: app)
+            XCTAssertTrue(app.navigationBars["Ingredient Portion"].waitForExistence(timeout: 5))
+            setPortion("2", in: app)
+            scrollTo(app.buttons["saveMealComponent"], in: app)
+            app.buttons["saveMealComponent"].tap()
+            XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
+            assertApplePortion("2", in: app)
+        }
 
-        app.terminate()
-        launchInPortrait(app)
-        openSavedMeal(name, in: app)
-        assertApplePortion("2", in: app)
+        let componentIDs = XCTContext.runActivity(named: "Change one of two identical recipes to an empty course") { _ in
+            chooseRecipe("carrot soup", course: "Starter", in: app)
+            chooseRecipe("carrot soup", course: "Main", in: app)
+            let starter = component("carrot soup", course: "Starter", in: app)
+            let originalMain = component("carrot soup", course: "Main", in: app)
+            let starterID = starter.identifier
+            let mainID = originalMain.identifier
+            let portionID = applePortion(in: app).identifier
+
+            changeCourse(of: starter, to: "Dessert", in: app)
+            XCTAssertFalse(component("carrot soup", course: "Starter", in: app).exists)
+            XCTAssertTrue(component(withID: mainID, course: "Main", in: app).exists)
+            XCTAssertEqual(componentIdentifiers(in: app), [mainID, portionID, starterID])
+            assertApplePortion("2", in: app)
+            let saveMeal = app.collectionViews.buttons["Save"].firstMatch
+            scrollTo(saveMeal, in: app)
+            saveMeal.tap()
+            XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+            return (changed: starterID, original: mainID, portion: portionID)
+        }
+
+        XCTContext.runActivity(named: "Reopen the meal and delete only the original recipe") { _ in
+            openSavedMeal(name, in: app)
+            XCTAssertTrue(component(withID: componentIDs.changed, course: "Dessert", in: app).exists)
+            XCTAssertTrue(component(withID: componentIDs.portion, course: "Side", in: app).exists)
+            XCTAssertEqual(componentIdentifiers(in: app), [componentIDs.original, componentIDs.portion, componentIDs.changed])
+
+            let original = component(withID: componentIDs.original, course: "Main", in: app)
+            performDishAction("Delete Dish", on: original, in: app)
+            XCTAssertTrue(app.buttons[componentIDs.original].waitForNonExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(component(withID: componentIDs.changed, course: "Dessert", in: app).exists)
+            let save = app.collectionViews.buttons["Save"].firstMatch
+            scrollTo(save, in: app)
+            save.tap()
+            XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
+        }
+
+        XCTContext.runActivity(named: "Relaunch to verify portion, changed course and deletion") { _ in
+            app.terminate()
+            launchInPortrait(app)
+            openSavedMeal(name, in: app)
+            assertApplePortion("2", in: app)
+            let remaining = component(withID: componentIDs.changed, course: "Dessert", in: app)
+            scrollTo(remaining, in: app)
+            XCTAssertTrue(remaining.exists, app.debugDescription)
+            XCTAssertEqual(componentIdentifiers(in: app), [componentIDs.portion, componentIDs.changed])
+            XCTAssertFalse(app.buttons[componentIDs.original].exists)
+        }
     }
 
     @MainActor
-    private func chooseRecipe(_ name: String, course: String, editorTitle: String, in app: XCUIApplication) {
-        let addDish = app.buttons["Add \(course) dish"]
-        scrollTo(addDish, in: app)
-        addDish.tap()
-        XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5))
+    private func chooseRecipe(_ name: String, course: String, in app: XCUIApplication) {
+        openDishPicker(course: course, in: app)
         XCTAssertTrue(app.segmentedControls.buttons["Recipes"].isSelected)
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -130,216 +166,12 @@ final class MealComponentUITests: MealPlannerUITestCase {
         let recipe = row(name, in: app)
         XCTAssertTrue(recipe.waitForExistence(timeout: 5), app.debugDescription)
         recipe.tap()
-        XCTAssertTrue(app.navigationBars[editorTitle].waitForExistence(timeout: 5))
-    }
-
-    @MainActor
-    private func soupComponent(course: String, in app: XCUIApplication) -> XCUIElement {
-        component("carrot soup", course: course, in: app)
-    }
-
-    @MainActor
-    private func component(withID identifier: String, course: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier == %@ AND value == %@", identifier, course
-        )).firstMatch
-    }
-
-    @MainActor
-    private func moveComponent(
-        _ name: String, from sourceCourse: String, to destinationCourse: String,
-        sourceID: String? = nil, after: Bool = false, editorTitle: String, in app: XCUIApplication
-    ) {
-        app.navigationBars[editorTitle].buttons["Edit"].tap()
-        let source = sourceID.map { component(withID: $0, course: sourceCourse, in: app) }
-            ?? component(name, course: sourceCourse, in: app)
-        scrollTo(source, in: app)
-        let movedID = source.identifier
-        scrollTo(app.descendants(matching: .any)["courseHeader-\(destinationCourse)"], in: app)
-        let emptyCourse = app.descendants(matching: .any)["courseDrop-\(destinationCourse)"]
-        let destination = emptyCourse.exists ? emptyCourse : app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier BEGINSWITH %@ AND identifier != %@ AND value == %@",
-            "mealComponent-", movedID, destinationCourse
-        )).firstMatch
-        scrollTo(destination, in: app)
-        let list = app.collectionViews.firstMatch
-        let centeringDistance = min(
-            max(0, destination.frame.midY - list.frame.midY),
-            max(0, source.frame.minY - list.frame.minY - 60)
-        )
-        if centeringDistance > 20 {
-            let scrollStart = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-            scrollStart.press(
-                forDuration: 0.01,
-                thenDragTo: scrollStart.withOffset(CGVector(dx: 0, dy: -centeringDistance)),
-                withVelocity: 500,
-                thenHoldForDuration: 0
-            )
-        }
-        XCTAssertTrue(source.isHittable, app.debugDescription)
-        XCTAssertTrue(destination.isHittable, app.debugDescription)
-        let handleID = movedID.replacingOccurrences(of: "mealComponent-", with: "reorderMealComponent-")
-        let handle = app.descendants(matching: .any)[handleID]
-        XCTAssertTrue(handle.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(handle.isHittable, app.debugDescription)
-        let start = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(
-            dx: destination.frame.midX - app.frame.minX,
-            dy: destination.frame.minY + destination.frame.height * (after ? 0.75 : 0.25) - app.frame.minY
-        ))
-        start.press(forDuration: 1, thenDragTo: end, withVelocity: 100, thenHoldForDuration: 0.5)
-        XCTAssertTrue(component(withID: movedID, course: destinationCourse, in: app).waitForExistence(timeout: 5), app.debugDescription)
-        app.navigationBars[editorTitle].buttons["Done"].tap()
-        XCTAssertFalse(app.navigationBars["Dish Details"].exists)
-    }
-
-    @MainActor
-    func testRecipeCourseBelongsToEachMealComponent() {
-        let app = XCUIApplication()
-        launchInPortrait(app)
-        openLunchMeals(in: app)
-        app.collectionViews.buttons["Add"].tap()
         XCTAssertTrue(app.navigationBars["Meal"].waitForExistence(timeout: 5))
-        let name = "course lunch"
-        let nameField = app.textFields["meal name"]
-        nameField.tap()
-        nameField.typeText(name + "\n")
-
-        chooseRecipe("carrot soup", course: "Starter", editorTitle: "Meal", in: app)
-        chooseRecipe("carrot soup", course: "Main", editorTitle: "Meal", in: app)
-        let starter = soupComponent(course: "Starter", in: app)
-        scrollTo(starter, in: app)
-        XCTAssertTrue(starter.exists, app.debugDescription)
-        let starterID = starter.identifier
-        let originalMain = soupComponent(course: "Main", in: app)
-        scrollTo(originalMain, in: app)
-        let mainID = originalMain.identifier
-
-        moveComponent("carrot soup", from: "Starter", to: "Main", sourceID: starterID, editorTitle: "Meal", in: app)
-        XCTAssertFalse(soupComponent(course: "Starter", in: app).exists)
-        XCTAssertTrue(component(withID: starterID, course: "Main", in: app).exists, app.debugDescription)
-        XCTAssertTrue(component(withID: mainID, course: "Main", in: app).exists, app.debugDescription)
-        let movedMain = component(withID: starterID, course: "Main", in: app)
-        let unchangedMain = component(withID: mainID, course: "Main", in: app)
-        scrollTo(movedMain, in: app)
-        scrollTo(unchangedMain, in: app)
-        XCTAssertLessThan(movedMain.frame.midY, unchangedMain.frame.midY)
-
-        moveComponent("carrot soup", from: "Main", to: "Main", sourceID: starterID,
-                      after: true, editorTitle: "Meal", in: app)
-        scrollTo(unchangedMain, in: app)
-        scrollTo(movedMain, in: app)
-        XCTAssertGreaterThan(movedMain.frame.midY, unchangedMain.frame.midY)
-        let addMeal = app.collectionViews.buttons["Add"].firstMatch
-        scrollTo(addMeal, in: app)
-        addMeal.tap()
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
-
-        openSavedMeal(name, in: app)
-        let persistedMovedMain = component(withID: starterID, course: "Main", in: app)
-        let persistedOriginalMain = component(withID: mainID, course: "Main", in: app)
-        scrollTo(persistedOriginalMain, in: app)
-        scrollTo(persistedMovedMain, in: app)
-        XCTAssertGreaterThan(persistedMovedMain.frame.midY, persistedOriginalMain.frame.midY)
-
-        moveComponent("carrot soup", from: "Main", to: "Side", sourceID: starterID, editorTitle: "Meal", in: app)
-        let main = component(withID: mainID, course: "Main", in: app)
-        scrollTo(main, in: app)
-        XCTAssertTrue(main.exists, app.debugDescription)
-        let side = component(withID: starterID, course: "Side", in: app)
-        scrollTo(side, in: app)
-        XCTAssertTrue(side.exists, app.debugDescription)
-
-        let save = app.collectionViews.buttons["Save"].firstMatch
-        scrollTo(save, in: app)
-        save.tap()
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
-        openSavedMeal(name, in: app)
-        scrollTo(component(withID: mainID, course: "Main", in: app), in: app)
-        XCTAssertTrue(component(withID: mainID, course: "Main", in: app).exists)
-        scrollTo(component(withID: starterID, course: "Side", in: app), in: app)
-        XCTAssertTrue(component(withID: starterID, course: "Side", in: app).exists)
-
-        app.navigationBars["Meal"].buttons["Edit"].tap()
-        let removeID = starterID.replacingOccurrences(of: "mealComponent-", with: "removeMealComponent-")
-        let remove = app.buttons[removeID]
-        scrollTo(remove, in: app)
-        remove.tap()
-        XCTAssertTrue(app.descendants(matching: .any)[starterID].waitForNonExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(component(withID: mainID, course: "Main", in: app).exists, app.debugDescription)
-        app.navigationBars["Meal"].buttons["Done"].tap()
-        let saveAfterRemoval = app.collectionViews.buttons["Save"].firstMatch
-        scrollTo(saveAfterRemoval, in: app)
-        saveAfterRemoval.tap()
-        XCTAssertTrue(app.navigationBars["Meals"].waitForExistence(timeout: 5))
-
-        app.terminate()
-        launchInPortrait(app)
-        openSavedMeal(name, in: app)
-        let remaining = component(withID: mainID, course: "Main", in: app)
-        scrollTo(remaining, in: app)
-        XCTAssertTrue(remaining.exists, app.debugDescription)
-        XCTAssertFalse(app.descendants(matching: .any)[starterID].exists, app.debugDescription)
     }
 
     @MainActor
-    func testPlannedMealCanMoveARecipeIntoAnEmptyCourseAndPersistIt() {
-        let app = XCUIApplication()
-        launchInPortrait(app, fixture: .longMeal)
-        let recipeName = "Long meal recipe"
-        app.tabBars.buttons["Planner"].tap()
-        app.segmentedControls.buttons["Lunch"].tap()
-        let planned = row(recipeName, in: app)
-        scrollTo(planned, in: app)
-        planned.tap()
-        XCTAssertTrue(app.navigationBars["Lunch"].waitForExistence(timeout: 5))
-        let componentCount = 10
-        let mainComponents = app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier BEGINSWITH %@ AND label CONTAINS %@ AND value == %@",
-            "mealComponent-", recipeName, "Main"
-        ))
-        let mainIDs = mainComponents.allElementsBoundByIndex.map(\.identifier)
-        XCTAssertEqual(mainIDs.count, componentCount)
-        let movedID = mainComponents.firstMatch.identifier
-        let remainingIDs = Set(mainIDs.filter { $0 != movedID })
-
-        app.navigationBars["Lunch"].buttons["Edit"].tap()
-        let source = component(withID: movedID, course: "Main", in: app)
-        scrollTo(source, in: app)
-        XCTAssertFalse(app.descendants(matching: .any)["courseHeader-Side"].isHittable, app.debugDescription)
-        XCTAssertFalse(app.descendants(matching: .any)["courseHeader-Dessert"].isHittable, app.debugDescription)
-        let handleID = movedID.replacingOccurrences(of: "mealComponent-", with: "reorderMealComponent-")
-        let handle = app.descendants(matching: .any)[handleID]
-        XCTAssertTrue(handle.isHittable, app.debugDescription)
-        let list = app.collectionViews.firstMatch
-        let bottom = min(list.frame.maxY, app.tabBars.firstMatch.frame.minY) - 25
-        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(
-            dx: list.frame.midX - app.frame.minX,
-            dy: bottom - app.frame.minY
-        ))
-        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
-            forDuration: 1, thenDragTo: edge, withVelocity: 100, thenHoldForDuration: 4
-        )
-        XCTAssertTrue(component(withID: movedID, course: "Dessert", in: app).waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertEqual(Set(mainComponents.allElementsBoundByIndex.map(\.identifier)), remainingIDs)
-        app.navigationBars["Lunch"].buttons["Done"].tap()
-        let save = app.collectionViews.buttons["Save"].firstMatch
-        scrollTo(save, in: app)
-        save.tap()
-        XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
-
-        app.terminate()
-        launchInPortrait(app)
-        app.tabBars.buttons["Planner"].tap()
-        app.segmentedControls.buttons["Lunch"].tap()
-        let plannedMeal = row(recipeName, in: app)
-        scrollTo(plannedMeal, in: app)
-        plannedMeal.tap()
-        XCTAssertTrue(app.navigationBars["Lunch"].waitForExistence(timeout: 5))
-        let persisted = component(withID: movedID, course: "Dessert", in: app)
-        scrollTo(persisted, in: app)
-        XCTAssertTrue(persisted.exists, app.debugDescription)
-        XCTAssertEqual(Set(mainComponents.allElementsBoundByIndex.map(\.identifier)), remainingIDs)
+    private func componentIdentifiers(in app: XCUIApplication) -> [String] {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "mealComponent-"))
+            .allElementsBoundByIndex.map(\.identifier)
     }
-
 }

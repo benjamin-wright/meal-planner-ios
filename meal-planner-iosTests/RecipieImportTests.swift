@@ -109,10 +109,10 @@ struct RecipieImportTests {
     }
 
     @MainActor
-    @Test func importedCountsUseExplicitCatalogueCountUnit() {
+    @Test func importedCountsUseTheBaseCountUnit() {
         let category = Category(name: "produce", order: 0)
-        let apple = Item(name: "apple", category: category, kind: .ingredient)
-        let count = Unit(name: "count", type: .count, magnitudes: [])
+        let apple = Item(name: "apples", category: category, kind: .ingredient)
+        let count = Unit(name: "count", type: .count, magnitudes: [], isBaseUnit: true)
         let loaves = Unit(name: "loaves", type: .count, magnitudes: [])
         let mapped = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
@@ -134,18 +134,18 @@ struct RecipieImportTests {
         #expect(blankUnit.unitID == nil)
         let noCount = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
-            items: [apple], units: []
+            items: [apple], units: [loaves]
         )
         #expect(noCount.unitID == nil)
-        let ambiguousCount = RecipieImportMapper.ingredient(
+        let customCount = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "2 apples", name: "apples", quantity: 2, unit: "count"),
             items: [apple], units: [count, Unit(name: "COUNT", type: .count, magnitudes: [])]
         )
-        #expect(ambiguousCount.unitID == nil)
+        #expect(customCount.unitID == count.id)
     }
 
     @MainActor
-    @Test func catalogueMatchingPrefersUniqueClosestNameAndLeavesAmbiguityForReview() {
+    @Test func catalogueMappingOnlyAcceptsUniqueExactNamesWithoutSemanticSelection() {
         let category = Category(name: "produce", order: 0)
         let apple = Item(name: "apple", category: category, kind: .ingredient)
         let apples = Item(name: "apples", category: category, kind: .ingredient)
@@ -158,9 +158,9 @@ struct RecipieImportTests {
                 items: items, units: []
             ).itemID
         }
-        #expect(match("apples", items: [apple]) == apple.id)
+        #expect(match("apples", items: [apple]) == nil)
         #expect(match("apples", items: [apple, apples]) == apples.id)
-        #expect(match("applf", items: [apple]) == apple.id)
+        #expect(match("applf", items: [apple]) == nil)
         #expect(match("applo", items: [apple, apply]) == nil)
         #expect(match("mil", items: [milk]) == nil)
         #expect(match("apple", items: [prepared]) == nil)

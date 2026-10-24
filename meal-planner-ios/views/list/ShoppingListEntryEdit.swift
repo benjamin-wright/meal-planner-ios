@@ -10,7 +10,6 @@ struct ShoppingListEntryEdit: View {
     @Query(sort: \Unit.name) private var units: [Unit]
     @State private var draft = CatalogEntryDraft()
     @State private var saveError: String?
-    @State private var isLoading = false
 
     private func prepareDefaults() {
         draft.itemID = items.first?.id
@@ -52,7 +51,7 @@ struct ShoppingListEntryEdit: View {
                     .disabled(!draft.isValid(items: items, categories: categories, units: units))
             }
         }
-        .onFirstAppear(perform: prepareDefaults, loading: $isLoading)
+        .onFirstAppear(perform: prepareDefaults)
         .alert("Shopping List", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }

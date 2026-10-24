@@ -3,7 +3,7 @@ import XCTest
 class MealPlannerUITestCase: XCTestCase {
     enum Fixture: String {
         case sample
-        case longMeal = "long-meal"
+        case staleShoppingList = "stale-shopping-list"
     }
 
     private var storeIdentifier = UUID().uuidString
@@ -33,16 +33,18 @@ class MealPlannerUITestCase: XCTestCase {
     @MainActor
     func scrollTo(
         _ element: XCUIElement, in app: XCUIApplication,
+        within container: XCUIElement? = nil,
         file: StaticString = #filePath, line: UInt = #line
     ) {
+        let container = container ?? app.collectionViews.firstMatch
         for _ in 0..<6 {
             if element.isHittable { break }
-            app.collectionViews.firstMatch.swipeUp()
+            container.swipeUp()
         }
         if !element.isHittable {
             for _ in 0..<6 {
                 if element.isHittable { break }
-                app.collectionViews.firstMatch.swipeDown()
+                container.swipeDown()
             }
         }
         XCTAssertTrue(element.isHittable, app.debugDescription, file: file, line: line)
@@ -78,6 +80,60 @@ class MealPlannerUITestCase: XCTestCase {
             format: "identifier BEGINSWITH %@ AND label CONTAINS %@ AND value == %@",
             "mealComponent-", name, course
         )).firstMatch
+    }
+
+    @MainActor
+    func component(withID identifier: String, course: String, in app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(NSPredicate(
+            format: "identifier == %@ AND value == %@", identifier, course
+        )).firstMatch
+    }
+
+    @MainActor
+    func openDishPicker(
+        course: String = "Main", in app: XCUIApplication,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let add = app.buttons["addDish"]
+        scrollTo(add, in: app, file: file, line: line)
+        add.tap()
+        XCTAssertTrue(app.navigationBars["Dish"].waitForExistence(timeout: 5), file: file, line: line)
+        let picker = app.buttons["dishCoursePicker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), file: file, line: line)
+        XCTAssertEqual(picker.value as? String, "Main", file: file, line: line)
+        if course != "Main" {
+            picker.tap()
+            let option = app.buttons[course]
+            XCTAssertTrue(option.waitForExistence(timeout: 5), file: file, line: line)
+            option.tap()
+            XCTAssertEqual(picker.value as? String, course, file: file, line: line)
+        }
+    }
+
+    @MainActor
+    func performDishAction(
+        _ action: String, on element: XCUIElement, in app: XCUIApplication,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        scrollTo(element, in: app, file: file, line: line)
+        element.tap()
+        let option = app.buttons[action]
+        XCTAssertTrue(option.waitForExistence(timeout: 5), file: file, line: line)
+        option.tap()
+    }
+
+    @MainActor
+    func changeCourse(
+        of element: XCUIElement, to course: String, in app: XCUIApplication,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let identifier = element.identifier
+        performDishAction("Course", on: element, in: app, file: file, line: line)
+        let option = app.buttons[course]
+        XCTAssertTrue(option.waitForExistence(timeout: 5), file: file, line: line)
+        option.tap()
+        XCTAssertTrue(component(withID: identifier, course: course, in: app).waitForExistence(timeout: 5),
+                      file: file, line: line)
     }
 
     @MainActor

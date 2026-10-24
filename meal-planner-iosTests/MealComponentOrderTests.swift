@@ -5,143 +5,80 @@ import Testing
 
 @MainActor
 struct MealComponentOrderTests {
-    @Test func savedMealsReloadTheChosenOrderInsteadOfRelationshipOrNameOrder() throws {
-        let fixture = try makeFixture()
-        let meal = try saveTemplate(fixture)
-        let editingContext = ModelContext(fixture.context.container)
-        let store = MealStore(context: editingContext)
-        var draft = try store.draft(id: meal.id)
-        let original = draft.components
-        draft.components = [original[2], original[0], original[3], original[1]]
-        try store.save(draft, id: meal.id)
+    @Test func coursesDetermineDisplayOrderAndExistingPositionsOrderEachCourse() {
+        let firstSide = MealComponent(recipe: Recipie(name: "Zulu side"), course: .side)
+        let main = MealComponent(recipe: Recipie(name: "Main dish"), course: .main)
+        let secondSide = MealComponent(recipe: Recipie(name: "Alpha side"), course: .side)
+        let starter = MealComponent(recipe: Recipie(name: "Starter"), course: .starter)
+        let meal = Meal(name: "Dinner", mealType: .dinner,
+                        components: [firstSide, main, secondSide, starter])
+        let expectedIDs = [starter.id, main.id, firstSide.id, secondSide.id]
+        #expect(meal.orderedComponents.map(\.id) == expectedIDs)
+        #expect(meal.orderedComponents.map(\.sortOrder) == [3, 1, 0, 2])
 
-        let verification = ModelContext(fixture.context.container)
-        let persisted = try #require(verification.fetch(Meal.descriptor(id: meal.id)).first)
-        #expect(persisted.orderedComponents.map(\.id) == draft.components.map(\.id))
-        #expect(persisted.orderedComponents.map(\.sortOrder) == [0, 1, 2, 3])
-        #expect(try MealStore(context: verification).draft(id: meal.id).components == draft.components)
-
-        // Relationship storage order must not override the explicit positions.
-        persisted.components.reverse()
-        try verification.save()
-        let reloadedContext = ModelContext(fixture.context.container)
-        let reloaded = try MealStore(context: reloadedContext).draft(id: meal.id)
-        #expect(reloaded.components == draft.components)
-        #expect(reloaded.components.filter { $0.course == .side }.map(\.id)
-                == draft.components.filter { $0.course == .side }.map(\.id))
-    }
-
-    @Test func movingBetweenCoursesAndCopyingPreservesPositionsWithoutChangingTheTemplate() throws {
-        let fixture = try makeFixture()
-        let template = try saveTemplate(fixture)
-        let originalDraft = try MealStore(context: fixture.context).draft(id: template.id)
-        let planDraft = PlannedMealDraft(meal: template)
-        #expect(planDraft.components.map(\.source) == originalDraft.components.map(\.source))
-        #expect(Set(planDraft.components.map(\.id)).isDisjoint(with: originalDraft.components.map(\.id)))
-        let plannedStore = PlannedMealStore(context: fixture.context)
-        try plannedStore.save(planDraft, id: nil, mealType: .lunch, day: nil, sourceMealID: template.id)
-        let planned = try #require(fixture.context.fetch(FetchDescriptor<PlannedMeal>()).first)
-
-        var moved = try plannedStore.draft(id: planned.id)
-        let ingredientIndex = try #require(moved.components.firstIndex {
-            if case .ingredient = $0.source { return true }
-            return false
-        })
-        var ingredient = moved.components.remove(at: ingredientIndex)
-        ingredient.course = .main
-        moved.components.insert(ingredient, at: 0)
-        try plannedStore.save(moved, id: planned.id, mealType: .lunch, day: nil)
-
-        let verification = ModelContext(fixture.context.container)
-        let loadedPlan = try PlannedMealStore(context: verification).draft(id: planned.id)
-        let persistedPlan = try #require(verification.fetch(PlannedMeal.descriptor(id: planned.id)).first)
-        #expect(loadedPlan.components == moved.components)
-        #expect(persistedPlan.orderedComponents.map(\.sortOrder) == [0, 1, 2, 3])
-        #expect(loadedPlan.components.filter { $0.course == .main }.first?.id == ingredient.id)
-        #expect(loadedPlan.components.first?.quantity == 0.5)
-        #expect(try MealStore(context: verification).draft(id: template.id).components == originalDraft.components)
-
-        var savedCopy = MealDraft(plannedMeal: loadedPlan, mealType: .breakfast)
-        savedCopy.name = "Ordered breakfast"
-        #expect(savedCopy.components.map(\.source) == moved.components.map(\.source))
-        #expect(savedCopy.components.map(\.course) == moved.components.map(\.course))
-        #expect(Set(savedCopy.components.map(\.id)).isDisjoint(with: moved.components.map(\.id)))
-        try MealStore(context: verification).save(savedCopy, id: nil)
-        let copied = try #require(verification.fetch(FetchDescriptor<Meal>()).first { $0.name == savedCopy.name })
-        let finalContext = ModelContext(fixture.context.container)
-        let finalDraft = try MealStore(context: finalContext).draft(id: copied.id)
-        #expect(finalDraft.components == savedCopy.components)
-        let persistedCopy = try #require(finalContext.fetch(Meal.descriptor(id: copied.id)).first)
-        #expect(persistedCopy.orderedComponents.map(\.sortOrder) == [0, 1, 2, 3])
-    }
-
-    @Test func directConstructorsAssignPositionsAndComponentCopiesKeepTheirRank() throws {
-        let fixture = try makeFixture()
-        let meal = Meal(name: "Direct dinner", mealType: .dinner, components: [
-            MealComponent(recipe: fixture.secondRecipe, course: .side),
-            MealComponent(readymeal: fixture.readymeal, course: .main),
-            MealComponent(recipe: fixture.firstRecipe, course: .side),
-        ])
-        let originalIDs = meal.components.map(\.id)
-        #expect(meal.orderedComponents.map(\.id) == originalIDs)
-        #expect(meal.orderedComponents.map(\.sortOrder) == [0, 1, 2])
-        let componentCopy = MealComponent(copying: meal.orderedComponents[2])
-        #expect(componentCopy.sortOrder == 2)
-        #expect(componentCopy.id != originalIDs[2])
-        let planned = PlannedMeal(mealType: .dinner, components: meal.orderedComponents.map {
-            MealComponent(copying: $0)
-        })
+        // SwiftData relationship order must not replace the stored order within a course.
+        meal.components.reverse()
+        #expect(meal.orderedComponents.map(\.id) == expectedIDs)
+        let planned = PlannedMeal(mealType: .dinner,
+                                  components: meal.orderedComponents.map { MealComponent(copying: $0) })
         #expect(planned.orderedComponents.map(\.source) == meal.orderedComponents.map(\.source))
-        #expect(planned.orderedComponents.map(\.sortOrder) == [0, 1, 2])
-        fixture.context.insert(meal)
-        fixture.context.insert(planned)
-        try fixture.context.save()
-
-        let verification = ModelContext(fixture.context.container)
-        let persistedMeal = try #require(verification.fetch(Meal.descriptor(id: meal.id)).first)
-        let persistedPlan = try #require(verification.fetch(PlannedMeal.descriptor(id: planned.id)).first)
-        #expect(persistedMeal.orderedComponents.map(\.id) == originalIDs)
-        #expect(persistedPlan.displayName == "Beans, Zulu dish, Alpha dish")
+        #expect(planned.displayName == "Main dish, Zulu side, Alpha side")
     }
 
-    private func saveTemplate(_ fixture: Fixture) throws -> Meal {
-        var draft = MealDraft(mealType: .lunch)
-        draft.name = "Ordered lunch"
-        draft.components = [
-            MealComponentDraft(source: .recipe(fixture.secondRecipe.id), course: .side),
-            MealComponentDraft(source: .readymeal(fixture.readymeal.id), course: .main),
-            MealComponentDraft(source: .recipe(fixture.firstRecipe.id), course: .side),
-            MealComponentDraft(source: .ingredient(fixture.apple.id), course: .side,
-                               quantity: 0.5, unitID: fixture.count.id),
-        ]
-        try MealStore(context: fixture.context).save(draft, id: nil)
-        return try #require(fixture.context.fetch(FetchDescriptor<Meal>()).first)
-    }
-
-    private func makeFixture() throws -> Fixture {
+    @Test func changingCoursesPersistsWithoutLosingPortionsOverridesOrIndependentOccurrences() throws {
         let context = try makeTestContext()
-        let category = meal_planner_ios.Category(name: "Food", order: 0)
         let count = meal_planner_ios.Unit(name: "count", type: .count, magnitudes: [])
-        let apple = Item(name: "Apple", category: category, kind: .ingredient)
-        let readymeal = Item(name: "Beans", category: category, kind: .readymeal,
+        let apple = Item(name: "Apple", category: Category(name: "Food", order: 0), kind: .ingredient)
+        let readymeal = Item(name: "Beans", category: apple.category, kind: .readymeal,
                              readymealData: ReadymealData(serves: 1, time: 3))
-        let firstRecipe = Recipie(name: "Alpha dish")
-        let secondRecipe = Recipie(name: "Zulu dish")
-        context.insert(category)
-        context.insert(count)
-        [apple, readymeal].forEach(context.insert)
-        [firstRecipe, secondRecipe].forEach(context.insert)
+        let ingredient = RecipieIngredient(item: apple, unit: count, quantity: 1)
+        let recipe = Recipie(name: "Apple dish", ingredients: [ingredient])
+        context.insert(recipe)
+        context.insert(readymeal)
         try context.save()
-        return Fixture(context: context, apple: apple, readymeal: readymeal, count: count,
-                       firstRecipe: firstRecipe, secondRecipe: secondRecipe)
-    }
 
-    private struct Fixture {
-        let context: ModelContext
-        let apple: Item
-        let readymeal: Item
-        let count: meal_planner_ios.Unit
-        let firstRecipe: Recipie
-        let secondRecipe: Recipie
+        let ordinary = MealComponentDraft(source: .recipe(recipe.id), course: .side)
+        var modified = MealComponentDraft(source: .recipe(recipe.id), course: .dessert)
+        var replacement = RecipieIngredientDraft(ingredient: ingredient)
+        replacement.quantity = 2
+        modified.updateIngredient(replacement, in: recipe)
+        let portion = MealComponentDraft(source: .ingredient(apple.id), course: .starter,
+                                         quantity: 0.5, unitID: count.id)
+        let ready = MealComponentDraft(source: .readymeal(readymeal.id), course: .main)
+        var draft = MealDraft(mealType: .lunch)
+        draft.name = "Course ordered lunch"
+        draft.components = [ordinary, portion, modified, ready]
+        let templateID = try MealStore(context: context).save(draft, id: nil)
+
+        let editing = ModelContext(context.container)
+        let template = try #require(editing.fetch(Meal.descriptor(id: templateID)).first)
+        let original = [portion, ready, ordinary, modified]
+        #expect(try MealStore(context: editing).draft(id: templateID).components == original)
+        var plan = PlannedMealDraft(meal: template)
+        #expect(Set(plan.components.map(\.id)).isDisjoint(with: original.map(\.id)))
+        let plannedStore = PlannedMealStore(context: editing)
+        try plannedStore.save(plan, id: nil, mealType: .lunch, day: nil)
+        let plannedID = try #require(editing.fetch(FetchDescriptor<PlannedMeal>()).first?.id)
+        plan = try plannedStore.draft(id: plannedID)
+        let plannedPortionID = plan.components[0].id
+        let plannedModifiedID = plan.components[3].id
+        plan.components[0].course = .dessert
+        plan.components[3].course = .main
+        let expected = [plan.components[1], plan.components[3], plan.components[2], plan.components[0]]
+        try plannedStore.save(plan, id: plannedID, mealType: .lunch, day: nil)
+
+        let verification = ModelContext(context.container)
+        let reloaded = try PlannedMealStore(context: verification).draft(id: plannedID)
+        #expect(reloaded.components == expected)
+        #expect(reloaded.components.first { $0.id == plannedPortionID }?.quantity == 0.5)
+        #expect(reloaded.components.first { $0.id == plannedPortionID }?.unitID == count.id)
+        #expect(reloaded.components.first { $0.id == plannedModifiedID }?.ingredientOverrides == modified.ingredientOverrides)
+        let occurrences = reloaded.components.filter { $0.source == .recipe(recipe.id) }
+        #expect(occurrences.count == 2)
+        #expect(Set(occurrences.map(\.id)).count == 2)
+        #expect(occurrences.first { $0.id != plannedModifiedID }?.ingredientOverrides.isEmpty == true)
+        #expect(try MealStore(context: verification).draft(id: templateID).components == original)
+        let persistedPlan = try #require(verification.fetch(PlannedMeal.descriptor(id: plannedID)).first)
+        #expect(persistedPlan.displayName == "Beans, Apple dish*, Apple dish")
     }
 }

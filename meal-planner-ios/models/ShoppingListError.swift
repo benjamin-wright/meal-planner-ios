@@ -21,7 +21,7 @@ enum ShoppingListError: LocalizedError {
         case .missingSettings:
             return "Choose preferred weight and volume units in Settings first."
         case .missingCountUnit:
-            return "Add a count unit before generating ready meals."
+            return "The base count unit is missing. Reopen the app to restore it."
         case .invalidRecipe(let name):
             return "\(name) must serve at least one person before the list can be generated."
         case .invalidRecipeIngredient(let name):

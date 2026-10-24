@@ -61,8 +61,7 @@ enum ShoppingListCalculator {
     static func generate(from input: ShoppingListInput) throws -> [GeneratedShoppingEntry] {
         typealias Failure = ShoppingListError
         let resolver = IngredientResolver(itemKinds: input.items.mapValues(\.kind), units: input.units)
-        let countUnit = UnitDefinition.defaultForNewObject(in: input.units.values.filter { $0.type == .count && $0.isValid }
-            .sorted { $0.id.uuidString < $1.id.uuidString })
+        let countUnit = input.units.values.first { $0.isBaseUnit && $0.type == .count && $0.isValid }
         var aggregated: [AggregationKey: GeneratedShoppingEntry] = [:]
         var standalone: [GeneratedShoppingEntry] = []
 
