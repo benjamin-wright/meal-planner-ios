@@ -37,6 +37,7 @@ struct IntegerInput: View {
                     .padding(.leading, 10)
                     .padding(.vertical, 10)
                     .tint(.primary)
+                    .accessibilityLabel("Decrease \(label ?? placeholder)")
                 Button {
                     number += step
                 } label: {
@@ -45,6 +46,7 @@ struct IntegerInput: View {
                     .padding(10)
                     .padding(.leading, 5)
                     .tint(.primary)
+                    .accessibilityLabel("Increase \(label ?? placeholder)")
             }
                 .glassSurface()
                 .padding(.leading, 10)

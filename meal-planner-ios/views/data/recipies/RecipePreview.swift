@@ -19,40 +19,20 @@ struct RecipePreview: View {
         self.units = units
     }
 
-    private var displayedServings: Int { max(1, servings ?? recipe.serves) }
-
-    private var ingredients: [RecipieIngredientDraft] {
-        component?.ingredients(for: recipe) ?? recipe.ingredients.map(RecipieIngredientDraft.init)
-    }
-
-    private var steps: [String] {
-        recipe.steps.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-
-    private func ingredientName(_ ingredient: RecipieIngredientDraft) -> String {
-        items.first { $0.id == ingredient.itemID }?.name
-            ?? recipe.ingredients.first { $0.item.id == ingredient.itemID }?.item.name
-            ?? "Missing ingredient"
-    }
-
-    private func ingredientQuantity(_ ingredient: RecipieIngredientDraft) -> String {
-        let scale = recipe.serves > 0 ? Double(displayedServings) / Double(recipe.serves) : 1
-        let quantity = ingredient.quantity * scale
-        guard quantity.isFinite && quantity > 0 else { return "Quantity unavailable" }
-        let unit = units.first { $0.id == ingredient.unitID }
-            ?? recipe.ingredients.first { $0.unit.id == ingredient.unitID }?.unit
-        return unit?.toString(forValue: quantity) ?? "Missing unit"
+    private var display: RecipeDisplayData {
+        RecipeDisplayData(recipe: recipe, component: component, servings: servings, items: items, units: units)
     }
 
     var body: some View {
+        let display = self.display
         GlassForm {
             Section {
-                if !recipe.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(recipe.summary)
+                if !display.summary.isEmpty {
+                    Text(display.summary)
                 }
-                LabeledContent("Cooking time", value: recipe.time >= 0 ? "\(recipe.time) minutes" : "Not recorded")
-                LabeledContent("Servings", value: "\(displayedServings)")
-                if component?.ingredientOverrides.isEmpty == false {
+                LabeledContent("Cooking time", value: display.time >= 0 ? "\(display.time) minutes" : "Not recorded")
+                LabeledContent("Servings", value: "\(display.servings)")
+                if display.hasSubstitutions {
                     Label("Includes your ingredient substitutions", systemImage: "arrow.triangle.2.circlepath")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -60,25 +40,25 @@ struct RecipePreview: View {
             }
 
             Section {
-                ForEach(ingredients) { ingredient in
+                ForEach(display.ingredients) { ingredient in
                     ItemQuantityRow(
-                        name: ingredientName(ingredient),
-                        quantity: ingredientQuantity(ingredient)
+                        name: ingredient.name,
+                        quantity: ingredient.quantity
                     )
                     .accessibilityIdentifier("recipePreviewIngredient-\(ingredient.id)")
                 }
-                if ingredients.isEmpty {
+                if display.ingredients.isEmpty {
                     Text("No ingredients recorded.")
                         .foregroundStyle(.secondary)
                 }
             } header: {
                 GlassSectionHeader(title: "Ingredients")
             } footer: {
-                Text("Quantities are for \(displayedServings) servings.")
+                Text("Quantities are for \(display.servings) servings.")
             }
 
             Section {
-                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                ForEach(Array(display.steps.enumerated()), id: \.offset) { index, step in
                     HStack(alignment: .top, spacing: 12) {
                         Text("\(index + 1).")
                             .fontWeight(.semibold)
@@ -87,7 +67,7 @@ struct RecipePreview: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
-                if steps.isEmpty {
+                if display.steps.isEmpty {
                     Text("No method has been recorded for this recipe.")
                         .foregroundStyle(.secondary)
                 }
@@ -95,7 +75,7 @@ struct RecipePreview: View {
                 GlassSectionHeader(title: "Method")
             }
         }
-        .navigationTitle(recipe.name)
+        .navigationTitle(display.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

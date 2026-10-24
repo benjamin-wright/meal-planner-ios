@@ -4,6 +4,7 @@ class MealPlannerUITestCase: XCTestCase {
     enum Fixture: String {
         case sample
         case staleShoppingList = "stale-shopping-list"
+        case recipeViewer = "recipe-viewer"
     }
 
     private var storeIdentifier = UUID().uuidString

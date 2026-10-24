@@ -26,6 +26,15 @@ struct PlannerView: View {
     @State private var section: PlannerSection = .dinner
     @State private var confirmingClear = false
     @State private var clearError: String?
+    @State private var recipeViewer: RecipeViewerSelection?
+
+    private struct RecipeViewerSelection: Identifiable {
+        let id: UUID
+    }
+
+    private func viewRecipes(for meal: PlannedMeal) {
+        recipeViewer = RecipeViewerSelection(id: meal.id)
+    }
 
     private func clearPlan() {
         do {
@@ -42,16 +51,19 @@ struct PlannerView: View {
 
             switch section {
             case .dinner:
-                DinnerPlannerView()
+                DinnerPlannerView(onViewRecipes: viewRecipes)
             case .lunch:
-                PlannedMealListView(mealType: .lunch)
+                PlannedMealListView(mealType: .lunch, onViewRecipes: viewRecipes)
             case .breakfast:
-                PlannedMealListView(mealType: .breakfast)
+                PlannedMealListView(mealType: .breakfast, onViewRecipes: viewRecipes)
             case .misc:
                 MiscPlannerView()
             }
         }
         .navigationTitle("Planner")
+        .fullScreenCover(item: $recipeViewer) { selection in
+            PlannedMealRecipeViewer(mealID: selection.id)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Clear Plan", role: .destructive) {
@@ -78,6 +90,7 @@ struct PlannerView: View {
 }
 
 private struct DinnerPlannerView: View {
+    let onViewRecipes: (PlannedMeal) -> Void
     @Environment(\.modelContext) private var context
     @Environment(FlowRouter.self) private var router
     @Query private var meals: [PlannedMeal]
@@ -126,6 +139,10 @@ private struct DinnerPlannerView: View {
                                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                                 }
                             Menu {
+                                Button("View", systemImage: "book") {
+                                    onViewRecipes(meal)
+                                }
+                                .disabled(!meal.components.contains { $0.kindEnum == .recipe && $0.recipe != nil })
                                 Button("Edit", systemImage: "pencil") {
                                     router.path.append(.editPlannedMeal(meal.id))
                                 }
@@ -207,7 +224,9 @@ private struct DayBadge: View {
 
 private struct PlannedMealListView: View {
     @Environment(\.modelContext) private var context
+    @Environment(FlowRouter.self) private var router
     let mealType: MealType
+    let onViewRecipes: (PlannedMeal) -> Void
     @Query private var meals: [PlannedMeal]
     @State private var saveError: String?
 
@@ -227,10 +246,31 @@ private struct PlannedMealListView: View {
         }
     }
 
+    private func delete(_ meal: PlannedMeal) {
+        do {
+            try PlannedMealStore(context: context).delete(id: meal.id)
+        } catch {
+            saveError = error.localizedDescription
+        }
+    }
+
     var body: some View {
         GlassList {
             ForEach(displayedMeals) { meal in
-                NavigationLink(meal.displayName, value: FlowRouter.Route.editPlannedMeal(meal.id))
+                HStack {
+                    NavigationLink(meal.displayName, value: FlowRouter.Route.editPlannedMeal(meal.id))
+                    Menu {
+                        Button("View", systemImage: "book") { onViewRecipes(meal) }
+                            .disabled(!meal.components.contains { $0.kindEnum == .recipe && $0.recipe != nil })
+                        Button("Edit", systemImage: "pencil") { router.path.append(.editPlannedMeal(meal.id)) }
+                        Button("Delete", role: .destructive) { delete(meal) }
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Actions for \(meal.displayName)")
+                    .accessibilityIdentifier("plannedMealActions-\(meal.id)")
+                }
             }
             .onDelete(perform: delete)
             Section {

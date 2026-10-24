@@ -8,6 +8,7 @@ enum UITestConfiguration {
     private enum Fixture: String {
         case sample
         case staleShoppingList = "stale-shopping-list"
+        case recipeViewer = "recipe-viewer"
     }
 
     static func models(environment: [String: String] = ProcessInfo.processInfo.environment) -> Models? {
@@ -40,6 +41,14 @@ enum UITestConfiguration {
                     context.delete(entry)
                 }
                 context.insert(ShoppingListEntry(name: "Previous shopping entry", quantity: 1))
+            case .recipeViewer:
+                let recipes = try context.fetch(FetchDescriptor<Recipie>())
+                guard let recipe = recipes.first(where: { $0.name == "roast chicken" }) else {
+                    preconditionFailure("The recipe viewer fixture requires the sample roast chicken recipe.")
+                }
+                recipe.steps = (1...15).map { number in
+                    "Test instruction \(number). Read this full instruction before continuing. Keep the ingredients within reach, check the previous step is complete, and prepare the utensils needed for the next part."
+                }
             }
         }
     }
