@@ -475,8 +475,8 @@ struct RecipeSubstitutionTests {
             for components in [meal.orderedComponents, plan.orderedComponents] {
                 #expect(components[0].ingredientOverrides == [RecipeIngredientOverride(ingredient: remaining)])
                 #expect(components[1].ingredientOverrides == nil)
-                #expect(components[0].displayName == "Vegetable stew*")
-                #expect(components[1].displayName == "Vegetable stew")
+                #expect(components[0].displayName == "vegetable stew*")
+                #expect(components[1].displayName == "vegetable stew")
             }
             #expect(meal.orderedComponents[2].ingredientOverrides == other.ingredientOverrides)
             #expect(try verification.fetch(FetchDescriptor<RecipieIngredient>()).allSatisfy { $0.id != deletedID })
@@ -519,7 +519,7 @@ struct RecipeSubstitutionTests {
         let components = try verification.fetch(FetchDescriptor<MealComponent>())
         #expect(components.count == 2)
         #expect(components.allSatisfy { $0.ingredientOverrides == nil })
-        #expect(components.allSatisfy { $0.displayName == "Vegetable stew" })
+        #expect(components.allSatisfy { $0.displayName == "vegetable stew" })
         let mealStore = MealStore(context: verification)
         try mealStore.save(mealStore.draft(id: mealID), id: mealID)
         let plan = try #require(verification.fetch(FetchDescriptor<PlannedMeal>()).first)

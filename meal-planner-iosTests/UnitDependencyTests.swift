@@ -185,6 +185,10 @@ struct UnitDependencyTests {
             let bases = try models.context.fetch(FetchDescriptor<meal_planner_ios.Unit>()).filter(\.isBaseUnit)
             #expect(Set(bases.map(\.unitType)) == Set(UnitType.allCases))
             #expect(bases.count == 3)
+            let migrations = try models.context.fetch(FetchDescriptor<SavedNameMigrationRecord>())
+            let meals = try models.context.fetch(FetchDescriptor<Meal>())
+            #expect(migrations.map(\.id) == [SavedNameMigration.identifier])
+            #expect(meals.allSatisfy { $0.name == $0.name.lowercased() })
             let readyMeals = try models.context.fetch(FetchDescriptor<ShoppingListEntry>()).filter {
                 $0.item?.itemKind == .readymeal
             }

@@ -53,7 +53,7 @@ final class RecipieStore {
             return try saveImported(draft, id: id)
         }
         var draft = draft
-        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         draft.summary = draft.summary.trimmingCharacters(in: .whitespacesAndNewlines)
         draft.steps = draft.steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         draft.ingredients = draft.ingredients.map { ingredient in

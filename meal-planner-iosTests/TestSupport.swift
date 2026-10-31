@@ -6,6 +6,7 @@ func makeTestContext(
         meal_planner_ios.Category.self, meal_planner_ios.Unit.self, AppSettings.self, Item.self,
         RecipieIngredient.self, Recipie.self, MealComponent.self, Meal.self,
         PlannedMeal.self, MealHistory.self, PlannedMiscEntry.self, ShoppingListEntry.self,
+        SavedNameMigrationRecord.self,
     ],
     autosaveEnabled: Bool? = nil
 ) throws -> ModelContext {

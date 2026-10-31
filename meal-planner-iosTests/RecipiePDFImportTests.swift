@@ -44,6 +44,43 @@ struct RecipiePDFImportTests {
     }
 
     @MainActor
+    @Test func keepsIngredientNamesWithBoldAmountRuns() throws {
+        let rows = [
+            ("Onion", "1 large, chopped"),
+            ("Garlic cloves", "2, crushed"),
+            ("Carrots", "2 medium, sliced"),
+            ("Tinned chopped tomatoes", "400 g"),
+            ("Tomato purée", "2 tablespoons"),
+            ("Cannellini or butter beans, drained", "1 × 400 g tin"),
+            ("Chicken stock", "300 ml"),
+            ("Dried thyme or mixed herbs", "1 teaspoon"),
+            ("Bay leaf", "1"),
+            ("Salt", "to taste")
+        ]
+        let bounds = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let data = UIGraphicsPDFRenderer(bounds: bounds).pdfData { renderer in
+            renderer.beginPage()
+            for (index, row) in rows.enumerated() {
+                let text = row.0 + " – " + row.1
+                let attributed = NSMutableAttributedString(string: text, attributes: [
+                    .font: UIFont.systemFont(ofSize: 16), .foregroundColor: UIColor.black
+                ])
+                attributed.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: 16),
+                                        range: (text as NSString).range(of: row.1))
+                attributed.draw(at: CGPoint(x: 40, y: 40 + index * 30))
+            }
+        }
+        let pages = try RecipiePDFImport.read(data: data)
+        let text = RecipieImportMapper.key(try RecipiePDFImport.text(from: pages))
+        var remaining = text[...]
+        for row in rows {
+            let expected = RecipieImportMapper.key(row.0 + " – " + row.1)
+            let range = try #require(remaining.range(of: expected))
+            remaining = remaining[range.upperBound...]
+        }
+    }
+
+    @MainActor
     @Test func scannedPagesStayVisibleAndBlockExtractionUntilRemoved() throws {
         let pages = try RecipiePDFImport.read(data: fixturePDF(["Soup ingredients", nil, "Soup method"]))
         #expect(pages.count == 3)

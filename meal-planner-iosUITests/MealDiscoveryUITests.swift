@@ -87,7 +87,7 @@ final class MealDiscoveryUITests: MealPlannerUITestCase {
         scrollTo(soup, in: app)
         XCTAssertTrue(soup.exists)
         XCTAssertFalse(chicken.exists)
-        XCTAssertFalse(app.buttons["useMeal-Roast Chicken Dinner"].exists)
+        XCTAssertFalse(app.buttons["useMeal-roast chicken dinner"].exists)
 
         // No vegetarian meal in the fixture contains both rosemary and apples.
         selectIngredient("apples", in: app)
@@ -177,7 +177,7 @@ final class MealDiscoveryUITests: MealPlannerUITestCase {
         let fish = app.buttons["useMeal-salmon salad"]
         scrollTo(fish, in: app)
         XCTAssertTrue(fish.exists)
-        XCTAssertFalse(app.buttons["useMeal-Roast Chicken Dinner"].exists)
+        XCTAssertFalse(app.buttons["useMeal-roast chicken dinner"].exists)
         let vegetable = app.buttons["useMeal-breakfast loaf"]
         scrollTo(vegetable, in: app)
         XCTAssertTrue(vegetable.exists)

@@ -51,6 +51,29 @@ struct RecipeImportPlatformTests {
 
     @Test(.enabled(if: SystemLanguageModel.default.availability == .available,
                    "Requires Apple Intelligence on the simulator host"))
+    func foundationModelsPreservesNamesInNameFirstIngredientQuotes() async throws {
+        let lines = [
+            "Onion – 1 large, chopped",
+            "Garlic cloves – 2, crushed",
+            "Carrots – 2 medium, sliced",
+            "Tinned chopped tomatoes – 400 g",
+            "Tomato purée – 2 tablespoons",
+            "Cannellini or butter beans, drained – 1 × 400 g tin",
+            "Chicken stock – 300 ml",
+            "Dried thyme or mixed herbs – 1 teaspoon",
+            "Bay leaf – 1",
+            "Salt – to taste"
+        ]
+        let result = try await FoundationRecipieExtractor().extractIngredients(
+            from: "Chicken and bean stew\nIngredients\n" + lines.joined(separator: "\n")
+        )
+        #expect(result.ingredients.count == lines.count)
+        #expect(Set(result.ingredients.map { RecipieImportMapper.key($0.sourceText) })
+                == Set(lines.map { RecipieImportMapper.key($0) }))
+    }
+
+    @Test(.enabled(if: SystemLanguageModel.default.availability == .available,
+                   "Requires Apple Intelligence on the simulator host"))
     func foundationModelsGroupsWrappedInstructionsIntoSteps() async throws {
         let result = try await FoundationRecipieExtractor().extract(from: """
             Carrot soup

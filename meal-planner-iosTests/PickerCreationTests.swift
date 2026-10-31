@@ -157,7 +157,7 @@ struct PickerCreationTests {
         recipeDraft.ingredients = [RecipieIngredientDraft(itemID: itemID, unitID: unitID, quantity: 2)]
         let recipeID = try RecipieStore(context: context).save(recipeDraft, id: nil)
         let recipe = try #require(context.fetch(Recipie.descriptor(id: recipeID)).first)
-        #expect(recipe.name == recipeDraft.name)
+        #expect(recipe.name == "picker apple salad")
 
         var mealDraft = MealDraft(mealType: .lunch)
         mealDraft.name = "Picker lunch"
@@ -187,7 +187,7 @@ struct PickerCreationTests {
 
         let recipeID = try RecipieStore(context: context).save(draft, id: nil)
         let recipe = try #require(context.fetch(Recipie.descriptor(id: recipeID)).first)
-        #expect(recipe.name == draft.name)
+        #expect(recipe.name == "imported apple salad")
         #expect(recipe.ingredients.count == 1)
         #expect(recipe.ingredients.first?.item.id == item.id)
         #expect(recipe.ingredients.first?.quantity == 2)

@@ -34,6 +34,13 @@ in recipes.
 This alpha schema uses a fresh named `MealPlanner` store and starts with sample
 data. There is no migration from the previous database.
 
+On first launch after the name-casing update, the current store lowercases saved
+category, item, recipe, meal and unit names, plus meal-history and shopping-list
+names. The migration runs once per database and keeps record IDs, relationships,
+and any existing duplicates. Recipe summaries, instructions, ingredient source
+text, planner notes, and unit magnitude labels and symbols keep their casing.
+Recipe names are also lowercased on every subsequent recipe save.
+
 Count, grams and litres are permanent base units. They cannot be changed or
 deleted; custom units remain editable. Existing stores adopt unchanged sample
 units and add any missing bases without changing custom units or their references.
@@ -155,6 +162,9 @@ different ingredient or prepared dish. Duplicate names, failed model requests an
 uncertain matches remain available for manual review. Original text, quantities
 and units are preserved, and nothing is saved until the import is reviewed.
 Accepted matches can be reviewed at a glance; opening each ingredient is optional.
+Original ingredient text includes the name even when a PDF lists it before a dash
+and quantity. Incomplete quotes are restored from a uniquely matching source row;
+unresolved ingredients also show their extracted names to make review easier.
 
 `models/RecipieIngredientMatching.swift` owns ranking, candidate selection and
 matching instructions. Each unresolved line uses a fresh model session; unique

@@ -18,7 +18,7 @@ class Models {
     static let schema = Schema([
         Category.self, Unit.self, AppSettings.self, Item.self, Recipie.self,
         MealComponent.self, Meal.self, PlannedMeal.self, MealHistory.self, PlannedMiscEntry.self,
-        ShoppingListEntry.self,
+        ShoppingListEntry.self, SavedNameMigrationRecord.self,
     ])
     
     let modelContainer: ModelContainer
@@ -36,7 +36,11 @@ class Models {
     }
     
     static func reset(_ context: ModelContext) {
+        let autosaveWasEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = autosaveWasEnabled }
         do {
+            try Models.clear(SavedNameMigrationRecord.self, context)
             try Models.clear(ShoppingListEntry.self, context)
             try Models.clear(PlannedMiscEntry.self, context)
             try Models.clear(MealHistory.self, context)
@@ -50,6 +54,7 @@ class Models {
             try Models.clear(Unit.self, context)
             
             try Models.initialiseData(context)
+            try SavedNameMigration.apply(in: context)
             try context.save()
         } catch {
             fatalError("Could not clear existing data: \(error)")
@@ -63,11 +68,16 @@ class Models {
         do {
             let configuration = configuration ?? ModelConfiguration("MealPlanner", schema: Self.schema)
             modelContainer = try ModelContainer(for: Self.schema, configurations: [configuration])
-            let settings = try modelContainer.mainContext.fetch(FetchDescriptor<AppSettings>())
+            let context = modelContainer.mainContext
+            let autosaveWasEnabled = context.autosaveEnabled
+            context.autosaveEnabled = false
+            defer { context.autosaveEnabled = autosaveWasEnabled }
+            let settings = try context.fetch(FetchDescriptor<AppSettings>())
             if settings.count < 1 {
                 try Models.initialiseData(context)
                 try additionalSeed(context)
             }
+            try SavedNameMigration.apply(in: context)
             _ = try UnitStore.ensureBaseUnits(in: context)
             try MealHistoryStore(context: context).synchronizeExisting()
             try context.save()

@@ -9,7 +9,7 @@ final class ShoppingListUITests: MealPlannerUITestCase {
         XCTContext.runActivity(named: "Regenerate a stale shopping list") { _ in
             app.tabBars.buttons["List"].tap()
             XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
-            let previous = row("Previous shopping entry", in: app)
+            let previous = row("previous shopping entry", in: app)
             XCTAssertTrue(previous.waitForExistence(timeout: 5), app.debugDescription)
             XCTAssertFalse(row("apples,", in: app).exists)
 

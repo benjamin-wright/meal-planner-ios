@@ -200,7 +200,7 @@ final class RecipeSubstitutionUITests: MealPlannerUITestCase {
             mealType.tap()
             app.buttons["Lunch"].tap()
             XCTAssertEqual(mealType.value as? String, "Lunch")
-            let lunchTemplate = app.buttons["useMeal-Salmon Lunch"]
+            let lunchTemplate = app.buttons["useMeal-salmon lunch"]
             scrollTo(lunchTemplate, in: app)
             XCTAssertTrue(lunchTemplate.waitForExistence(timeout: 5), app.debugDescription)
             lunchTemplate.tap()

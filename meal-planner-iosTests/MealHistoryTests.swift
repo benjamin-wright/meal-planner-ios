@@ -195,7 +195,7 @@ struct MealHistoryTests {
         }
     }
 
-    @Test func startupMigratesAndBackfillsLegacyPlansOnceWithoutChangingNamedMeals() throws {
+    @Test func startupMigratesNamesAndBackfillsLegacyPlansOnce() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("store")
@@ -224,7 +224,7 @@ struct MealHistoryTests {
             #expect(histories.count == 1)
             #expect(history.id == expected.planID)
             #expect(history.components.first?.sourceID == expected.recipeID)
-            #expect(try models.context.fetch(Meal.descriptor(id: expected.templateID)).first?.name == "Keep this saved meal")
+            #expect(try models.context.fetch(Meal.descriptor(id: expected.templateID)).first?.name == "keep this saved meal")
             #expect(try models.context.fetch(FetchDescriptor<PlannedMeal>()).count == 1)
             return history.savedAt
         }

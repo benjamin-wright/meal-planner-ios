@@ -34,13 +34,13 @@ struct ExtractedRecipieMetadata: Equatable {
 
 @Generable
 struct ExtractedRecipieIngredients {
-    @Guide(description: "One entry per ingredient. Join ingredient lines wrapped across several OCR lines (e.g. 2 fine egg / noodle nests is one ingredient). Skip allergen codes, page references and other labels that are not ingredients, such as A1,A3. Remove unnecessary adjectives or preparations on common ingredients, e.g. 'Australian' or 'chopped'")
+    @Guide(description: "One entry per ingredient. Join ingredient lines wrapped across several OCR lines (e.g. 2 fine egg / noodle nests is one ingredient). Names may come before amounts or in a separate table column. Skip allergen codes, page references and other labels that are not ingredients, such as A1,A3. Simplify only the name field; sourceText must retain the complete original row including preparations.")
     var ingredients: [ExtractedRecipieIngredient]
 }
 
 @Generable
 struct ExtractedRecipieIngredient: Equatable, Encodable {
-    @Guide(description: "Complete original ingredient line, preserving spelling, amount and unit.")
+    @Guide(description: "Complete original ingredient row, including the ingredient name, amount, unit and preparation notes, preserving spelling and order. Join wrapped lines or table columns belonging to this row. For 'Tomato purée – 2 tablespoons', return the whole row, never just '2 tablespoons'.")
     var sourceText: String
     @Guide(description: "Ingredient name without quantity, unit or preparation instructions.")
     var name: String

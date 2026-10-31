@@ -33,8 +33,13 @@ struct ImportedRecipieIngredientsSection: View {
                         .foregroundStyle(.primary)
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(ingredient.sourceText)
+                            Text(ingredient.name.isEmpty ? ingredient.sourceText : ingredient.name)
                                 .foregroundStyle(.primary)
+                            if !ingredient.name.isEmpty, !ingredient.sourceText.isEmpty,
+                               ingredient.sourceText != ingredient.name {
+                                Text(ingredient.sourceText)
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                             Label("Review item, unit or quantity", systemImage: "exclamationmark.circle")
                                 .font(.caption).foregroundStyle(.orange)
                         }
@@ -74,6 +79,9 @@ struct ImportedRecipieIngredientEdit: View {
     var body: some View {
         GlassForm {
             Section("Original ingredient") {
+                if !ingredient.name.isEmpty {
+                    Text(ingredient.name)
+                }
                 TextField("Ingredient line and preparation notes", text: $ingredient.sourceText, axis: .vertical)
             }
             Section("Item") {

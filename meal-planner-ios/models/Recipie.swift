@@ -64,7 +64,9 @@ struct RecipieDraft {
         if name.count < 3 {
             errors.append(.nameTooShort)
         }
-        if existingNames.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == name }) {
+        if existingNames.contains(where: {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
+        }) {
             errors.append(.duplicateName)
         }
         if ingredients.contains(where: { !DomainValidation.isPositiveFinite($0.quantity) }) {

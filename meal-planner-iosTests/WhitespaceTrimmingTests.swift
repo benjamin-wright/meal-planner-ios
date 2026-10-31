@@ -34,7 +34,7 @@ struct WhitespaceTrimmingTests {
     }
 
     @Test
-    func duplicateValidationTrimsBothNamesAndKeepsCaseSensitivity() {
+    func duplicateValidationTrimsBothNames() {
         let existingNames = [" \nSoup\t "]
         var category = CategoryDraft()
         var item = ItemDraft(categoryID: UUID())
@@ -59,7 +59,7 @@ struct WhitespaceTrimmingTests {
         meal.name = " soup "
         #expect(category.validate(existingNames: existingNames).isEmpty)
         #expect(item.validate(existingNames: existingNames).isEmpty)
-        #expect(recipe.validate(existingNames: existingNames).isEmpty)
+        #expect(recipe.validate(existingNames: existingNames) == [.duplicateName])
         #expect(meal.validate(existingNames: existingNames).isEmpty)
     }
 
@@ -172,7 +172,7 @@ struct WhitespaceTrimmingTests {
                                                     sourceText: " \n2  tomatoes\t ")]
         try store.save(draft, id: nil)
         let recipe = try #require(context.fetch(FetchDescriptor<Recipie>()).first)
-        #expect(recipe.name == "Tomato  soup")
+        #expect(recipe.name == "tomato  soup")
         #expect(recipe.summary == "Rich  soup\nwith tomatoes.")
         #expect(recipe.steps == ["Chop  tomatoes.", "", "Simmer.\nStir  gently."])
         #expect(recipe.ingredients[0].sourceText == "2  tomatoes")
@@ -186,7 +186,7 @@ struct WhitespaceTrimmingTests {
         try store.save(draft, id: recipe.id)
 
         let persisted = try #require(ModelContext(context.container).fetch(Recipie.descriptor(id: recipe.id)).first)
-        #expect(persisted.name == "Roasted  tomato soup")
+        #expect(persisted.name == "roasted  tomato soup")
         #expect(persisted.summary == "Roast  first.")
         #expect(persisted.steps == ["Roast  tomatoes.", "Blend.\nServe  hot."])
         #expect(persisted.ingredients[0].sourceText == "2  roasted tomatoes")
@@ -266,7 +266,7 @@ struct WhitespaceTrimmingTests {
         try RecipieStore(context: context).save(draft, id: nil)
 
         let persisted = try #require(ModelContext(context.container).fetch(FetchDescriptor<Recipie>()).first)
-        #expect(persisted.name == "Imported  soup")
+        #expect(persisted.name == "imported  soup")
         #expect(persisted.summary == "Fresh  tomatoes.")
         #expect(persisted.steps == ["Chop  tomatoes.", "", "Simmer.\nStir  gently."])
         #expect(persisted.ingredients[0].sourceText == "2  tomatoes")
