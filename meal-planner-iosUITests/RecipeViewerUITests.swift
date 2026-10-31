@@ -132,18 +132,29 @@ final class RecipeViewerUITests: MealPlannerUITestCase {
         }
     }
 
-    func testLunchAndBreakfastMenusOpenViewerAndPreserveEditing() {
+    func testLunchAndBreakfastMenusViewEditAndDeleteMeals() {
         let app = XCUIApplication()
         launchInPortrait(app)
         app.tabBars.buttons["Planner"].tap()
 
         for (section, recipe) in [("Lunch", "salmon salad"), ("Breakfast", "breakfast loaf")] {
-            XCTContext.runActivity(named: "View and edit \(section.lowercased()) independently") { _ in
+            XCTContext.runActivity(named: "View, edit, and delete \(section.lowercased()) through its menu") { _ in
                 app.segmentedControls.buttons[section].tap()
+                XCTAssertTrue(app.navigationBars["Planner"].buttons["Edit"].waitForNonExistence(timeout: 5))
+                let meal = app.collectionViews.staticTexts.matching(NSPredicate(
+                    format: "label BEGINSWITH %@", recipe
+                )).firstMatch
+                XCTAssertTrue(meal.waitForExistence(timeout: 5))
+                meal.tap()
+                XCTAssertTrue(app.navigationBars["Planner"].exists)
+                XCTAssertFalse(app.navigationBars[section].exists)
+                attachScreenshot("Planner - \(section) meal actions", in: app)
+
                 let actions = app.buttons.matching(NSPredicate(
                     format: "identifier BEGINSWITH %@", "plannedMealActions-"
                 )).firstMatch
                 XCTAssertTrue(actions.waitForExistence(timeout: 5))
+                let actionsIdentifier = actions.identifier
                 actions.tap()
                 let view = app.buttons["View"]
                 XCTAssertTrue(view.waitForExistence(timeout: 5))
@@ -158,13 +169,22 @@ final class RecipeViewerUITests: MealPlannerUITestCase {
                 XCTAssertTrue(app.tabBars.buttons["Planner"].isSelected)
                 XCTAssertTrue(actions.isHittable)
 
-                let meal = row(recipe, in: app)
-                XCTAssertTrue(meal.isHittable)
-                meal.tap()
+                actions.tap()
+                let edit = app.buttons["Edit"]
+                XCTAssertTrue(edit.waitForExistence(timeout: 5))
+                edit.tap()
                 XCTAssertTrue(app.navigationBars[section].waitForExistence(timeout: 5))
                 app.navigationBars[section].buttons.element(boundBy: 0).tap()
                 XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
                 XCTAssertTrue(app.segmentedControls.buttons[section].isSelected)
+
+                actions.tap()
+                let delete = app.buttons["Delete"]
+                XCTAssertTrue(delete.waitForExistence(timeout: 5))
+                delete.tap()
+                XCTAssertTrue(app.buttons[actionsIdentifier].waitForNonExistence(timeout: 5))
+                XCTAssertTrue(meal.waitForNonExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["Add \(section.lowercased())"].isHittable)
             }
         }
     }

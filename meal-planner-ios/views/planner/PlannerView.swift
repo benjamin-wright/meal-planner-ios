@@ -124,9 +124,10 @@ private struct DinnerPlannerView: View {
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(Day.allCases, id: \.rawValue) { day in
+                    let plannedMeal = meal(for: day)
                     HStack(spacing: 12) {
-                        DayBadge(day: day)
-                        if let meal = meal(for: day) {
+                        DayBadge(day: day, servings: plannedMeal?.servings)
+                        if let meal = plannedMeal {
                             Text(meal.displayName)
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -190,7 +191,7 @@ private struct DinnerPlannerView: View {
                         else if targetedDay == day { targetedDay = nil }
                     }
                     if day != Day.allCases.last {
-                        Divider().padding(.leading, 64)
+                        Divider().padding(.leading, 84)
                     }
                 }
             }
@@ -211,14 +212,35 @@ private struct DinnerPlannerView: View {
 
 private struct DayBadge: View {
     let day: Day
+    let servings: Int?
 
     var body: some View {
-        Text(day.shortLabel)
+        Text(servings.map { "\(day.shortLabel): \($0)" } ?? day.shortLabel)
             .font(.caption.weight(.semibold))
+            .monospacedDigit()
             .foregroundStyle(.tint)
-            .frame(width: 36, height: 36)
-            .background(.tint.opacity(0.15), in: Circle())
+            .padding(.horizontal, 10)
+            .frame(minWidth: 56, minHeight: 36)
+            .background(.tint.opacity(0.15), in: Capsule())
+            .fixedSize()
             .accessibilityLabel(day.label)
+            .accessibilityValue(servings.map { $0 == 1 ? "1 portion" : "\($0) portions" } ?? "")
+    }
+}
+
+private struct PortionsBadge: View {
+    let servings: Int
+
+    var body: some View {
+        Text("\(servings)")
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(.tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.tint.opacity(0.15), in: Capsule())
+            .fixedSize()
+            .accessibilityLabel(servings == 1 ? "1 portion" : "\(servings) portions")
     }
 }
 
@@ -235,17 +257,6 @@ private struct PlannedMealListView: View {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    private func delete(at offsets: IndexSet) {
-        do {
-            let store = PlannedMealStore(context: context)
-            for index in offsets {
-                try store.delete(id: displayedMeals[index].id)
-            }
-        } catch {
-            saveError = error.localizedDescription
-        }
-    }
-
     private func delete(_ meal: PlannedMeal) {
         do {
             try PlannedMealStore(context: context).delete(id: meal.id)
@@ -257,8 +268,11 @@ private struct PlannedMealListView: View {
     var body: some View {
         GlassList {
             ForEach(displayedMeals) { meal in
-                HStack {
-                    NavigationLink(meal.displayName, value: FlowRouter.Route.editPlannedMeal(meal.id))
+                HStack(spacing: 8) {
+                    PortionsBadge(servings: meal.servings)
+                    Text(meal.displayName)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     Menu {
                         Button("View", systemImage: "book") { onViewRecipes(meal) }
                             .disabled(!meal.components.contains { $0.kindEnum == .recipe && $0.recipe != nil })
@@ -272,7 +286,6 @@ private struct PlannedMealListView: View {
                     .accessibilityIdentifier("plannedMealActions-\(meal.id)")
                 }
             }
-            .onDelete(perform: delete)
             Section {
                 NavigationLink(value: FlowRouter.Route.newPlannedMeal(mealType: mealType, day: nil)) {
                     Label("Add \(mealType.label.lowercased())", systemImage: "plus")
@@ -280,7 +293,6 @@ private struct PlannedMealListView: View {
                 }
             }
         }
-        .toolbar { EditButton() }
         .alert(mealType.label, isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
@@ -347,5 +359,7 @@ private struct MiscPlannerView: View {
 }
 
 #Preview {
-    PlannerFlowView().modelContainer(Models.testing.modelContainer)
+    PlannerFlowView()
+        .modelContainer(Models.testing.modelContainer)
+        .background { AppGlassBackground() }
 }

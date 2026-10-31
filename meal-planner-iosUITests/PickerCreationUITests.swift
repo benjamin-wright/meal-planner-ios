@@ -140,7 +140,7 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         assertComponent(recipeName, course: "Main", in: app)
         saveForm(in: app)
         XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
-        let planned = app.collectionViews.buttons.matching(NSPredicate(format: "label CONTAINS %@", recipeName)).firstMatch
+        let planned = app.collectionViews.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", recipeName)).firstMatch
         XCTAssertTrue(planned.waitForExistence(timeout: 5), app.debugDescription)
     }
 }
