@@ -127,6 +127,7 @@ struct ImportedRecipieIngredient: Identifiable, Hashable {
             guard let magnitude = unit.magnitudes.first(where: { $0.id == magnitudeID }) else { return nil }
             multiplier = magnitude.multiplier
         } else {
+            guard unit.magnitudes.isEmpty else { return nil }
             multiplier = 1
         }
         let result = amount * multiplier

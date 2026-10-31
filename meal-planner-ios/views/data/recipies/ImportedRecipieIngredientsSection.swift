@@ -126,7 +126,9 @@ private struct ImportedQuantityFields: View {
             }
             if let unit = units.first(where: { $0.id == ingredient.unitID }), !unit.magnitudes.isEmpty {
                 Picker("Measure", selection: $ingredient.magnitudeID) {
-                    Text(unit.name).tag(nil as UUID?)
+                    if ingredient.magnitudeID == nil {
+                        Text("Choose a measure").tag(nil as UUID?).disabled(true)
+                    }
                     ForEach(unit.magnitudes) { magnitude in Text(magnitude.plural).tag(Optional(magnitude.id)) }
                 }
             }

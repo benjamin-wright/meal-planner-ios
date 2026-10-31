@@ -75,7 +75,7 @@ struct RecipieImportTests {
         let category = Category(name: "dairy", order: 0)
         let milk = Item(name: "Milk", category: category, kind: .ingredient)
         let litres = volumeUnit()
-        let mapped = RecipieImportMapper.ingredient(
+        var mapped = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "500 ml milk, warmed", name: " milk ", quantity: 500, unit: "ml"),
             items: [milk], units: [litres]
         )
@@ -84,6 +84,9 @@ struct RecipieImportTests {
         #expect(mapped.quantity(units: [litres]) == 0.5)
         #expect(mapped.sourceText == "500 ml milk, warmed")
         #expect(mapped.isResolved(items: [milk], units: [litres]))
+
+        mapped.magnitudeID = nil
+        #expect(!mapped.isResolved(items: [milk], units: [litres]))
 
         let unknown = RecipieImportMapper.ingredient(
             ExtractedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantity: nil, unit: ""),
@@ -203,6 +206,7 @@ struct RecipieImportTests {
         draft.name = "Milk soup"
         var ingredient = ImportedRecipieIngredient(sourceText: "½ litre milk, warmed", name: "milk", quantityText: "½")
         ingredient.unitID = unit.id
+        ingredient.magnitudeID = unit.magnitudes.first { $0.multiplier == 1 }?.id
         ingredient.itemID = item.id
         draft.importedIngredients = [ingredient]
         #expect(try ModelContext(context.container).fetch(FetchDescriptor<Item>()).count == 1)
@@ -238,6 +242,7 @@ struct RecipieImportTests {
         var valid = ImportedRecipieIngredient(sourceText: "1 litre milk", name: "milk", quantityText: "1")
         valid.itemID = item.id
         valid.unitID = unit.id
+        valid.magnitudeID = unit.magnitudes.first { $0.multiplier == 1 }?.id
         let unresolved = ImportedRecipieIngredient(sourceText: "salt to taste", name: "salt", quantityText: "")
         draft.importedIngredients = [valid, unresolved]
         #expect(throws: RecipieStore.Error.self) { try RecipieStore(context: context).save(draft, id: recipe.id) }
