@@ -1,0 +1,12 @@
+Generated with the built-in image generation tool; normalized to 1024 x 1024 with sips.
+Reference 1: meal-planner-ios/Assets.xcassets/AppIcon.appiconset/AppIcon.png (light glazed icon).
+Reference 2: Xcode render of GlazedImage.swift in Dark Appearance.
+
+Use case: style-transfer.
+Asset type: final dark-appearance iOS app icon, square 1024 x 1024 pixels, opaque PNG.
+Primary request: make the dark-theme counterpart of Image 1, inspired by the app's dark glazed background in Image 2.
+Input images: Image 1 is the existing light icon and the edit target. Image 2 is the rendered app background in Dark Appearance, a reference ONLY for the charcoal, copper, muted rust, olive-green palette and fine rippled glass texture. Ignore the reference's device framing, black top and bottom bars, and literal food objects.
+Invariants: preserve Image 1's exact plate, fork, knife, and checkmark shapes, proportions, positions, overhead view, framing and safe margins. This must clearly be the same icon in dark mode, not a redesign.
+Change only palette, material tones, and lighting for dark mode. The full-bleed backdrop should be dark charcoal rippled glass, with subtle broad areas of warm copper, subdued rust and muted olive-green light refracted behind it, taken from Image 2. Simplify these colors into diffuse organic patches. Keep the glass texture delicate. The background must read clearly dark, with charcoal dominating.
+Convert the white plate into a smoky graphite ceramic/glass plate with a quiet dark slate center and a refined silver-gray rim highlight. Convert the utensils to graphite-toned satin metal with softly illuminated silver-gray edges. Keep plate and utensils well separated from the darker background, and retain the dimensional shading of the light icon. Keep the same bold teal checkmark, slightly luminous aqua-teal so it is immediately readable against the dark plate. Refined restrained studio lighting, no neon glow, no excessive gloss.
+Constraints: single icon, straight-on square canvas, artwork fills every edge, fully opaque. No baked-in rounded outer corners, no border, no phone frame, no exterior drop shadow, no text, no extra objects, no literal food, no grid, no collage, no watermark. Legible at 60 pixels. Preserve all foreground geometry and composition from Image 1.

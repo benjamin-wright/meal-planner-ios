@@ -1,0 +1,11 @@
+Generated with the built-in image generation tool; normalized to 1024 x 1024 with sips.
+Reference 1: meal-planner-ios/Assets.xcassets/AppIcon.appiconset/AppIcon.png (previous cyan icon).
+Reference 2: Xcode render of GlazedImage.swift, showing the app's existing light background.
+
+Use case: style-transfer.
+Asset type: final iOS app icon, square 1024 x 1024 pixels, opaque PNG.
+Primary request: redesign the existing meal-planner app icon to match the app's glazed background.
+Input images: Image 1 is the existing app icon, a reference for the plate, fork, knife, and checkmark identity. Image 2 is a rendered preview of the app's actual glazed background, a reference for its pastel palette and subtly rippled frosted-glass material ONLY. Ignore all device shape, black camera cutout, white margins, and UI framing in Image 2.
+Design: full-bleed softly rippled frosted-glass background with broad blended areas of lavender, mint, pale aqua, peach, and warm pink inspired directly by Image 2. Reduce the visual busyness of the reference into a few large soft areas, with gentle glass refraction and organic fine texture. A single large centered luminous milky-white frosted-glass dinner plate occupies about 60 percent of width, a simplified ivory fork to its left and matching knife to its right. Preserve the familiar balanced overhead composition of Image 1, with ample safe inset from the outer edges. Place one bold softly rounded deep teal checkmark at the center of the plate. Plate and utensils must be distinct and very readable, with delicate edge highlights and restrained soft dimensional shadows. The plate center should be quiet and pale, strongly separating the teal checkmark from the backdrop.
+Style: polished tactile icon, understated frosted glass; elegant, simple, calm and cohesive with the app's background. All motifs centered and legible at 60 pixels. Use the background's pastel colors, replacing Image 1's bright cyan field.
+Constraints: exactly one icon, flat straight-on square canvas, artwork fills all four edges. No rounded outer corners, no outer icon border, no device frame, no exterior drop shadow, no text, no letters, no watermark, no extra food objects, no grid or collage. Fully opaque, no transparent padding.

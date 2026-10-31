@@ -23,6 +23,13 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         XCTContext.runActivity(named: "Create a meal and its recipe from the planner picker") { _ in
             createMealFromPlannerPicker(in: app)
         }
+        let miscItemName = "new planner misc item"
+        XCTContext.runActivity(named: "Create a misc item and reopen its saved planner entry") { _ in
+            createAndReopenMiscEntry(itemName: miscItemName, in: app)
+        }
+        XCTContext.runActivity(named: "Replace the reopened entry's item after searching and creating a category") { _ in
+            replaceItemInOpenMiscEntry(previousItemName: miscItemName, in: app)
+        }
     }
 
     @MainActor
@@ -142,5 +149,66 @@ final class PickerCreationUITests: MealPlannerUITestCase {
         XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
         let planned = app.collectionViews.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", recipeName)).firstMatch
         XCTAssertTrue(planned.waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    @MainActor
+    private func createAndReopenMiscEntry(itemName: String, in app: XCUIApplication) {
+        app.tabBars.buttons["Planner"].tap()
+        app.segmentedControls.buttons["Misc"].tap()
+        app.buttons["Add item or note"].tap()
+        XCTAssertTrue(app.navigationBars["Misc Entry"].waitForExistence(timeout: 5))
+
+        setPortion("3", in: app)
+        row("Item", in: app).tap()
+        app.navigationBars["Item"].buttons["Add"].tap()
+        enterName(itemName, placeholder: "item name", in: app)
+        app.segmentedControls.buttons["Misc"].tap()
+        saveForm(in: app)
+
+        XCTAssertTrue(app.navigationBars["Misc Entry"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.navigationBars["Item"].exists)
+        XCTAssertTrue(row("Item", in: app).staticTexts[itemName].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, "3")
+        let save = app.buttons["Save Item"]
+        XCTAssertTrue(save.isEnabled)
+        save.tap()
+        XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
+        let entry = row(itemName, in: app)
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), app.debugDescription)
+        entry.tap()
+        XCTAssertTrue(app.navigationBars["Misc Entry"].waitForExistence(timeout: 5))
+        XCTAssertTrue(row("Item", in: app).staticTexts[itemName].exists)
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, "3")
+    }
+
+    @MainActor
+    private func replaceItemInOpenMiscEntry(previousItemName: String, in app: XCUIApplication) {
+        XCTAssertTrue(app.navigationBars["Misc Entry"].waitForExistence(timeout: 5))
+        setPortion("4", in: app)
+        row("Item", in: app).tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("missing misc item")
+        app.navigationBars["Item"].buttons["Close"].tap()
+        app.navigationBars["Item"].buttons["Add"].tap()
+        let itemName = "replacement planner misc item"
+        enterName(itemName, placeholder: "item name", in: app)
+        app.segmentedControls.buttons["Misc"].tap()
+        row("Category", in: app).tap()
+        app.navigationBars["Category"].buttons["createCategory"].tap()
+        enterName("new misc category", placeholder: "category", in: app)
+        saveForm(in: app)
+        XCTAssertTrue(app.textFields["item name"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["item name"].value as? String, itemName)
+        saveForm(in: app)
+
+        XCTAssertTrue(app.navigationBars["Misc Entry"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(row("Item", in: app).staticTexts[itemName].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, "4")
+        app.buttons["Save Item"].tap()
+        XCTAssertTrue(app.navigationBars["Planner"].waitForExistence(timeout: 5))
+        XCTAssertTrue(row(itemName, in: app).waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(row(previousItemName, in: app).exists)
     }
 }
